@@ -1,28 +1,36 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 
 class ApiService {
   // Base URL API (should be dynamic based on the environment)
-  static const String baseUrl = 'https://delpick.fun/api/v1';
-
+  static const String baseUrl = 'https://delpick.horas-code.my.id/api/v1';
+  static final FlutterSecureStorage _storage = FlutterSecureStorage();
   // Fungsi untuk login admin
   static Future<Map<String, dynamic>> loginAdmin(String email, String password) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/auth/login'), // Endpoint untuk login
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({
-        'email': email,
-        'password': password,
-      }),
+      Uri.parse('$baseUrl/auth/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
     );
 
+    print("API Response Status Code: ${response.statusCode}");
+    print("API Response Body: ${response.body}");
+
     if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return data; // Token and other data should be in the response
+      final Map<String, dynamic> data = json.decode(response.body);
+
+      // Pastikan respons mengandung 'data' dan 'token'
+      if (data['data'] != null && data['data']['token'] != null) {
+        final String token = data['data']['token'];  // Ambil token dari dalam data
+        await _saveToken(token);  // Menyimpan token ke secure storage
+        return {'token': token};  // Kembalikan token yang ada dalam data
+      } else {
+        throw Exception('Token not found in the response');
+      }
     } else {
-      throw Exception('Failed to login: ${response.body}');
+      throw Exception('Login failed: ${response.body}');
     }
   }
 
@@ -151,6 +159,16 @@ class ApiService {
     } else {
       print('Failed to fetch customer data: ${response.body}');
     }
+  }
+
+  // Token Management Methods
+  static Future<void> _saveToken(String token) async {
+    await _storage.write(key: 'auth_token', value: token);
+  }
+
+  // Fungsi untuk mengambil token dari secure storage
+  static Future<String?> getToken() async {
+    return await _storage.read(key: 'auth_token');
   }
 }
 

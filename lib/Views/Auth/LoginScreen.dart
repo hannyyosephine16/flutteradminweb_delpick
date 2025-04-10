@@ -1,11 +1,114 @@
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:delpick_admin/src/ApiService.dart'; // Import your API service
 import 'package:delpick_admin/Views/Auth/LoginScreen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 
 import '../Dashboard/Dashboard.dart'; // Import your Dashboard page
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
+  static const String route = "/Auth/Login";
+
   const LoginScreen({super.key});
+
+  @override
+  LoginScreenState createState() => LoginScreenState();
+
+}
+
+class LoginScreenState extends State<LoginScreen>{
+
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  bool _isLoading = false;
+  final FlutterSecureStorage _storage = FlutterSecureStorage();
+  bool obscurePassword = true;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  // Login function to handle authentication
+  void _login() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Make the API call to login
+      final loginResponse = await ApiService.loginAdmin(
+          emailController.text, passwordController.text);
+      print("Full Response Body: $loginResponse"); // Debugging full response
+
+      // Cek apakah response benar-benar memiliki 'token'
+      if (loginResponse == null || !loginResponse.containsKey('token')) {
+        print("Response is either null or does not contain 'token'");
+        showError("Response data is null.");
+        return;
+      }
+
+      // Ambil token langsung
+      final String token = loginResponse['token'] ?? ''; // Akses token langsung
+
+      if (token.isEmpty) {
+        print("Token is empty or null.");
+        showError("Token is null or empty.");
+        return;
+      }
+
+      // Simpan token ke localStorage
+      html.window.localStorage['auth_token'] = token; // Menyimpan token ke localStorage
+
+
+      print("Decoded Token: $token");
+
+      // Decode the token
+      if (token.contains('.')) {
+        final Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
+        final String? role = decodedToken['role'];
+        print("Decoded Role: $role");
+
+        if (role == null || role.isEmpty) {
+          showError("Role is missing in token.");
+          return;
+        }
+
+        print("User Role: $role");
+
+        // Navigate to the correct page based on the user's role
+        if (role == 'admin') {
+          // Navigator.pushReplacementNamed(context, '/Customers/HomePage');
+          Navigator.push(
+            context,
+            // MaterialPageRoute(builder: (context) => NewCustomer()),
+            MaterialPageRoute(builder: (context) => Dashboard()),
+          );
+        } else {
+          // Handle unknown role
+          showError("Role not recognized");
+        }
+      } else {
+        showError("Token tidak valid");
+      }
+
+    } catch (e) {
+      print("Error: $e"); // Debugging error
+      showError(e.toString());
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+
+  void showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,8 +229,8 @@ class LoginScreen extends StatelessWidget {
 
   // Login Form Widget
   Widget _buildLoginForm(BuildContext context) {
-    TextEditingController emailController = TextEditingController();
-    TextEditingController passwordController = TextEditingController();
+    // TextEditingController emailController = TextEditingController();
+    // TextEditingController passwordController = TextEditingController();
 
     return Center(
       child: Container(
@@ -214,7 +317,7 @@ class LoginScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () => _login(context, emailController.text, passwordController.text),
+                  onPressed: () => _login,
                   child: const Text(
                     'Log in',
                     style: TextStyle(
@@ -232,25 +335,7 @@ class LoginScreen extends StatelessWidget {
     );
   }
 
-  // Function to handle login
-  Future<void> _login(BuildContext context, String email, String password) async {
-    try {
-      // Call your login API
-      var response = await ApiService.loginAdmin(email, password);
-      if (response != null) {
-        // Navigate to the Dashboard if login is successful
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => Dashboard()),
-        );
-      } else {
-        // Handle unsuccessful login
-        print("Login failed!");
-      }
-    } catch (e) {
-      print('Error during login: $e');
-    }
-  }
+// Function to handle login
 }
 
 // import 'package:flutter/material.dart';
