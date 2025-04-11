@@ -272,7 +272,7 @@ class LoginScreenState extends State<LoginScreen>{
                 ),
               ),
               const SizedBox(height: 8),
-              TextField(
+              TextFormField(
                 controller: emailController,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
@@ -293,7 +293,7 @@ class LoginScreenState extends State<LoginScreen>{
                 ),
               ),
               const SizedBox(height: 8),
-              TextField(
+              TextFormField(
                 controller: passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
@@ -317,7 +317,7 @@ class LoginScreenState extends State<LoginScreen>{
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () => _login,
+                  onPressed: _login,
                   child: const Text(
                     'Log in',
                     style: TextStyle(

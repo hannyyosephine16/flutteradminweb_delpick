@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:image_picker_web/image_picker_web.dart';
+
 import '../../../Common/widgets/texts/customdropdownfield.dart';
 import '../../../Common/widgets/texts/customtextfield.dart';
 
