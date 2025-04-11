@@ -20,8 +20,8 @@ class App extends StatelessWidget {
       darkTheme: TAppTheme.darkTheme,
       debugShowCheckedModeBanner: false,
       scrollBehavior: MyCustomScrollBehavior(),
+      // home: Dashboard(),
       home: Dashboard(),
-      // home: LoginScreen(),
       // home: const Scaffold(
       //   backgroundColor: TColors.primary,
       //   body: Center(
