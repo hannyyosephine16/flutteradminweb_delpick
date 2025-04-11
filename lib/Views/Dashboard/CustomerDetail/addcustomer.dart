@@ -176,7 +176,7 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                 CustomDropdown(
                                   label: "Select User Role",
                                   title: "Role",
-                                  items: const ["Admin", "Customer", "Store", "Driver"],
+                                  items: const ["Admin", "Customer", "Owner", "Driver"],
                                   selectedItem: selectedRole,
                                   icon: Icons.admin_panel_settings,
                                   onChanged: (value) {
