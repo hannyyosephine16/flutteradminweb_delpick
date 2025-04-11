@@ -2,17 +2,13 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+
 class ApiService {
   // Base URL API (should be dynamic based on the environment)
   static const String baseUrl = 'https://delpick.horas-code.my.id/api/v1';
-  // // Update baseUrl to use the hosted API URL
   static final FlutterSecureStorage _storage = FlutterSecureStorage();
-  // static final String baseUrl = dotenv.env['BASE_URL'] ?? 'https://delpick.fun/api/v1'; // Menggunakan dotenv untuk load base URL
-  // static const String baseUrl = 'https://delpick.fun/api/v1';  // Update to hosted backend URL
-
-
   // Fungsi untuk login admin
-  static Future<Map<String, dynamic>> login(String email, String password) async {
+  static Future<Map<String, dynamic>> loginAdmin(String email, String password) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: {'Content-Type': 'application/json'},
@@ -174,20 +170,145 @@ class ApiService {
   static Future<String?> getToken() async {
     return await _storage.read(key: 'auth_token');
   }
-
-  // Fungsi untuk logout dengan menghapus token
-  static Future<void> logout() async {
-    await _storage.delete(key: 'auth_token');
-  }
-
-  static Future<String?> _getToken() async {
-    return await _storage.read(key: 'auth_token');
-  }
-
-  static Future<void> _removeToken() async {
-    await _storage.delete(key: 'auth_token');
-  }
 }
 
-
-
+// import 'package:http/http.dart' as http;
+// import 'dart:convert';
+//
+// class ApiService {
+//   // Base URL API (ubah sesuai kebutuhan Anda)
+//   static const String baseUrl = 'https://delpick.fun/api/v1';
+//
+//   // Fungsi untuk membuat customer baru
+//   static Future<void> createCustomer(String username, String email, String phone, String newpassword) async {
+//     final response = await http.post(
+//       Uri.parse('$baseUrl/auth/register'), // Sesuaikan dengan URL backend
+//       headers: {
+//         'Content-Type': 'application/json',
+//         'Authorization': 'Bearer your_token', // Jika menggunakan token autentikasi
+//       },
+//       body: json.encode({
+//         'name': username,
+//         'email': email,
+//         'phone': phone,
+//         'password': newpassword,
+//         'role': 'customer', // Default role adalah 'customer'
+//       }),
+//     );
+//
+//     if (response.statusCode == 201) {
+//       print('Customer created successfully!');
+//     } else {
+//       print('Failed to create customer: ${response.body}');
+//       throw Exception('Failed to create customer');
+//     }
+//   }
+//
+//   // Fungsi untuk membuat customer baru
+//   // static Future<void> createCustomer(String username, String email, String phone, String currpass, String newpassword) async {
+//   //   final response = await http.post(
+//   //     Uri.parse('$baseUrl/customers'), // Adjust the URL accordingly
+//   //     headers: {
+//   //       'Content-Type': 'application/json',
+//   //       'Authorization': 'Bearer your_token', // Jika autentikasi diperlukan
+//   //     },
+//   //     body: json.encode({
+//   //       'name': username,
+//   //       'email': email,
+//   //       'phone': phone,
+//   //       'password': newpassword.isEmpty ? currpass : newpassword,
+//   //       'role': 'customer', // Default role 'customer'
+//   //     }),
+//   //   );
+//   //
+//   //   if (response.statusCode == 201) {
+//   //     print('Customer created successfully!');
+//   //   } else {
+//   //     print('Failed to create customer: ${response.body}');
+//   //   }
+//   // }
+//
+//   // Fungsi untuk mendapatkan daftar customer
+//
+//   // Fungsi untuk memverifikasi current password (untuk update customer)
+//   static Future<bool> verifyCurrentPassword(String currentPassword) async {
+//     final response = await http.post(
+//       Uri.parse('$baseUrl/verifyPassword'), // Endpoint untuk verifikasi password
+//       headers: {
+//         'Content-Type': 'application/json',
+//         'Authorization': 'Bearer your_token', // Jika autentikasi diperlukan
+//       },
+//       body: json.encode({
+//         'currentPassword': currentPassword,
+//       }),
+//     );
+//
+//     if (response.statusCode == 200) {
+//       final data = json.decode(response.body);
+//       return data['isVerified']; // Menyatakan apakah password valid
+//     } else {
+//       throw Exception('Failed to verify password');
+//     }
+//   }
+//
+//   // Fungsi untuk mengupdate customer
+//   static Future<void> updateCustomer(String username, String email, String phone, String currentPassword, String newPassword) async {
+//     final response = await http.put(
+//       Uri.parse('$baseUrl/customers'), // Sesuaikan dengan URL API
+//       headers: {
+//         'Content-Type': 'application/json',
+//         'Authorization': 'Bearer your_token', // Jika autentikasi diperlukan
+//       },
+//       body: json.encode({
+//         'name': username,
+//         'email': email,
+//         'phone': phone,
+//         'currentPassword': currentPassword,
+//         'newPassword': newPassword.isEmpty ? currentPassword : newPassword,
+//       }),
+//     );
+//
+//     if (response.statusCode == 200) {
+//       print('Customer updated successfully!');
+//     } else {
+//       print('Failed to update customer: ${response.body}');
+//       throw Exception('Failed to update customer');
+//     }
+//   }
+//
+//
+//   static Future<void> getAllCustomers() async {
+//     final response = await http.get(
+//       Uri.parse('$baseUrl/customers'), // Adjust the URL accordingly
+//       headers: {
+//         'Content-Type': 'application/json',
+//         'Authorization': 'Bearer your_token', // Jika autentikasi diperlukan
+//       },
+//     );
+//
+//     if (response.statusCode == 200) {
+//       final data = json.decode(response.body);
+//       print('Customer data: $data');
+//     } else {
+//       print('Failed to fetch customer data: ${response.body}');
+//     }
+//   }
+//
+//   // Fungsi untuk mendapatkan customer berdasarkan ID
+//   static Future<void> getCustomerById(int id) async {
+//     final response = await http.get(
+//       Uri.parse('$baseUrl/customers/$id'), // Adjust the URL accordingly
+//       headers: {
+//         'Content-Type': 'application/json',
+//         'Authorization': 'Bearer your_token', // Jika autentikasi diperlukan
+//       },
+//     );
+//
+//     if (response.statusCode == 200) {
+//       final data = json.decode(response.body);
+//       print('Customer data: $data');
+//     } else {
+//       print('Failed to fetch customer data: ${response.body}');
+//     }
+//   }
+// }

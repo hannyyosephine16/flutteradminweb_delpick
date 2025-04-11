@@ -21,7 +21,7 @@ class App extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       scrollBehavior: MyCustomScrollBehavior(),
       // home: Dashboard(),
-      home: Dashboard(),
+      home: LoginScreen(),
       // home: const Scaffold(
       //   backgroundColor: TColors.primary,
       //   body: Center(
