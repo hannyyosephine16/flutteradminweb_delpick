@@ -27,6 +27,34 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
   String? _imageName;
   bool _isHoveringUpload = false;
 
+  // Future<void> _pickImage() async {
+  //   setState(() {
+  //     isLoading = true;
+  //   });
+  //
+  //   try {
+  //     final pickedImage = await ImagePickerWeb.getImageAsBytes();
+  //
+  //     if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB
+  //       setState(() {
+  //         _imageBase64 = base64Encode(pickedImage);  // Konversi gambar menjadi base64
+  //       });
+  //     } else {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil!')),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text('Error picking image: $e')),
+  //     );
+  //   } finally {
+  //     setState(() {
+  //       isLoading = false;
+  //     });
+  //   }
+  // }
+
   Future<void> _pickImage() async {
     setState(() {
       isLoading = true;

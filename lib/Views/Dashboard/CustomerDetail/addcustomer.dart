@@ -3,9 +3,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_picker_web/image_picker_web.dart';
-
+import 'package:http/http.dart' as http;
 import '../../../Common/widgets/texts/customdropdownfield.dart';
 import '../../../Common/widgets/texts/customtextfield.dart';
+import '../../../src/ApiService.dart';
 
 class AddNewCustomerScreen extends StatefulWidget {
   const AddNewCustomerScreen({super.key});
@@ -19,14 +20,14 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController addressController = TextEditingController();
+  // final TextEditingController addressController = TextEditingController();
 
-  String? selectedRole;
+  // String? selectedRole;
   bool isLoading = false;
   bool showPassword = false;
 
   Uint8List? _imageBytes;
-  String? _imageName;
+  String? _imageBase64;
   bool _isHoveringUpload = false;
 
   Future<void> _pickImage() async {
@@ -36,14 +37,17 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
 
     try {
       final pickedImage = await ImagePickerWeb.getImageAsBytes();
-      if (pickedImage != null) {
+
+      if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB
         setState(() {
-          _imageBytes = pickedImage;
-          _imageName = 'profile_image.jpg'; // You can get actual name with proper plugin
+          _imageBase64 = base64Encode(pickedImage);  // Konversi gambar menjadi base64
         });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil!')),
+        );
       }
     } catch (e) {
-      // Handle errors
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error picking image: $e')),
       );
@@ -54,40 +58,113 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     }
   }
 
-  void _saveCustomer() {
-    // Validation logic
+  // Future<void> _pickImage() async {
+  //   setState(() {
+  //     isLoading = true;
+  //   });
+  //
+  //   try {
+  //     // Pilih gambar menggunakan ImagePickerWeb
+  //     final pickedImage = await ImagePickerWeb.getImageAsBytes();
+  //
+  //     if (pickedImage != null) {
+  //       // Mengonversi gambar menjadi base64
+  //       setState(() {
+  //         _imageBase64 = base64Encode(pickedImage);  // Menggunakan base64Encode untuk mendapatkan base64
+  //       });
+  //     }
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text('Error picking image: $e')),
+  //     );
+  //   } finally {
+  //     setState(() {
+  //       isLoading = false;
+  //     });
+  //   }
+  // }
+
+// Function to check if all fields are filled
+  bool _isFormValid() {
+    return nameController.text.isNotEmpty &&
+        emailController.text.isNotEmpty &&
+        phoneController.text.isNotEmpty &&
+        passwordController.text.isNotEmpty;
+  }
+
+  // Fungsi untuk menyimpan customer
+  Future<void> _saveCustomer() async {
     if (nameController.text.isEmpty ||
         emailController.text.isEmpty ||
         phoneController.text.isEmpty ||
-        passwordController.text.isEmpty ||
-        selectedRole == null) {
+        passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all required fields')),
+        SnackBar(content: Text('Semua kolom harus diisi!')),
       );
       return;
     }
 
-    // TODO: Implement API call to save customer data
-
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Customer added successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-
-    // Clear form
-    nameController.clear();
-    emailController.clear();
-    phoneController.clear();
-    passwordController.clear();
-    addressController.clear();
     setState(() {
-      selectedRole = null;
-      _imageBytes = null;
-      _imageName = null;
+      isLoading = true;
     });
+
+    try {
+      // Memanggil ApiService.createCustomer dengan data yang diambil dari form
+      final response = await ApiService.createCustomer(
+        nameController.text,
+        emailController.text,
+        phoneController.text,
+        passwordController.text,
+        // _imageBase64, // Sertakan gambar base64
+        _imageBase64
+      );
+
+      if (response != null) {
+        // Jika berhasil menambah customer, tampilkan popup
+        _showSuccessDialog();
+        // Reset form
+        nameController.clear();
+        emailController.clear();
+        phoneController.clear();
+        passwordController.clear();
+        setState(() {
+          // _imageBase64 = null; // Reset gambar setelah berhasil
+          _imageBase64 = null;
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal menambahkan customer')),
+        );
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Terjadi kesalahan: $error')),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }  // Function to show the success dialog
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing the dialog
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Success'),
+          content: const Text('Customer berhasil ditambahkan!'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -173,19 +250,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                CustomDropdown(
-                                  label: "Select User Role",
-                                  title: "Role",
-                                  items: const ["Admin", "Customer", "Owner", "Driver"],
-                                  selectedItem: selectedRole,
-                                  icon: Icons.admin_panel_settings,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectedRole = value;
-                                    });
-                                  },
-                                ),
-                                const SizedBox(height: 8),
                                 CustomTextField(
                                   label: "Enter full name",
                                   title: "Full Name",
@@ -214,18 +278,13 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                   icon2: showPassword ? Icons.visibility : Icons.visibility_off,
                                   controller: passwordController,
                                 ),
-                                CustomTextField(
-                                  label: "Enter address",
-                                  title: "Address",
-                                  icon: Icons.location_on,
-                                  controller: addressController,
-                                ),
                                 const SizedBox(height: 24),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: ElevatedButton.icon(
-                                        onPressed: _saveCustomer,
+                                        onPressed: _isFormValid() ? _saveCustomer : null,
+                                        // onPressed: _showSuccessDialog,
                                         icon: const Icon(Icons.check_circle),
                                         label: const Text('Add Customer'),
                                         style: ElevatedButton.styleFrom(
@@ -344,7 +403,7 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                                     onPressed: () {
                                                       setState(() {
                                                         _imageBytes = null;
-                                                        _imageName = null;
+                                                        _imageBase64 = null;
                                                       });
                                                     },
                                                     padding: EdgeInsets.zero,
@@ -399,11 +458,11 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                   ),
                                 ),
 
-                                if (_imageName != null)
+                                if (_imageBase64 != null)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 12.0),
                                     child: Text(
-                                      'File: $_imageName',
+                                      'File: $_imageBase64',
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Colors.grey.shade600,

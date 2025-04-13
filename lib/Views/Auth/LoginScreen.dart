@@ -1,7 +1,6 @@
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:delpick_admin/src/ApiService.dart'; // Import your API service
-import 'package:delpick_admin/Views/Auth/LoginScreen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 
@@ -42,7 +41,7 @@ class LoginScreenState extends State<LoginScreen>{
       // Make the API call to login
       final loginResponse = await ApiService.loginAdmin(
           emailController.text, passwordController.text);
-      print("Full Response Body: $loginResponse"); // Debugging full response
+      // print("Full Response Body: $loginResponse"); // Debugging full response
 
       // Cek apakah response benar-benar memiliki 'token'
       if (loginResponse == null || !loginResponse.containsKey('token')) {
@@ -64,7 +63,7 @@ class LoginScreenState extends State<LoginScreen>{
       html.window.localStorage['auth_token'] = token; // Menyimpan token ke localStorage
 
 
-      print("Decoded Token: $token");
+      // print("Decoded Token: $token");
 
       // Decode the token
       if (token.contains('.')) {
