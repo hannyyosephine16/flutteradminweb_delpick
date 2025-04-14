@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:delpick_admin/src/CustomerService.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_picker_web/image_picker_web.dart';
@@ -58,33 +59,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     }
   }
 
-  // Future<void> _pickImage() async {
-  //   setState(() {
-  //     isLoading = true;
-  //   });
-  //
-  //   try {
-  //     // Pilih gambar menggunakan ImagePickerWeb
-  //     final pickedImage = await ImagePickerWeb.getImageAsBytes();
-  //
-  //     if (pickedImage != null) {
-  //       // Mengonversi gambar menjadi base64
-  //       setState(() {
-  //         _imageBase64 = base64Encode(pickedImage);  // Menggunakan base64Encode untuk mendapatkan base64
-  //       });
-  //     }
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(content: Text('Error picking image: $e')),
-  //     );
-  //   } finally {
-  //     setState(() {
-  //       isLoading = false;
-  //     });
-  //   }
-  // }
-
-// Function to check if all fields are filled
   bool _isFormValid() {
     return nameController.text.isNotEmpty &&
         emailController.text.isNotEmpty &&
@@ -110,13 +84,12 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
 
     try {
       // Memanggil ApiService.createCustomer dengan data yang diambil dari form
-      final response = await ApiService.createCustomer(
+      final response = await CustomerService.createCustomer(
         nameController.text,
         emailController.text,
         phoneController.text,
         passwordController.text,
-        // _imageBase64, // Sertakan gambar base64
-        _imageBase64
+        _imageBase64  // Sertakan gambar base64
       );
 
       if (response != null) {

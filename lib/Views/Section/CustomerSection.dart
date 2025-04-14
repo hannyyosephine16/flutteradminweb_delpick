@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:delpick_admin/Views/Dashboard/CustomerDetail/EditCustomer.dart';
 import 'package:delpick_admin/Views/Dashboard/CustomerDetail/AddCustomer.dart';
 import '../../src/ApiService.dart';
+import '../../src/CustomerService.dart';
 
 class CustomerSection extends StatefulWidget {
   const CustomerSection({super.key});
@@ -29,7 +30,7 @@ class CustomerSectionState extends State<CustomerSection> {
       });
 
       // Get customers data
-      final data = await ApiService.getAllCustomers(_currentPage, _rowsPerPage);
+      final data = await CustomerService.getAllCustomers(_currentPage, _rowsPerPage);
 
       print('Fetched data structure: ${data.runtimeType}');
       print('Data keys: ${data.keys}');

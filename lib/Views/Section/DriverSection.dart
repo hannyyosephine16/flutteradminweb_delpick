@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:get_storage/get_storage.dart';
-
+import 'dart:convert';
+import '../../src/DriverService.dart';
 import '../Dashboard/DriverDetail/adddriver.dart';
 import '../Dashboard/DriverDetail/EditDriver.dart';
 
@@ -11,26 +11,74 @@ class DriverSection extends StatefulWidget {
 }
 
 class DriverSectionState extends State<DriverSection> {
-  int _currentPage = 0;
+  int _currentPage = 1;
   final int _rowsPerPage = 5;
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
+
+  List<Map<String, dynamic>> _allDrivers = [];
+  int _totalItems = 0;
+  int _totalPages = 0;
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSearchActive = false;
 
-  // Dummy data
-  final List<Map<String, dynamic>> _allDrivers = [
-    {"id": "1", "username": "John", "email": "john@gmail.com", "phone": "0821345678", "status": "ON"},
-    {"id": "2", "username": "Rifqi", "email": "rifqi@gmail.com", "phone": "0821345678", "status": "ON"},
-    {"id": "3", "username": "Yefta", "email": "yefta@gmail.com", "phone": "0821345678", "status": "ON"},
-    {"id": "4", "username": "Haikal", "email": "haikal@gmail.com", "phone": "0821345678", "status": "ON"},
-    {"id": "5", "username": "Miranda", "email": "Miranda@gmail.com", "phone": "0821345678", "status": "ON"},
-    {"id": "6", "username": "Chairiansyah", "email": "chairiansyah@gmail.com", "phone": "0821345678", "status": "ON"},
-    {"id": "7", "username": "Alex", "email": "alex@gmail.com", "phone": "0821345678", "status": "OFF"},
-    {"id": "8", "username": "Sarah", "email": "sarah@gmail.com", "phone": "0821345678", "status": "ON"},
-    {"id": "9", "username": "Michael", "email": "michael@gmail.com", "phone": "0821345678", "status": "OFF"},
-    {"id": "10", "username": "Jessica", "email": "jessica@gmail.com", "phone": "0821345678", "status": "ON"},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchDrivers();
+  }
+
+  Future<void> _fetchDrivers() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    try {
+      final response = await DriverService.getAllDrivers(
+        page: _currentPage,
+        limit: _rowsPerPage,
+      );
+
+      if (response.containsKey('data') && response['data'] is List) {
+        final List<dynamic> driversData = response['data'];
+        setState(() {
+          _allDrivers = driversData.map((driver) {
+            return {
+              'id': driver['id'].toString(),
+              'username': driver['user']['name'],
+              'email': driver['user']['email'],
+              'phone': driver['user']['phone'],
+              'status': driver['status'] == 'active' ? 'ON' : 'OFF',
+              'vehicle_number': driver['vehicle_number'],
+              'userId': driver['userId'],
+              'driverData': driver,
+              'userData': driver['user'],
+            };
+          }).toList();
+          _totalItems = response['totalItems'] ?? 0;
+          _totalPages = response['totalPages'] ?? 1;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Invalid response format';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+      print('Error fetching drivers: $e');
+    }
+  }
 
   List<Map<String, dynamic>> get _filteredDrivers {
     if (_searchQuery.isEmpty) {
@@ -43,6 +91,21 @@ class DriverSectionState extends State<DriverSection> {
           driver["email"].toLowerCase().contains(_searchQuery.toLowerCase()) ||
           driver["phone"].toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
+  }
+
+  Future<void> _deleteDriver(String id) async {
+    try {
+      await DriverService.deleteDriver(id);
+      // Refresh the driver list after deletion
+      _fetchDrivers();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Driver deleted successfully")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to delete driver: $e")),
+      );
+    }
   }
 
   @override
@@ -69,7 +132,7 @@ class DriverSectionState extends State<DriverSection> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => AddNewDriverScreen()),
-                );
+                ).then((_) => _fetchDrivers()); // Refresh after adding
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1A3B89),
@@ -132,17 +195,50 @@ class DriverSectionState extends State<DriverSection> {
                     ),
                     const SizedBox(height: 16),
 
+                    // Error message if any
+                    if (_hasError)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error, color: Colors.red),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Error: $_errorMessage',
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.refresh),
+                              onPressed: _fetchDrivers,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Loading indicator
+                    if (_isLoading)
+                      const Expanded(
+                        child: Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else
                     // Table Section
-                    Expanded(
-                      child: isSmallScreen
-                          ? _buildListView()
-                          : _buildTable(),
-                    ),
+                      Expanded(
+                        child: isSmallScreen ? _buildListView() : _buildTable(),
+                      ),
 
                     const SizedBox(height: 16),
 
                     // Pagination
-                    _buildPagination(),
+                    if (!_isLoading) _buildPagination(),
                   ],
                 ),
               ),
@@ -184,7 +280,6 @@ class DriverSectionState extends State<DriverSection> {
           onChanged: (value) {
             setState(() {
               _searchQuery = value;
-              _currentPage = 0; // Reset to first page when searching
             });
           },
         ),
@@ -193,11 +288,7 @@ class DriverSectionState extends State<DriverSection> {
   }
 
   Widget _buildTable() {
-    final startIndex = _currentPage * _rowsPerPage;
-    final endIndex = (startIndex + _rowsPerPage) < _filteredDrivers.length
-        ? startIndex + _rowsPerPage
-        : _filteredDrivers.length;
-    final displayedDrivers = _filteredDrivers.sublist(startIndex, endIndex);
+    final displayedDrivers = _filteredDrivers;
 
     return Container(
       decoration: BoxDecoration(
@@ -305,9 +396,12 @@ class DriverSectionState extends State<DriverSection> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => EditDriverScreen(),
+                                        builder: (context) => EditDriverScreen(
+                                          driverId: driver["id"],
+                                          initialData: driver,
+                                        ),
                                       ),
-                                    );
+                                    ).then((_) => _fetchDrivers()); // Refresh after editing
                                   },
                                   tooltip: "Edit",
                                 ),
@@ -348,11 +442,8 @@ class DriverSectionState extends State<DriverSection> {
           ),
           TextButton(
             onPressed: () {
-              // Delete logic would go here
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Driver deleted successfully")),
-              );
+              _deleteDriver(driverId);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text("Delete"),
@@ -398,11 +489,7 @@ class DriverSectionState extends State<DriverSection> {
   }
 
   Widget _buildListView() {
-    final startIndex = _currentPage * _rowsPerPage;
-    final endIndex = (startIndex + _rowsPerPage) < _filteredDrivers.length
-        ? startIndex + _rowsPerPage
-        : _filteredDrivers.length;
-    final displayedDrivers = _filteredDrivers.sublist(startIndex, endIndex);
+    final displayedDrivers = _filteredDrivers;
 
     if (displayedDrivers.isEmpty) {
       return Container(
@@ -437,6 +524,7 @@ class DriverSectionState extends State<DriverSection> {
                 _listTile("Username", driver["username"]),
                 _listTile("Email", driver["email"]),
                 _listTile("Phone", driver["phone"]),
+                _listTile("Vehicle", driver["vehicle_number"] ?? "N/A"),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
                   child: Row(
@@ -480,9 +568,12 @@ class DriverSectionState extends State<DriverSection> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => EditDriverScreen(),
+                              builder: (context) => EditDriverScreen(
+                                driverId: driver["id"],
+                                initialData: driver,
+                              ),
                             ),
-                          );
+                          ).then((_) => _fetchDrivers()); // Refresh after editing
                         },
                         icon: const Icon(Icons.edit, size: 18),
                         label: const Text("Edit"),
@@ -550,11 +641,7 @@ class DriverSectionState extends State<DriverSection> {
   }
 
   Widget _buildPagination() {
-    // Calculate total pages based on filtered results
-    final int totalPages = (_filteredDrivers.length / _rowsPerPage).ceil();
-
-    // If no results, don't show pagination
-    if (totalPages == 0) {
+    if (_totalPages == 0) {
       return const SizedBox.shrink();
     }
 
@@ -570,10 +657,11 @@ class DriverSectionState extends State<DriverSection> {
           // Previous page button
           IconButton(
             icon: const Icon(Icons.chevron_left, color: Color(0xFF1A3B89)),
-            onPressed: _currentPage > 0
+            onPressed: _currentPage > 1
                 ? () {
               setState(() {
                 _currentPage--;
+                _fetchDrivers();
               });
             }
                 : null,
@@ -583,34 +671,40 @@ class DriverSectionState extends State<DriverSection> {
           ),
 
           // Page number indicators
-          if (totalPages > 0)
+          if (_totalPages > 0)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: List.generate(
-                totalPages > 4 ? 4 : totalPages,
+                _totalPages > 4 ? 4 : _totalPages,
                     (index) {
                   // Calculate which page numbers to show
                   int pageNum;
-                  if (totalPages <= 4) {
+                  if (_totalPages <= 4) {
                     pageNum = index;
-                  } else if (_currentPage <= 1) {
+                  } else if (_currentPage <= 2) {
                     pageNum = index;
-                  } else if (_currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + index;
+                  } else if (_currentPage >= _totalPages - 1) {
+                    pageNum = _totalPages - 4 + index;
                   } else {
-                    pageNum = _currentPage - 1 + index;
+                    pageNum = _currentPage - 2 + index;
                   }
+
+                  // Make sure pageNum is in valid range
+                  pageNum = pageNum.clamp(0, _totalPages - 1);
 
                   return Container(
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     child: ElevatedButton(
                       onPressed: () {
-                        setState(() {
-                          _currentPage = pageNum;
-                        });
+                        if (_currentPage != pageNum + 1) {
+                          setState(() {
+                            _currentPage = pageNum + 1;
+                            _fetchDrivers();
+                          });
+                        }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _currentPage == pageNum
+                        backgroundColor: _currentPage == pageNum + 1
                             ? const Color(0xFF1A3B89)
                             : Colors.white,
                         padding: const EdgeInsets.symmetric(
@@ -628,7 +722,7 @@ class DriverSectionState extends State<DriverSection> {
                       child: Text(
                         "${pageNum + 1}",
                         style: TextStyle(
-                          color: _currentPage == pageNum
+                          color: _currentPage == pageNum + 1
                               ? Colors.white
                               : const Color(0xFF1A3B89),
                           fontWeight: FontWeight.bold,
@@ -643,10 +737,11 @@ class DriverSectionState extends State<DriverSection> {
           // Next page button
           IconButton(
             icon: const Icon(Icons.chevron_right, color: Color(0xFF1A3B89)),
-            onPressed: _currentPage < totalPages - 1
+            onPressed: _currentPage < _totalPages
                 ? () {
               setState(() {
                 _currentPage++;
+                _fetchDrivers();
               });
             }
                 : null,

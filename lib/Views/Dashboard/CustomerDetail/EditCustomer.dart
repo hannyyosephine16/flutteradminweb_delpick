@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:delpick_admin/src/CustomerService.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker_web/image_picker_web.dart';
 import '../../../Common/widgets/texts/customtextfield.dart';
@@ -39,57 +40,7 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
     _loadCustomerData();
   }
 
-  // Updated _loadCustomerData method for EditCustomer.dart
-  Future<void> _loadCustomerDataasing() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Make API call to get customer data
-      final response = await ApiService.getCustomerById(widget.customerId);
-
-      if (response != null && response['data'] != null) {
-        final customerData = response['data'];
-
-        // Set controller values with customer data
-        setState(() {
-          nameController.text = customerData['name'] ?? '';
-          emailController.text = customerData['email'] ?? '';
-          phoneController.text = customerData['phone'] ?? '';
-
-          // If customer has an avatar, set the image base64
-          if (customerData['avatar'] != null) {
-            // If the avatar is a URL, you'd need to download and convert to base64
-            // For now, assume it's already in base64 format
-            _imageBase64 = customerData['avatar'];
-
-            // If you need to display the image, you'd also need to convert it to Uint8List
-            try {
-              _imageBytes = base64Decode(_imageBase64!);
-            } catch (e) {
-              print('Error decoding image: $e');
-              // Handle error - maybe the avatar isn't in base64 format
-            }
-          }
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load customer data')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading customer data: $e')),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  // Perbaikan metode _loadCustomerData di EditCustomer.dart
+  // Updated _loadCustomerData method
   Future<void> _loadCustomerData() async {
     setState(() {
       _isLoading = true;
@@ -97,7 +48,7 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
 
     try {
       // Panggil API untuk mendapatkan data customer
-      final response = await ApiService.getCustomerById(widget.customerId);
+      final response = await CustomerService.getCustomerById(widget.customerId);
 
       print('Response dari API: $response');
 
@@ -220,7 +171,7 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
     });
 
     try {
-      final response = await ApiService.updateCustomer(
+      final response = await CustomerService.updateCustomer(
           widget.customerId, // Use the ID passed to the widget
           nameController.text,
           emailController.text,

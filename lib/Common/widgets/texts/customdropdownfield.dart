@@ -36,6 +36,7 @@ class CustomDropdown extends StatefulWidget {
   final String? selectedItem;
   final void Function(String?)? onChanged;
   final String? errorText;
+  final String? value;
 
   const CustomDropdown({
     super.key,
@@ -48,6 +49,7 @@ class CustomDropdown extends StatefulWidget {
     this.selectedItem,
     this.onChanged,
     this.errorText,
+    this.value
   });
 
   @override
