@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker_web/image_picker_web.dart';
 import '../../../Common/widgets/texts/customdropdownfield.dart';
 import '../../../Common/widgets/texts/customtextfield.dart';
+import '../../../src/StoreService.dart';
 
 class AddNewStoreScreen extends StatefulWidget {
   const AddNewStoreScreen({super.key});
@@ -19,13 +20,18 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController addressController = TextEditingController();
   final TextEditingController storeNameController = TextEditingController();
+  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController openTimeController = TextEditingController();
+  final TextEditingController closeTimeController = TextEditingController();
+  final TextEditingController latitudeController = TextEditingController();
+  final TextEditingController longitudeController = TextEditingController(); // Fixed: longitudeController, not longtitudeController
 
   String? selectedRole;
   bool isLoading = false;
   bool showPassword = false;
 
   Uint8List? _imageBytes;
-  String? _imageName;
+  String? _imageBase64;
   bool _isHoveringUpload = false;
 
   Future<void> _pickImage() async {
@@ -35,16 +41,32 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
 
     try {
       final pickedImage = await ImagePickerWeb.getImageAsBytes();
-      if (pickedImage != null) {
+
+      if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB
+        // Konversi ke base64 dan tambahkan prefix yang sesuai
+        final base64String = base64Encode(pickedImage);
+        // Tentukan format gambar (umumnya JPEG)
+        final imageBase64WithPrefix = 'data:image/jpeg;base64,' + base64String;
+
         setState(() {
-          _imageBytes = pickedImage;
-          _imageName = 'profile_image.jpg'; // You can get actual name with proper plugin
+          _imageBytes = pickedImage;  // Simpan bytes untuk ditampilkan
+          _imageBase64 = imageBase64WithPrefix;  // Base64 dengan prefix yang sesuai untuk backend
         });
+
+        print('Gambar berhasil dikonversi ke base64 dengan prefix');
+      } else if (pickedImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak ada gambar yang dipilih')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!')),
+        );
       }
     } catch (e) {
-      // Handle errors
+      print('Error saat memilih gambar: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
+        SnackBar(content: Text('Error saat memilih gambar: $e')),
       );
     } finally {
       setState(() {
@@ -53,40 +75,129 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
     }
   }
 
-  void _saveStore() {
+  Future<void> _saveStore() async {
     // Validation logic
     if (nameController.text.isEmpty ||
         emailController.text.isEmpty ||
         phoneController.text.isEmpty ||
         passwordController.text.isEmpty ||
-        selectedRole == null) {
+        addressController.text.isEmpty ||
+        storeNameController.text.isEmpty ||
+        descriptionController.text.isEmpty ||
+        openTimeController.text.isEmpty ||
+        closeTimeController.text.isEmpty ||
+        latitudeController.text.isEmpty ||
+        longitudeController.text.isEmpty ) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all required fields')),
       );
       return;
     }
 
-    // TODO: Implement API call to save Store data
-
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Store added successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-
-    // Clear form
-    nameController.clear();
-    emailController.clear();
-    phoneController.clear();
-    passwordController.clear();
-    addressController.clear();
     setState(() {
-      selectedRole = null;
-      _imageBytes = null;
-      _imageName = null;
+      isLoading = true;
     });
+
+    try {
+      // Debug: periksa apakah gambar dalam format yang benar
+      if (_imageBase64 != null) {
+        print('Format base64 gambar: ${_imageBase64!.substring(0, 30)}...'); // Tampilkan awal string saja
+        if (!_imageBase64!.startsWith('data:image/')) {
+          print('Warning: Format base64 gambar tidak dimulai dengan "data:image/"');
+        }
+      } else {
+        print('Tidak ada gambar yang dipilih');
+        // Menampilkan pesan jika tidak ada gambar yang dipilih
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Harap pilih gambar toko')),
+        );
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Memanggil StoreService.createStore dengan data yang benar
+      final response = await StoreService.createStore(
+        nameController.text,  // name
+        emailController.text, // email
+        passwordController.text, // password
+        phoneController.text, // phone
+        storeNameController.text, // storeName
+        addressController.text, // address
+        descriptionController.text, // description
+        openTimeController.text, // openTime
+        closeTimeController.text, // closeTime
+        latitudeController.text, // latitude
+        longitudeController.text, // longitude
+        _imageBase64, // imageBase64
+      );
+
+      print('Response dari server: $response');
+
+      if (response != null) {
+        // Jika berhasil menambah store, tampilkan popup
+        _showSuccessDialog();
+        // Reset form
+        nameController.clear();
+        emailController.clear();
+        phoneController.clear();
+        passwordController.clear();
+        addressController.clear();
+        storeNameController.clear();
+        descriptionController.clear();
+        openTimeController.clear();
+        closeTimeController.clear();
+        latitudeController.clear();
+        longitudeController.clear();
+        setState(() {
+          _imageBytes = null;
+          _imageBase64 = null;
+        });
+        // Navigate back after successful creation
+        Future.delayed(const Duration(seconds: 1), () {
+          Navigator.of(context).pop(true);
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal menambahkan store')),
+        );
+      }
+    } catch (e) {
+      // Show error message with detailed error
+      print('Error detail: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to add store: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing the dialog
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Success'),
+          content: const Text('Store berhasil ditambahkan!'), // Fixed: "Store" not "Driver"
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -143,7 +254,7 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.person_add,
+                            Icons.store,
                             color: Theme.of(context).primaryColor,
                             size: 24,
                           ),
@@ -172,39 +283,26 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                CustomDropdown(
-                                  label: "Select User Role",
-                                  title: "Role",
-                                  items: const ["Admin", "Store", "Owner", "Store"],
-                                  selectedItem: selectedRole,
-                                  icon: Icons.admin_panel_settings,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectedRole = value;
-                                    });
-                                  },
-                                ),
-                                const SizedBox(height: 8),
                                 CustomTextField(
                                   label: "Enter full name",
                                   title: "Full Name",
                                   icon: Icons.person,
                                   controller: nameController,
-                                ),
+                                ), //Full Name
                                 CustomTextField(
                                   label: "Enter email address",
                                   title: "Email",
                                   icon: Icons.email,
                                   keyboardType: TextInputType.emailAddress,
                                   controller: emailController,
-                                ),
+                                ), //Email
                                 CustomTextField(
                                   label: "Enter phone number",
                                   title: "Phone Number",
                                   icon: Icons.phone,
                                   keyboardType: TextInputType.phone,
                                   controller: phoneController,
-                                ),
+                                ), //Phone
                                 CustomTextField(
                                   label: "Enter password",
                                   title: "Password",
@@ -212,13 +310,13 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                   obscureText: !showPassword,
                                   icon2: showPassword ? Icons.visibility : Icons.visibility_off,
                                   controller: passwordController,
-                                ),
+                                ), //Password
                                 const SizedBox(height: 24),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: ElevatedButton.icon(
-                                        onPressed: _saveStore,
+                                        onPressed: _saveStore, // Fixed: Call the actual save method
                                         icon: const Icon(Icons.check_circle),
                                         label: const Text('Add Store'),
                                         style: ElevatedButton.styleFrom(
@@ -248,32 +346,44 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                 CustomTextField(
                                   label: "Store name",
                                   title: "Store Name",
-                                    icon: Icons.store_mall_directory,
-                                    controller: storeNameController,
+                                  icon: Icons.store_mall_directory,
+                                  controller: storeNameController,
                                 ),
                                 CustomTextField(
                                   label: "Address Store",
                                   title: "Address Store",
-                                  icon: Icons.pin_drop,
+                                  icon: Icons.add_road,
                                   controller: addressController,
                                 ),
                                 CustomTextField(
                                   label: "Description Store",
                                   title: "Description",
-                                  icon: Icons.motorcycle,
-                                  controller: addressController,
+                                  icon: Icons.border_color,
+                                  controller: descriptionController,
                                 ),
                                 CustomTextField(
                                   label: "Open Time",
                                   title: "Open Time",
-                                  icon: Icons.lock_clock,
-                                  controller: addressController,
+                                  icon: Icons.access_time,
+                                  controller: openTimeController,
                                 ),
                                 CustomTextField(
-                                  label: "Description Store",
-                                  title: "Description",
-                                  icon: Icons.lock_clock,
-                                  controller: addressController,
+                                  label: "Close Time",
+                                  title: "Close Time",
+                                  icon: Icons.access_time_filled,
+                                  controller: closeTimeController,
+                                ),
+                                CustomTextField(
+                                  label: "Latitude",
+                                  title: "Latitude",
+                                  icon: Icons.pin_drop_rounded,
+                                  controller: latitudeController,
+                                ),
+                                CustomTextField(
+                                  label: "Longitude",
+                                  title: "Longitude",
+                                  icon: Icons.pin_drop_rounded,
+                                  controller: longitudeController, // Fixed: use longitudeController
                                 ),
                                 const Text(
                                   'Profile Photo',
@@ -367,7 +477,7 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                                     onPressed: () {
                                                       setState(() {
                                                         _imageBytes = null;
-                                                        _imageName = null;
+                                                        _imageBase64 = null;
                                                       });
                                                     },
                                                     padding: EdgeInsets.zero,
@@ -422,11 +532,11 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                   ),
                                 ),
 
-                                if (_imageName != null)
+                                if (_imageBase64 != null)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 12.0),
                                     child: Text(
-                                      'File: $_imageName',
+                                      'Image selected: ${(_imageBytes!.lengthInBytes / 1024).toStringAsFixed(2)} KB',
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Colors.grey.shade600,
@@ -456,7 +566,7 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          'Adding a clear profile photo helps with Store identification and improves the user experience.',
+                                          'Adding a clear profile photo helps with customer identification and improves the user experience.',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: Colors.blue.shade700,
@@ -482,363 +592,3 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
     );
   }
 }
-// import 'package:flutter/material.dart';
-// import 'package:file_picker/file_picker.dart';
-// import 'dart:html' as html;
-// import 'dart:typed_data';
-// import 'dart:convert';
-//
-// import '../../../Common/GlobalStyle.dart';
-// import '../../../Common/widgets/texts/customdropdownfield.dart';
-// import '../../../Common/widgets/texts/customtextfield.dart';
-//
-// class AddNewStoreScreen extends StatefulWidget {
-//   AddNewStoreScreen({super.key});
-//
-//   @override
-//   _AddNewStoreScreenState createState() => _AddNewStoreScreenState();
-// }
-//
-// class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
-//   final TextEditingController nameController = TextEditingController();
-//   final TextEditingController emailController = TextEditingController();
-//   final TextEditingController phoneController = TextEditingController();
-//   final TextEditingController passwordController = TextEditingController();
-//   final TextEditingController vehicleController = TextEditingController();
-//   String? _filePreview;
-//
-//   // Fungsi untuk memilih file
-//   Future<void> _pickFile() async {
-//     // Memilih file dengan FilePicker (di Web)
-//     FilePickerResult? result = await FilePicker.platform.pickFiles();
-//
-//     if (result != null) {
-//       // Mengambil file yang dipilih
-//       html.File file = html.File(result.files!.first.bytes!, result.files!.first.name);
-//       final reader = html.FileReader();
-//
-//       // Membaca file sebagai URL data untuk preview
-//       reader.readAsDataUrl(file);
-//       reader.onLoadEnd.listen((e) {
-//         setState(() {
-//           _filePreview = reader.result as String?;
-//         });
-//       });
-//     }
-//   }
-//
-//   // Fungsi untuk menambahkan Store
-//   void addStore(BuildContext context) {
-//     bool success = false;
-//
-//     if (nameController.text.isNotEmpty &&
-//         emailController.text.isNotEmpty &&
-//         phoneController.text.isNotEmpty &&
-//         passwordController.text.isNotEmpty &&
-//         vehicleController.text.isNotEmpty) {
-//       success = true;
-//     }
-//
-//     showDialog(
-//       context: context,
-//       builder: (BuildContext context) {
-//         return AlertDialog(
-//           title: Text(success ? 'Success' : 'Failed'),
-//           content: Text(success
-//               ? 'Data has been successfully added.'
-//               : 'Failed to add data. Please check your input.'),
-//           actions: <Widget>[
-//             TextButton(
-//               onPressed: () {
-//                 Navigator.of(context).pop();
-//               },
-//               child: Text('OK'),
-//             ),
-//           ],
-//         );
-//       },
-//     );
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         leading: IconButton(
-//           icon: const Icon(Icons.arrow_back, color: Colors.black),
-//           onPressed: () {
-//             Navigator.of(context).pop();
-//           },
-//         ),
-//         title: const Text('Add New Store', style: TextStyle(color: Colors.black)),
-//         backgroundColor: Colors.white,
-//         elevation: 0,
-//       ),
-//       body: Padding(
-//         padding: const EdgeInsets.all(12.0),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             Card(
-//               color: Colors.white,
-//               elevation: 2,
-//               child: Padding(
-//                 padding: const EdgeInsets.all(13.0),
-//                 child: Row(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     // Left Section
-//                     Expanded(
-//                       child: Column(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         children: [
-//                           CustomDropdown(
-//                             label: "Select Role",
-//                             title: "Select Role",
-//                             items: const ["Admin", "Store", "Store", "Store"],
-//                             onChanged: (value) {
-//                               // Handle selection
-//                             },
-//                           ),
-//                           const SizedBox(height: 16),
-//                           CustomTextField(
-//                             label: "nama",
-//                             title: "Nama",
-//                             controller: nameController,
-//                           ),
-//                           const SizedBox(height: 16),
-//                           CustomTextField(
-//                             label: "email",
-//                             title: "Email",
-//                             controller: emailController,
-//                           ),
-//                           CustomTextField(
-//                             label: "no telp",
-//                             title: "Phone Number",
-//                             controller: phoneController,
-//                           ),
-//                           CustomTextField(
-//                             label: "password",
-//                             title: "Password",
-//                             controller: passwordController,
-//                           ),
-//                           const SizedBox(height: 16),
-//                           ElevatedButton(
-//                             onPressed: () {
-//                               addStore(context); // Menambahkan Store dan menampilkan popup
-//                             },
-//                             style: ElevatedButton.styleFrom(
-//                               shape: RoundedRectangleBorder(
-//                                   borderRadius: BorderRadius.circular(6)),
-//                               backgroundColor: GlobalStyle.buttonColor,
-//                               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-//                             ),
-//                             child: const Text('Add', style: TextStyle(color: Colors.white)),
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//
-//                     const SizedBox(width: 16),
-//
-//                     // Right Section
-//                     Expanded(
-//                       child: Column(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         children: [
-//                           CustomTextField(
-//                             label: "Nomor Kendaraan",
-//                             title: "Vehicle Number",
-//                             controller: vehicleController,
-//                           ),
-//                           const Text(
-//                             'Photo Images (Dimension: 192*182)',
-//                             style: TextStyle(fontSize: 14, color: Colors.black54),
-//                           ),
-//                           const SizedBox(height: 8),
-//                           GestureDetector(
-//                             onTap: _pickFile, // Menangani klik pada ikon untuk memilih file
-//                             child: Container(
-//                               height: 215,
-//                               decoration: BoxDecoration(
-//                                 border: Border.all(color: Colors.black38.withOpacity(0.2), width: 1),
-//                                 borderRadius: BorderRadius.circular(5),
-//                                 color: Colors.white,
-//                               ),
-//                               child: Center(
-//                                 child: _filePreview == null
-//                                     ? const Column(
-//                                   mainAxisAlignment: MainAxisAlignment.center,
-//                                   children: [
-//                                     Icon(Icons.cloud_upload, size: 40, color: Colors.black45),
-//                                     SizedBox(height: 8),
-//                                     Text('Browse to upload', style: TextStyle(color: Colors.black54)),
-//                                   ],
-//                                 )
-//                                     : Image.memory(base64Decode(_filePreview!.split(',').last)), // Menampilkan gambar dari URL data
-//                               ),
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-//
-//
-// // import 'package:flutter/material.dart';
-// //
-// // import '../../../Common/GlobalStyle.dart';
-// // import '../../../Common/widgets/texts/customdropdownfield.dart';
-// // import '../../../Common/widgets/texts/customtextfield.dart';
-// //
-// // class AddNewStoreScreen extends StatelessWidget {
-// //   final TextEditingController nameController = TextEditingController();
-// //   final TextEditingController emailController = TextEditingController();
-// //   final TextEditingController phoneController = TextEditingController();
-// //   final TextEditingController passwordController = TextEditingController();
-// //   final TextEditingController vehicleController = TextEditingController();
-// //
-// //
-// //   AddNewStoreScreen({super.key});
-// //
-// //   @override
-// //   Widget build(BuildContext context) {
-// //     return Scaffold(
-// //       appBar: AppBar(
-// //         leading: IconButton(
-// //           icon: const Icon(Icons.arrow_back, color: Colors.black),
-// //           onPressed: () {
-// //             Navigator.of(context).pop(); // Fungsi kembali
-// //           },
-// //         ),
-// //         title: const Text('Add New Store', style: TextStyle(color: Colors.black)),
-// //         backgroundColor: Colors.white,
-// //         elevation: 0,
-// //       ),
-// //       body: Padding(
-// //         padding: const EdgeInsets.all(12.0),
-// //         child: Column(
-// //           crossAxisAlignment: CrossAxisAlignment.start,
-// //           children: [
-// //             Card(
-// //               color: Colors.white,
-// //               elevation: 2,
-// //               child: Padding(
-// //                 padding: const EdgeInsets.all(13.0),
-// //                 child: Row(
-// //                   crossAxisAlignment: CrossAxisAlignment.start,
-// //
-// //                   children: [
-// //                     // Left Section
-// //                     Expanded(
-// //                       child: Column(
-// //                         crossAxisAlignment: CrossAxisAlignment.start,
-// //                         children: [
-// //                           CustomDropdown(
-// //                             label: "Select Role",
-// //                             title: "Select Role",
-// //                             items: const ["Admin", "Store", "Store", "Store"],
-// //                             onChanged: (value) {
-// //                               // Handle selection
-// //                             },
-// //                           ),
-// //                           const SizedBox(height: 16),
-// //                           CustomTextField(
-// //                             label: "nama",
-// //                             title: "Nama",
-// //                             controller: nameController,
-// //                           ),
-// //                           const SizedBox(height: 16),
-// //                           CustomTextField(
-// //                             label: "email",
-// //                             title: "Email",
-// //                             // icon2: Icons.location_on,
-// //                             controller: emailController,
-// //                           ),
-// //                           CustomTextField(
-// //                             label: "no telp",
-// //                             title: "Phone Number",
-// //                             controller: phoneController,
-// //                           ),
-// //                           CustomTextField(
-// //                             label: "password",
-// //                             title: "Password",
-// //                             controller: passwordController,
-// //                           ),
-// //                           const SizedBox(height: 16),
-// //                           ElevatedButton(
-// //                             onPressed: () {},
-// //                             style: ElevatedButton.styleFrom(
-// //                               shape: RoundedRectangleBorder(
-// //                                   borderRadius: BorderRadius.circular(6)
-// //                               ),
-// //                               backgroundColor:GlobalStyle.buttonColor ,
-// //                               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-// //                             ),
-// //                             child: const Text('Add', style: TextStyle(color: Colors.white)),
-// //                           ),
-// //                         ],
-// //                       ),
-// //                     ),
-// //
-// //                     const SizedBox(width: 16),
-// //
-// //                     // Right Section
-// //                     Expanded(
-// //                       child: Column(
-// //                         crossAxisAlignment: CrossAxisAlignment.start,
-// //                         children: [
-// //                           CustomTextField(
-// //                             label: "Nomor Kendaraan",
-// //                             title: "Vehicle Number",
-// //                             controller: vehicleController,
-// //                           ),
-// //                           const Text(
-// //                             'Photo Images (Dimension: 192*182)',
-// //                             style: TextStyle(fontSize: 14, color: Colors.black54),
-// //                           ),
-// //                           const SizedBox(height: 8),
-// //                           Container(
-// //                             height: 215,
-// //                             decoration: BoxDecoration(
-// //                               border: Border.all(color: Colors.black38.withOpacity(0.2), width: 1),
-// //                               borderRadius: BorderRadius.circular(5),
-// //                               color: Colors.white,
-// //                             ),
-// //                             child: const Center(
-// //                               child: Column(
-// //                                 mainAxisAlignment: MainAxisAlignment.center,
-// //                                 children: [
-// //                                   Icon(Icons.cloud_upload, size: 40, color: Colors.black45),
-// //                                   SizedBox(height: 8),
-// //                                   Text('Browse to upload', style: TextStyle(color: Colors.black54)),
-// //                                 ],
-// //                               ),
-// //                             ),
-// //                           ),
-// //                         ],
-// //                       ),
-// //                     ),
-// //                   ],
-// //                 ),
-// //               ),
-// //             ),
-// //           ],
-// //         ),
-// //       ),
-// //     );
-// //   }
-// // }
-// //
-// //
-// //

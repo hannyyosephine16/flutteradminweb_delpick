@@ -34,22 +34,33 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
 
     try {
       final pickedImage = await ImagePickerWeb.getImageAsBytes();
-      if (pickedImage != null) {
-        if (pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB limit
-          setState(() {
-            _imageBytes = pickedImage;
-            _imageBase64 = 'data:image/jpeg;base64,${base64Encode(pickedImage)}';
-            _imageName = 'profile_image.jpg';
-          });
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Image too large, choose a smaller image (max 5MB)!')),
-          );
-        }
+
+      if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB
+        // Konversi ke base64 dan tambahkan prefix yang sesuai
+        final base64String = base64Encode(pickedImage);
+        // Tentukan format gambar (umumnya JPEG)
+        // Catatan: Untuk mendeteksi format sebenarnya, perlu logic tambahan
+        final imageBase64WithPrefix = 'data:image/jpeg;base64,' + base64String;
+
+        setState(() {
+          _imageBytes = pickedImage;  // Simpan bytes untuk ditampilkan
+          _imageBase64 = imageBase64WithPrefix;  // Base64 dengan prefix yang sesuai untuk backend
+        });
+
+        print('Gambar berhasil dikonversi ke base64 dengan prefix');
+      } else if (pickedImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak ada gambar yang dipilih')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!')),
+        );
       }
     } catch (e) {
+      print('Error saat memilih gambar: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
+        SnackBar(content: Text('Error saat memilih gambar: $e')),
       );
     } finally {
       setState(() {
@@ -74,42 +85,52 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
     setState(() {
       isLoading = true;
     });
-
     try {
-      // Call the API service to create a new driver
-      await DriverService.createDriver(
-        name: nameController.text,
-        email: emailController.text,
-        password: passwordController.text,
-        phone: phoneController.text,
-        vehicleNumber: vehicleController.text,
-        imageBase64: _imageBase64,
+      // Debug: periksa apakah gambar dalam format yang benar
+      if (_imageBase64 != null) {
+        print('Format base64 gambar: ${_imageBase64!.substring(0, 30)}...'); // Tampilkan awal string saja
+        if (!_imageBase64!.startsWith('data:image/')) {
+          print('Warning: Format base64 gambar tidak dimulai dengan "data:image/"');
+        }
+      } else {
+        print('Tidak ada gambar yang dipilih');
+      }
+
+      // Memanggil DriverService.createDriver dengan data yang diambil dari form
+      // Perhatikan urutan parameter sesuai dengan method yang sudah diperbaiki
+      final response = await DriverService.createDriver(
+        nameController.text,         // name
+        emailController.text,        // email
+        passwordController.text,     // password
+        phoneController.text,        // phone
+        vehicleController.text,      // vehicle_number
+        _imageBase64,                // imageBase64
       );
 
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Driver added successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      print('Response dari server: $response');
 
-      // Clear form
-      nameController.clear();
-      emailController.clear();
-      phoneController.clear();
-      passwordController.clear();
-      vehicleController.clear();
-      setState(() {
-        _imageBytes = null;
-        _imageBase64 = null;
-        _imageName = null;
-      });
-
-      // Navigate back after successful creation
-      Future.delayed(const Duration(seconds: 1), () {
-        Navigator.of(context).pop(true);
-      });
+      if (response != null) {
+        // Jika berhasil menambah driver, tampilkan popup
+        _showSuccessDialog();
+        // Reset form
+        nameController.clear();
+        emailController.clear();
+        phoneController.clear();
+        passwordController.clear();
+        vehicleController.clear();
+        setState(() {
+          _imageBytes = null;
+          _imageBase64 = null;
+        });
+        // Navigate back after successful creation
+        Future.delayed(const Duration(seconds: 1), () {
+          Navigator.of(context).pop(true);
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal menambahkan driver')),
+        );
+      }
     } catch (e) {
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
@@ -123,6 +144,27 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
         isLoading = false;
       });
     }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing the dialog
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Success'),
+          content: const Text('Driver berhasil ditambahkan!'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -329,6 +371,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                         ),
                                       ),
                                       child: _imageBytes != null
+                                      //   child : _imageBase64 != null
                                           ? Stack(
                                         alignment: Alignment.center,
                                         children: [
@@ -381,7 +424,6 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                                       setState(() {
                                                         _imageBytes = null;
                                                         _imageBase64 = null;
-                                                        _imageName = null;
                                                       });
                                                     },
                                                     padding: EdgeInsets.zero,
@@ -424,7 +466,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                           ),
                                           const SizedBox(height: 8),
                                           Text(
-                                            'JPG, PNG or GIF (Max 5MB)',
+                                            'JPG, PNG or GIF (Max 2MB)',
                                             style: TextStyle(
                                               color: Colors.grey.shade600,
                                               fontSize: 12,
@@ -436,11 +478,18 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                   ),
                                 ),
 
-                                if (_imageName != null)
+                                if (_imageBase64 != null)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 12.0),
+                                    // child: Text(
+                                    //   'File: $_imageBase64',
+                                    //   style: TextStyle(
+                                    //     fontSize: 13,
+                                    //     color: Colors.grey.shade600,
+                                    //   ),
+                                    // ),
                                     child: Text(
-                                      'File: $_imageName',
+                                      'Image selected: ${(_imageBytes!.lengthInBytes / 1024).toStringAsFixed(2)} KB',
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Colors.grey.shade600,
@@ -470,7 +519,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          'Adding a clear profile photo helps with Driver identification and improves the user experience.',
+                                          'Adding a clear profile photo helps with customer identification and improves the user experience.',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: Colors.blue.shade700,

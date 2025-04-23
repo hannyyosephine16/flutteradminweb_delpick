@@ -31,6 +31,67 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
   String? _imageBase64;
   bool _isHoveringUpload = false;
 
+  bool _isFormValid() {
+    return nameController.text.isNotEmpty &&
+        emailController.text.isNotEmpty &&
+        phoneController.text.isNotEmpty &&
+        passwordController.text.isNotEmpty;
+  }
+
+  // Fungsi untuk menyimpan customer
+  // Future<void> _saveCustomer() async {
+  //   if (nameController.text.isEmpty ||
+  //       emailController.text.isEmpty ||
+  //       phoneController.text.isEmpty ||
+  //       passwordController.text.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text('Semua kolom harus diisi!')),
+  //     );
+  //     return;
+  //   }
+  //
+  //   setState(() {
+  //     isLoading = true;
+  //   });
+  //
+  //   try {
+  //     // Memanggil ApiService.createCustomer dengan data yang diambil dari form
+  //     final response = await CustomerService.createCustomer(
+  //       nameController.text,
+  //       emailController.text,
+  //       phoneController.text,
+  //       passwordController.text,
+  //       _imageBase64  // Sertakan gambar base64
+  //     );
+  //
+  //     if (response != null) {
+  //       // Jika berhasil menambah customer, tampilkan popup
+  //       _showSuccessDialog();
+  //       // Reset form
+  //       nameController.clear();
+  //       emailController.clear();
+  //       phoneController.clear();
+  //       passwordController.clear();
+  //       setState(() {
+  //         // _imageBase64 = null; // Reset gambar setelah berhasil
+  //         _imageBase64 = null;
+  //       });
+  //     } else {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Gagal menambahkan customer')),
+  //       );
+  //     }
+  //   } catch (error) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text('Terjadi kesalahan: $error')),
+  //     );
+  //   } finally {
+  //     setState(() {
+  //       isLoading = false;
+  //     });
+  //   }
+  // }  // Function to show the success dialog
+  // Fungsi _pickImage() yang diperbaiki
   Future<void> _pickImage() async {
     setState(() {
       isLoading = true;
@@ -40,17 +101,31 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
       final pickedImage = await ImagePickerWeb.getImageAsBytes();
 
       if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB
+        // Konversi ke base64 dan tambahkan prefix yang sesuai
+        final base64String = base64Encode(pickedImage);
+        // Tentukan format gambar (umumnya JPEG)
+        // Catatan: Untuk mendeteksi format sebenarnya, perlu logic tambahan
+        final imageBase64WithPrefix = 'data:image/jpeg;base64,' + base64String;
+
         setState(() {
-          _imageBase64 = base64Encode(pickedImage);  // Konversi gambar menjadi base64
+          _imageBytes = pickedImage;  // Simpan bytes untuk ditampilkan
+          _imageBase64 = imageBase64WithPrefix;  // Base64 dengan prefix yang sesuai untuk backend
         });
+
+        print('Gambar berhasil dikonversi ke base64 dengan prefix');
+      } else if (pickedImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak ada gambar yang dipilih')),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil!')),
+          const SnackBar(content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!')),
         );
       }
     } catch (e) {
+      print('Error saat memilih gambar: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
+        SnackBar(content: Text('Error saat memilih gambar: $e')),
       );
     } finally {
       setState(() {
@@ -59,21 +134,14 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     }
   }
 
-  bool _isFormValid() {
-    return nameController.text.isNotEmpty &&
-        emailController.text.isNotEmpty &&
-        phoneController.text.isNotEmpty &&
-        passwordController.text.isNotEmpty;
-  }
-
-  // Fungsi untuk menyimpan customer
+// Fungsi _saveCustomer() dengan debugging yang ditingkatkan
   Future<void> _saveCustomer() async {
     if (nameController.text.isEmpty ||
         emailController.text.isEmpty ||
         phoneController.text.isEmpty ||
         passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Semua kolom harus diisi!')),
+        const SnackBar(content: Text('Semua kolom harus diisi!')),
       );
       return;
     }
@@ -83,14 +151,26 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     });
 
     try {
-      // Memanggil ApiService.createCustomer dengan data yang diambil dari form
+      // Debug: periksa apakah gambar dalam format yang benar
+      if (_imageBase64 != null) {
+        print('Format base64 gambar: ${_imageBase64!.substring(0, 30)}...'); // Tampilkan awal string saja
+        if (!_imageBase64!.startsWith('data:image/')) {
+          print('Warning: Format base64 gambar tidak dimulai dengan "data:image/"');
+        }
+      } else {
+        print('Tidak ada gambar yang dipilih');
+      }
+
+      // Memanggil CustomerService.createCustomer dengan data yang diambil dari form
       final response = await CustomerService.createCustomer(
-        nameController.text,
-        emailController.text,
-        phoneController.text,
-        passwordController.text,
-        _imageBase64  // Sertakan gambar base64
+          nameController.text,
+          emailController.text,
+          phoneController.text,
+          passwordController.text,
+          _imageBase64  // Kirim base64 dengan prefix
       );
+
+      print('Response dari server: $response');
 
       if (response != null) {
         // Jika berhasil menambah customer, tampilkan popup
@@ -101,15 +181,16 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
         phoneController.clear();
         passwordController.clear();
         setState(() {
-          // _imageBase64 = null; // Reset gambar setelah berhasil
+          _imageBytes = null; // Reset gambar setelah berhasil
           _imageBase64 = null;
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menambahkan customer')),
+          const SnackBar(content: Text('Gagal menambahkan customer')),
         );
       }
     } catch (error) {
+      print('Error saat menyimpan customer: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Terjadi kesalahan: $error')),
       );
@@ -118,7 +199,8 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
         isLoading = false;
       });
     }
-  }  // Function to show the success dialog
+  }
+
   void _showSuccessDialog() {
     showDialog(
       context: context,
@@ -325,6 +407,7 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                         ),
                                       ),
                                       child: _imageBytes != null
+                                      //   child : _imageBase64 != null
                                           ? Stack(
                                         alignment: Alignment.center,
                                         children: [
@@ -434,8 +517,15 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                 if (_imageBase64 != null)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 12.0),
+                                    // child: Text(
+                                    //   'File: $_imageBase64',
+                                    //   style: TextStyle(
+                                    //     fontSize: 13,
+                                    //     color: Colors.grey.shade600,
+                                    //   ),
+                                    // ),
                                     child: Text(
-                                      'File: $_imageBase64',
+                                      'Image selected: ${(_imageBytes!.lengthInBytes / 1024).toStringAsFixed(2)} KB',
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Colors.grey.shade600,

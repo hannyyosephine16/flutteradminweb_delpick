@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'dart:html' as html;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class DriverService {
@@ -72,8 +73,56 @@ class DriverService {
     }
   }
 
+  // File DriverService.dart
+  static Future<Map<String, dynamic>> createDriver(
+      String name,
+      String email,
+      String password,
+      String phone,
+      String vehicle_number,
+      String? imageBase64) async {
+    final token = await getToken();
+
+    if (token == null) {
+      throw Exception('Token tidak ditemukan, harap login terlebih dahulu');
+    }
+
+    final request = html.HttpRequest();
+
+    // Membuka koneksi POST ke API
+    request.open('POST', '$baseUrl/drivers');
+    request.setRequestHeader('Content-Type', 'application/json');
+    request.setRequestHeader('Authorization', 'Bearer $token');
+
+    final completer = Completer<Map<String, dynamic>>();
+
+    request.onLoadEnd.listen((event) {
+      if (request.status == 201) {
+        final Map<String, dynamic> data = json.decode(request.responseText!);
+        completer.complete(data);
+      } else {
+        completer.completeError('Failed to create driver: ${request.statusText}');
+      }
+    });
+
+    // Menyiapkan data untuk dikirim sesuai dengan format yang diharapkan backend
+    final data = jsonEncode({
+      'name': name,
+      'email': email,
+      'password': password,
+      'phone': phone,
+      'vehicle_number': vehicle_number,
+      'image': imageBase64, // Sertakan gambar (base64)
+    });
+
+    // Kirim permintaan ke server
+    request.send(data);
+
+    return completer.future;
+  }
+
   // Create a new driver
-  static Future<Map<String, dynamic>> createDriver({
+  static Future<Map<String, dynamic>> createDriver2({
     required String name,
     required String email,
     required String password,

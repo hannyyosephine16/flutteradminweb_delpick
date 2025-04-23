@@ -222,11 +222,14 @@ class StoreSectionState extends State<StoreSection> {
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              padding: const EdgeInsets.symmetric(vertical: 10.0),
               child: Row(
                 children: [
                   _tableHeaderCell("Store ID", 1.5),
-                  _tableHeaderCell("Username", 2),
+                  _tableHeaderCell("Store Name", 2),
+                  _tableHeaderCell("Address", 2),
+                  _tableHeaderCell("Rating", 1),
+                  _tableHeaderCell("Gambar Toko", 3),
                   _tableHeaderCell("Email", 3),
                   _tableHeaderCell("Phone Number", 2),
                   _tableHeaderCell("Actions", 1.5),
@@ -387,7 +390,10 @@ class StoreSectionState extends State<StoreSection> {
             child: Column(
               children: [
                 _listTile("Store ID", store["id"]),
-                _listTile("Username", store["username"]),
+                _listTile("Store Name", store["storeName"]),
+                _listTile("Address", store["address"]),
+                _listTile("Rating", store["rating"]),
+                _listTile("Gambar Toko", store["image"]),
                 _listTile("Email", store["email"]),
                 _listTile("Phone", store["phone"]),
                 const SizedBox(height: 8),
