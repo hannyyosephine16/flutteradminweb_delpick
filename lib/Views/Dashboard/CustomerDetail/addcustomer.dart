@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:delpick_admin/src/CustomerService.dart';
 import 'package:flutter/material.dart';
@@ -92,7 +93,8 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
   //   }
   // }  // Function to show the success dialog
   // Fungsi _pickImage() yang diperbaiki
-  Future<void> _pickImage() async {
+  //region Pick Images version 1
+  Future<void> _pickImage1() async {
     setState(() {
       isLoading = true;
     });
@@ -104,7 +106,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
         // Konversi ke base64 dan tambahkan prefix yang sesuai
         final base64String = base64Encode(pickedImage);
         // Tentukan format gambar (umumnya JPEG)
-        // Catatan: Untuk mendeteksi format sebenarnya, perlu logic tambahan
         final imageBase64WithPrefix = 'data:image/jpeg;base64,' + base64String;
 
         setState(() {
@@ -131,6 +132,345 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+  //endregion
+
+  //region Pick Image Version 2
+//   Future<void> _pickImage() async {
+//     setState(() {
+//       isLoading = true;
+//     });
+//
+//     try {
+//       // Using ImagePickerWeb to get the image bytes
+//       final pickedImage = await ImagePickerWeb.getImageAsBytes();
+//
+//       if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB limit
+//         // Detect content type from bytes
+//         String contentType = _detectContentType(pickedImage);
+//
+//         // Convert to base64
+//         final base64String = base64Encode(pickedImage);
+//
+//         // Create the complete data URI with proper content type
+//         final imageBase64WithPrefix = 'data:$contentType;base64,' + base64String;
+//
+//         setState(() {
+//           _imageBytes = pickedImage;  // Save bytes for display
+//           _imageBase64 = imageBase64WithPrefix;  // Base64 with prefix for backend
+//         });
+//
+//         // Detailed logs for debugging
+//         print('Gambar berhasil dikonversi ke base64');
+//         print('Content type: $contentType');
+//         print('Ukuran gambar: ${(pickedImage.lengthInBytes / 1024).toStringAsFixed(2)} KB');
+//         print('Base64 prefix: ${_imageBase64!.substring(0, _imageBase64!.length > 50 ? 50 : _imageBase64!.length)}...');
+//
+//         // Success message for user
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text('Gambar berhasil diunggah'),
+//             backgroundColor: Colors.green,
+//             duration: Duration(seconds: 2),
+//           ),
+//         );
+//       } else if (pickedImage == null) {
+//         print('Tidak ada gambar yang dipilih');
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text('Tidak ada gambar yang dipilih'),
+//             backgroundColor: Colors.orange,
+//           ),
+//         );
+//       } else {
+//         print('Gambar terlalu besar: ${(pickedImage.lengthInBytes / 1024 / 1024).toStringAsFixed(2)} MB');
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!'),
+//             backgroundColor: Colors.red,
+//           ),
+//         );
+//       }
+//     } catch (e) {
+//       print('Error saat memilih gambar: $e');
+//       String errorMessage = 'Error saat memilih gambar';
+//
+//       // More specific error messages based on the type of error
+//       if (e.toString().contains('permission')) {
+//         errorMessage = 'Tidak mendapatkan izin untuk mengakses file';
+//       } else if (e.toString().contains('canceled')) {
+//         errorMessage = 'Pemilihan gambar dibatalkan';
+//       } else if (e.toString().contains('format') || e.toString().contains('decode')) {
+//         errorMessage = 'Format gambar tidak didukung';
+//       }
+//
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         SnackBar(
+//           content: Text(errorMessage),
+//           backgroundColor: Colors.red,
+//         ),
+//       );
+//     } finally {
+//       setState(() {
+//         isLoading = false;
+//       });
+//     }
+//   }
+//
+// // Helper function to detect content type based on file signatures
+//   String _detectContentType(Uint8List bytes) {
+//     if (bytes.length < 4) {
+//       print('Byte array terlalu kecil untuk mendeteksi format, defaulting ke image/jpeg');
+//       return 'image/jpeg'; // Default if not enough bytes to check
+//     }
+//
+//     // Check for PNG signature: 89 50 4E 47 (hex) / 137 80 78 71 (decimal)
+//     if (bytes[0] == 137 && bytes[1] == 80 && bytes[2] == 78 && bytes[3] == 71) {
+//       print('Tanda tangan PNG terdeteksi');
+//       return 'image/png';
+//     }
+//
+//     // Check for JPEG signature: FF D8 FF (hex) / 255 216 255 (decimal)
+//     if (bytes[0] == 255 && bytes[1] == 216 && bytes[2] == 255) {
+//       print('Tanda tangan JPEG terdeteksi');
+//       return 'image/jpeg';
+//     }
+//
+//     // Check for GIF signature: 47 49 46 38 (hex) / 71 73 70 56 (decimal)
+//     if (bytes[0] == 71 && bytes[1] == 73 && bytes[2] == 70 && bytes[3] == 56) {
+//       print('Tanda tangan GIF terdeteksi');
+//       return 'image/gif';
+//     }
+//
+//     // Check for WEBP signature: 52 49 46 46 (hex) / 82 73 70 70 (decimal) at position 0
+//     // and 57 45 42 50 (hex) / 87 69 66 80 (decimal) at position 8
+//     if (bytes.length >= 12 &&
+//         bytes[0] == 82 && bytes[1] == 73 && bytes[2] == 70 && bytes[3] == 70 &&
+//         bytes[8] == 87 && bytes[9] == 69 && bytes[10] == 66 && bytes[11] == 80) {
+//       print('Tanda tangan WEBP terdeteksi');
+//       return 'image/webp';
+//     }
+//
+//     // Check for BMP signature: 42 4D (hex) / 66 77 (decimal)
+//     if (bytes[0] == 66 && bytes[1] == 77) {
+//       print('Tanda tangan BMP terdeteksi');
+//       return 'image/bmp';
+//     }
+//
+//     // Default to JPEG if format cannot be determined
+//     print('Format gambar tidak terdeteksi, defaulting ke image/jpeg');
+//     return 'image/jpeg';
+//   }
+  //endregion
+
+  // Fungsi untuk web yang harus dimodifikasi agar kompatibel dengan mobile
+  Future<String> webImageToBase64(Uint8List imageBytes) async {
+    try {
+      // Detect content type dengan cara yang sama seperti di _detectContentType
+      String contentType = _detectContentType(imageBytes);
+
+      // Encode ke base64 dengan format yang konsisten
+      String base64String = base64Encode(imageBytes);
+
+      // Pastikan tidak ada line breaks di base64 string
+      base64String = base64String.replaceAll('\n', '').replaceAll('\r', '');
+
+      // Pastikan padding = benar
+      if (base64String.length % 4 > 0) {
+        base64String = base64String.padRight(
+            base64String.length + (4 - base64String.length % 4), '=');
+      }
+
+      // Buat data URL yang konsisten
+      return 'data:$contentType;base64,$base64String';
+    } catch (e) {
+      print('Error converting web image to base64: $e');
+      return '';
+    }
+  }
+
+// Fungsi untuk debugging
+  void checkBase64DataUrl(String dataUrl) {
+    try {
+      if (!dataUrl.startsWith('data:')) {
+        print('WARNING: Not a valid data URL');
+        return;
+      }
+
+      // Extract the base64 part
+      final parts = dataUrl.split(',');
+      if (parts.length != 2) {
+        print('WARNING: Invalid data URL format');
+        return;
+      }
+
+      final header = parts[0];
+      final base64Data = parts[1];
+
+      print('Header: $header');
+      print('Base64 length: ${base64Data.length}');
+      print('First 20 chars: ${base64Data.substring(0, 20 < base64Data.length ? 20 : base64Data.length)}');
+
+      // Check if base64 is valid
+      try {
+        final decoded = base64Decode(base64Data);
+        print('Successfully decoded ${decoded.length} bytes');
+      } catch (e) {
+        print('ERROR: Base64 cannot be decoded: $e');
+      }
+    } catch (e) {
+      print('Error checking base64: $e');
+    }
+  }
+
+// Implementasi fungsi _detectContentType untuk mendeteksi format gambar
+  String _detectContentType(Uint8List bytes) {
+    if (bytes.length < 4) {
+      print('Byte array terlalu kecil untuk mendeteksi format, default ke image/jpeg');
+      return 'image/jpeg'; // Default jika tidak cukup bytes untuk diperiksa
+    }
+
+    // Cek signature PNG: 89 50 4E 47 (hex) / 137 80 78 71 (decimal)
+    if (bytes[0] == 137 && bytes[1] == 80 && bytes[2] == 78 && bytes[3] == 71) {
+      print('Tanda tangan PNG terdeteksi');
+      return 'image/png';
+    }
+
+    // Cek signature JPEG: FF D8 FF (hex) / 255 216 255 (decimal)
+    if (bytes[0] == 255 && bytes[1] == 216 && bytes[2] == 255) {
+      print('Tanda tangan JPEG terdeteksi');
+      return 'image/jpeg';
+    }
+
+    // Cek signature GIF: 47 49 46 38 (hex) / 71 73 70 56 (decimal)
+    if (bytes[0] == 71 && bytes[1] == 73 && bytes[2] == 70 && bytes[3] == 56) {
+      print('Tanda tangan GIF terdeteksi');
+      return 'image/gif';
+    }
+
+    // Cek signature WEBP: 52 49 46 46 (hex) / 82 73 70 70 (decimal) di posisi 0
+    // dan 57 45 42 50 (hex) / 87 69 66 80 (decimal) di posisi 8
+    if (bytes.length >= 12 &&
+        bytes[0] == 82 && bytes[1] == 73 && bytes[2] == 70 && bytes[3] == 70 &&
+        bytes[8] == 87 && bytes[9] == 69 && bytes[10] == 66 && bytes[11] == 80) {
+      print('Tanda tangan WEBP terdeteksi');
+      return 'image/webp';
+    }
+
+    // Cek signature BMP: 42 4D (hex) / 66 77 (decimal)
+    if (bytes[0] == 66 && bytes[1] == 77) {
+      print('Tanda tangan BMP terdeteksi');
+      return 'image/bmp';
+    }
+
+    // Default ke JPEG jika format tidak dapat ditentukan
+    print('Format gambar tidak terdeteksi, default ke image/jpeg');
+    return 'image/jpeg';
+  }
+
+// Implementasi fungsi _pickImage yang berfungsi di web
+  Future<void> _pickImage() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      print('======= IMAGE PICKING PROCESS STARTED =======');
+      final pickedImage = await ImagePickerWeb.getImageAsBytes();
+
+      if (pickedImage != null) {
+        print('Image picked successfully');
+        print('Image size: ${(pickedImage.lengthInBytes / 1024).toStringAsFixed(2)} KB');
+
+        if (pickedImage.lengthInBytes < 5 * 1024 * 1024) {
+          // Detect content type
+          String contentType = _detectContentType(pickedImage);
+          print('Detected content type: $contentType');
+
+          // Show first few bytes for debugging
+          print('First 8 bytes: ${pickedImage.take(8).toList()}');
+
+          // Encode to base64
+          String base64String = base64Encode(pickedImage);
+          print('Base64 encoding completed');
+          print('Base64 string length: ${base64String.length} characters');
+          print('Base64 sample (first 50 chars): ${base64String.substring(0, min(50, base64String.length))}');
+
+          // Check base64 validity
+          try {
+            final decodedTest = base64Decode(base64String);
+            print('Base64 validation: SUCCESS - Can be decoded back (${decodedTest.length} bytes)');
+
+            if (decodedTest.length == pickedImage.length) {
+              print('Size check: MATCHED - Original and decoded sizes match');
+            } else {
+              print('Size check: MISMATCH - Original: ${pickedImage.length}, Decoded: ${decodedTest.length}');
+            }
+          } catch (e) {
+            print('Base64 validation: FAILED - Cannot be decoded: $e');
+          }
+
+          // Create complete data URL
+          final imageBase64WithPrefix = 'data:$contentType;base64,$base64String';
+          print('Complete data URL (first 60 chars): ${imageBase64WithPrefix.substring(0, min(60, imageBase64WithPrefix.length))}...');
+
+          // Check data URL format
+          if (imageBase64WithPrefix.startsWith('data:image/') && imageBase64WithPrefix.contains(';base64,')) {
+            print('Data URL format: VALID');
+          } else {
+            print('Data URL format: INVALID - Does not match expected pattern');
+          }
+
+          setState(() {
+            _imageBytes = pickedImage;
+            _imageBase64 = imageBase64WithPrefix;
+          });
+
+          // Call the debug function to deeply analyze the data URL
+          print('\n======= DETAILED DATA URL ANALYSIS =======');
+          checkBase64DataUrl(imageBase64WithPrefix);
+
+          // Visual feedback
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Gambar berhasil diunggah'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+          print('Image too large: ${(pickedImage.lengthInBytes / 1024 / 1024).toStringAsFixed(2)} MB (exceeds 5MB limit)');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } else {
+        print('No image selected');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak ada gambar yang dipilih'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      print('ERROR during image picking process: $e');
+      print('Stack trace: ${StackTrace.current}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saat memilih gambar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+      print('======= IMAGE PICKING PROCESS COMPLETED =======\n');
     }
   }
 
@@ -407,7 +747,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                         ),
                                       ),
                                       child: _imageBytes != null
-                                      //   child : _imageBase64 != null
                                           ? Stack(
                                         alignment: Alignment.center,
                                         children: [
@@ -433,23 +772,25 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                                 horizontal: 16,
                                               ),
                                               child: Row(
-                                                mainAxisAlignment:
-                                                MainAxisAlignment.center,
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                 children: [
-                                                  const Icon(
-                                                    Icons.edit,
-                                                    color: Colors.white,
-                                                    size: 16,
+                                                  Row(
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.edit,
+                                                        color: Colors.white,
+                                                        size: 16,
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      const Text(
+                                                        'Change Photo',
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
-                                                  const SizedBox(width: 8),
-                                                  const Text(
-                                                    'Change Photo',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                  const Spacer(),
                                                   IconButton(
                                                     icon: const Icon(
                                                       Icons.delete,
@@ -461,10 +802,17 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                                         _imageBytes = null;
                                                         _imageBase64 = null;
                                                       });
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text('Foto telah dihapus'),
+                                                          backgroundColor: Colors.orange,
+                                                          duration: Duration(seconds: 2),
+                                                        ),
+                                                      );
                                                     },
                                                     padding: EdgeInsets.zero,
-                                                    constraints:
-                                                    const BoxConstraints(),
+                                                    constraints: const BoxConstraints(),
+                                                    tooltip: 'Hapus Foto',
                                                   ),
                                                 ],
                                               ),
@@ -473,12 +821,26 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                         ],
                                       )
                                           : isLoading
-                                          ? const Center(
-                                        child: CircularProgressIndicator(),
+                                          ? Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            CircularProgressIndicator(
+                                              color: Theme.of(context).primaryColor,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'Memproses gambar...',
+                                              style: TextStyle(
+                                                color: Theme.of(context).primaryColor,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       )
                                           : Column(
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.center,
+                                        mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
                                           Container(
                                             padding: const EdgeInsets.all(16),
@@ -502,7 +864,7 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                           ),
                                           const SizedBox(height: 8),
                                           Text(
-                                            'JPG, PNG or GIF (Max 2MB)',
+                                            'JPG, PNG, GIF or BMP (Max 5MB)',
                                             style: TextStyle(
                                               color: Colors.grey.shade600,
                                               fontSize: 12,
@@ -517,19 +879,24 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                 if (_imageBase64 != null)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 12.0),
-                                    // child: Text(
-                                    //   'File: $_imageBase64',
-                                    //   style: TextStyle(
-                                    //     fontSize: 13,
-                                    //     color: Colors.grey.shade600,
-                                    //   ),
-                                    // ),
-                                    child: Text(
-                                      'Image selected: ${(_imageBytes!.lengthInBytes / 1024).toStringAsFixed(2)} KB',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade600,
-                                      ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: Colors.green,
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Image selected: ${(_imageBytes!.lengthInBytes / 1024).toStringAsFixed(2)} KB',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
 

@@ -91,27 +91,124 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
     });
 
     try {
+      // Using ImagePickerWeb to get the image bytes
       final pickedImage = await ImagePickerWeb.getImageAsBytes();
 
-      if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB
+      if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB limit
+        // Detect content type from bytes
+        String contentType = _detectContentType(pickedImage);
+
+        // Convert to base64
+        final base64String = base64Encode(pickedImage);
+
+        // Create the complete data URI with proper content type
+        final imageBase64WithPrefix = 'data:$contentType;base64,' + base64String;
+
         setState(() {
-          _imageBytes = pickedImage;
-          _imageBase64 = base64Encode(pickedImage);
+          _imageBytes = pickedImage;  // Save bytes for display
+          _imageBase64 = imageBase64WithPrefix;  // Base64 with prefix for backend
         });
-      } else {
+
+        // Detailed logs for debugging
+        print('Gambar berhasil dikonversi ke base64');
+        print('Content type: $contentType');
+        print('Ukuran gambar: ${(pickedImage.lengthInBytes / 1024).toStringAsFixed(2)} KB');
+        print('Base64 prefix: ${_imageBase64!.substring(0, _imageBase64!.length > 50 ? 50 : _imageBase64!.length)}...');
+
+        // Success message for user
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Image too large, choose a smaller image!')),
+          const SnackBar(
+            content: Text('Gambar berhasil diunggah'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else if (pickedImage == null) {
+        print('Tidak ada gambar yang dipilih');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak ada gambar yang dipilih'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } else {
+        print('Gambar terlalu besar: ${(pickedImage.lengthInBytes / 1024 / 1024).toStringAsFixed(2)} MB');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
+      print('Error saat memilih gambar: $e');
+      String errorMessage = 'Error saat memilih gambar';
+
+      // More specific error messages based on the type of error
+      if (e.toString().contains('permission')) {
+        errorMessage = 'Tidak mendapatkan izin untuk mengakses file';
+      } else if (e.toString().contains('canceled')) {
+        errorMessage = 'Pemilihan gambar dibatalkan';
+      } else if (e.toString().contains('format') || e.toString().contains('decode')) {
+        errorMessage = 'Format gambar tidak didukung';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       setState(() {
         isLoading = false;
       });
     }
+  }
+
+// Helper function to detect content type based on file signatures
+  String _detectContentType(Uint8List bytes) {
+    if (bytes.length < 4) {
+      print('Byte array terlalu kecil untuk mendeteksi format, defaulting ke image/jpeg');
+      return 'image/jpeg'; // Default if not enough bytes to check
+    }
+
+    // Check for PNG signature: 89 50 4E 47 (hex) / 137 80 78 71 (decimal)
+    if (bytes[0] == 137 && bytes[1] == 80 && bytes[2] == 78 && bytes[3] == 71) {
+      print('Tanda tangan PNG terdeteksi');
+      return 'image/png';
+    }
+
+    // Check for JPEG signature: FF D8 FF (hex) / 255 216 255 (decimal)
+    if (bytes[0] == 255 && bytes[1] == 216 && bytes[2] == 255) {
+      print('Tanda tangan JPEG terdeteksi');
+      return 'image/jpeg';
+    }
+
+    // Check for GIF signature: 47 49 46 38 (hex) / 71 73 70 56 (decimal)
+    if (bytes[0] == 71 && bytes[1] == 73 && bytes[2] == 70 && bytes[3] == 56) {
+      print('Tanda tangan GIF terdeteksi');
+      return 'image/gif';
+    }
+
+    // Check for WEBP signature: 52 49 46 46 (hex) / 82 73 70 70 (decimal) at position 0
+    // and 57 45 42 50 (hex) / 87 69 66 80 (decimal) at position 8
+    if (bytes.length >= 12 &&
+        bytes[0] == 82 && bytes[1] == 73 && bytes[2] == 70 && bytes[3] == 70 &&
+        bytes[8] == 87 && bytes[9] == 69 && bytes[10] == 66 && bytes[11] == 80) {
+      print('Tanda tangan WEBP terdeteksi');
+      return 'image/webp';
+    }
+
+    // Check for BMP signature: 42 4D (hex) / 66 77 (decimal)
+    if (bytes[0] == 66 && bytes[1] == 77) {
+      print('Tanda tangan BMP terdeteksi');
+      return 'image/bmp';
+    }
+
+    // Default to JPEG if format cannot be determined
+    print('Format gambar tidak terdeteksi, defaulting ke image/jpeg');
+    return 'image/jpeg';
   }
 
   // Function to check if form is valid
