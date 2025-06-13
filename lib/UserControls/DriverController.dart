@@ -149,6 +149,13 @@ class DriverController extends GetxController {
   }
 
   // Fetch drivers with pagination
+  // Fixed method in DriverController.dart
+
+// Fixed fetchDrivers method in DriverController.dart
+
+// Fixed fetchDrivers method in DriverController.dart
+
+// ✅ COMPLETELY FIXED: Fetch drivers with proper response handling
   Future<void> fetchDrivers({int page = 1, bool isRefresh = false}) async {
     try {
       if (isRefresh || page == 1) {
@@ -161,24 +168,77 @@ class DriverController extends GetxController {
       hasError.value = false;
       errorMessage.value = '';
 
+      // ✅ This now always returns Map<String, dynamic> from DriverService
       final response = await DriverService.getAllDrivers(
           page: page, limit: itemsPerPage.value);
 
-      // Handle backend response format
-      List<dynamic> driversData;
-      if (response.containsKey('data') && response['data'] is List) {
-        driversData = response['data'];
-      } else if (response.containsKey('drivers')) {
-        driversData = response['drivers'];
-      } else if (response is List) {
-        driversData = response;
+      print('🔍 Controller - Response type: ${response.runtimeType}');
+      print('🔍 Controller - Response keys: ${response.keys.toList()}');
+
+      // ✅ Since DriverService now always returns Map<String, dynamic>
+      // We can safely extract the data
+      List<dynamic> driversData = [];
+      int totalPages = 1;
+      int totalItems = 0;
+      int currentPageNum = page;
+
+      // Extract drivers data from response
+      final dataField = response['data'];
+      print('🔍 Data field type: ${dataField.runtimeType}');
+
+      if (dataField is List) {
+        // Case 1: { data: [driver1, driver2, ...] } - Most common
+        print('✅ Found drivers array in data field');
+        driversData = List<dynamic>.from(dataField);
+      } else if (dataField is Map<String, dynamic>) {
+        // Case 2: { data: { drivers: [...], ... } } - Nested structure
+        print('📋 Data field keys: ${dataField.keys.toList()}');
+        final driversField = dataField['drivers'];
+        if (driversField is List) {
+          print('✅ Found drivers array in data.drivers');
+          driversData = List<dynamic>.from(driversField);
+        }
       } else {
-        driversData = [];
+        print('⚠️ Unexpected data field type: ${dataField.runtimeType}');
+        // Fallback: check if drivers are at root level
+        final rootDrivers = response['drivers'];
+        if (rootDrivers is List) {
+          print('✅ Found drivers array at root level');
+          driversData = List<dynamic>.from(rootDrivers);
+        }
       }
 
-      final driversList =
-          driversData.map((json) => DriverModel.fromJson(json)).toList();
+      // Extract pagination info
+      totalPages = (response['totalPages'] as num?)?.toInt() ?? 1;
+      totalItems =
+          (response['totalItems'] as num?)?.toInt() ?? driversData.length;
+      currentPageNum = (response['currentPage'] as num?)?.toInt() ?? page;
 
+      print('📊 Extracted ${driversData.length} drivers from response');
+      print(
+          '📊 Pagination: Page $currentPageNum of $totalPages (Total: $totalItems)');
+
+      // Convert to DriverModel objects
+      final List<DriverModel> driversList = [];
+      for (int i = 0; i < driversData.length; i++) {
+        try {
+          final item = driversData[i];
+          if (item is Map<String, dynamic>) {
+            final driver =
+                DriverModel.fromJson(Map<String, dynamic>.from(item));
+            driversList.add(driver);
+            print('✅ Parsed driver ${i + 1}: ${driver.displayName}');
+          } else {
+            print('⚠️ Driver item $i is not a Map: ${item.runtimeType}');
+          }
+        } catch (e, stackTrace) {
+          print('❌ Error parsing driver item $i: $e');
+          print('   Item: ${driversData[i]}');
+          // Continue with other drivers even if one fails
+        }
+      }
+
+      // Update drivers list
       if (page == 1) {
         drivers.assignAll(driversList);
       } else {
@@ -186,12 +246,17 @@ class DriverController extends GetxController {
       }
 
       // Update pagination info
-      currentPage.value = response['currentPage'] ?? page;
-      totalPages.value = response['totalPages'] ?? 1;
-      totalItems.value = response['totalItems'] ?? driversList.length;
-    } catch (e) {
+      currentPage.value = currentPageNum;
+      this.totalPages.value = totalPages;
+      this.totalItems.value = totalItems;
+
+      print('✅ Successfully loaded ${driversList.length} drivers');
+      print('📊 Final state - Total drivers in list: ${drivers.length}');
+    } catch (e, stackTrace) {
       hasError.value = true;
       errorMessage.value = e.toString();
+      print('❌ Error in fetchDrivers: $e');
+      print('📍 Stack trace: $stackTrace');
       _showErrorSnackbar('Failed to load drivers: ${e.toString()}');
     } finally {
       isLoading.value = false;

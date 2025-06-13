@@ -8,48 +8,14 @@ class OrderService {
   static const String baseUrl = 'http://127.0.0.1:6100/api/v1';
   static final FlutterSecureStorage _storage = FlutterSecureStorage();
 
-  // Get all orders (admin view)
+  // ❌ TIDAK ADA - Backend tidak punya endpoint untuk admin melihat semua orders
   static Future<Map<String, dynamic>> getAllOrders(
       {int page = 1, int limit = 10}) async {
-    final token = await ApiService.getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
-
-    try {
-      final response = await dio.get(
-        '$baseUrl/orders?page=$page&limit=$limit',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception('Failed to load orders: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        throw Exception('Unauthorized: Please login again');
-      } else if (e.response?.statusCode == 403) {
-        throw Exception('Forbidden: Admin access required');
-      }
-      throw Exception('Network error: ${e.message}');
-    } catch (e) {
-      print('Error fetching orders: $e');
-      throw e;
-    }
+    throw Exception(
+        'Admin orders endpoint not available in backend.\n\nAvailable endpoints:\n• GET /orders/user (Customer only)\n• GET /orders/store (Store owner only)\n• GET /orders/:id (Individual order)');
   }
 
-  // Get orders by user (customer orders)
+  // ✅ ADA - Get orders by user (customer orders)
   static Future<Map<String, dynamic>> getOrdersByUser(
       {int page = 1, int limit = 10}) async {
     final token = await ApiService.getToken();
@@ -73,6 +39,7 @@ class OrderService {
 
       if (response.statusCode == 200) {
         final responseData = response.data;
+        // Backend response format: {message, data: {totalItems, totalPages, currentPage, orders}}
         return responseData['data'] ?? responseData;
       } else {
         throw Exception(
@@ -83,7 +50,7 @@ class OrderService {
     }
   }
 
-  // Get orders by store (store orders)
+  // ✅ ADA - Get orders by store (store orders)
   static Future<Map<String, dynamic>> getOrdersByStore(
       {int page = 1, int limit = 10}) async {
     final token = await ApiService.getToken();
@@ -117,7 +84,7 @@ class OrderService {
     }
   }
 
-  // Get order by ID
+  // ✅ ADA - Get order by ID
   static Future<Map<String, dynamic>> getOrderById(String id) async {
     final token = await ApiService.getToken();
 
@@ -152,7 +119,7 @@ class OrderService {
     }
   }
 
-  // Place new order
+  // ✅ ADA - Place new order (customer only)
   static Future<Map<String, dynamic>> placeOrder(
       Map<String, dynamic> orderData) async {
     final token = await ApiService.getToken();
@@ -191,7 +158,7 @@ class OrderService {
     }
   }
 
-  // Process order by store (approve/reject)
+  // ✅ ADA - Process order by store (approve/reject) - store owner only
   static Future<Map<String, dynamic>> processOrderByStore(
       String orderId, String action) async {
     final token = await ApiService.getToken();
@@ -225,7 +192,7 @@ class OrderService {
     }
   }
 
-  // Update order status
+  // ✅ ADA - Update order status (store owner only)
   static Future<Map<String, dynamic>> updateOrderStatus(
       String orderId, String status) async {
     final token = await ApiService.getToken();
@@ -263,7 +230,7 @@ class OrderService {
     }
   }
 
-  // Cancel order
+  // ✅ ADA - Cancel order (customer only)
   static Future<Map<String, dynamic>> cancelOrder(String orderId) async {
     final token = await ApiService.getToken();
 
@@ -295,7 +262,7 @@ class OrderService {
     }
   }
 
-  // Create review for order
+  // ✅ ADA - Create review for order (customer only)
   static Future<Map<String, dynamic>> createReview(
       Map<String, dynamic> reviewData) async {
     final token = await ApiService.getToken();
@@ -329,7 +296,7 @@ class OrderService {
     }
   }
 
-  // Get tracking data for order
+  // ✅ ADA - Get tracking data for order
   static Future<Map<String, dynamic>> getTrackingData(String orderId) async {
     final token = await ApiService.getToken();
 
@@ -362,7 +329,7 @@ class OrderService {
     }
   }
 
-  // Start delivery (by driver)
+  // ✅ ADA - Start delivery (by driver)
   static Future<Map<String, dynamic>> startDelivery(String orderId) async {
     final token = await ApiService.getToken();
 
@@ -394,7 +361,7 @@ class OrderService {
     }
   }
 
-  // Complete delivery (by driver)
+  // ✅ ADA - Complete delivery (by driver)
   static Future<Map<String, dynamic>> completeDelivery(String orderId) async {
     final token = await ApiService.getToken();
 
@@ -427,35 +394,40 @@ class OrderService {
     }
   }
 
-  // Get dashboard order statistics
+  // ❌ TIDAK ADA - Get dashboard order statistics
   static Future<Map<String, dynamic>> getOrderStats() async {
-    final token = await ApiService.getToken();
+    throw Exception(
+        'Order statistics endpoint not available in backend.\n\nBackend needs to implement:\n• GET /orders/stats\n• GET /admin/stats/orders');
+  }
 
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
+  // Helper method untuk menampilkan limitation info
+  static String getAvailableEndpointsInfo() {
+    return '''
+Available Order Endpoints in Backend:
 
-    final dio = Dio();
+✅ Customer Endpoints:
+• GET /orders/user - Get customer's orders
+• POST /orders - Place new order  
+• PUT /orders/:id/cancel - Cancel order
+• POST /orders/review - Create review
 
-    try {
-      final response = await dio.get(
-        '$baseUrl/orders/stats',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
+✅ Store Owner Endpoints:
+• GET /orders/store - Get store's orders
+• PUT /orders/:id/process - Approve/reject order
+• PUT /orders/status - Update order status
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception('Failed to get order stats: ${response.statusMessage}');
-      }
-    } catch (e) {
-      throw Exception('Failed to get order stats: ${e.toString()}');
-    }
+✅ Driver Endpoints:
+• PUT /tracking/:id/start - Start delivery
+• PUT /tracking/:id/complete - Complete delivery
+
+✅ General Endpoints:
+• GET /orders/:id - Get order details
+• GET /tracking/:id - Get tracking data
+
+❌ Missing Admin Endpoints:
+• GET /orders - View all orders (admin)
+• GET /orders/stats - Order statistics
+• GET /admin/stats/* - Dashboard stats
+    ''';
   }
 }

@@ -83,6 +83,7 @@ class MenuItemController extends GetxController {
   final isLoadingMore = false.obs;
   final hasError = false.obs;
   final errorMessage = ''.obs;
+  final isReadOnlyMode = true.obs; // Admin hanya bisa read, tidak bisa CRUD
 
   // Pagination
   final currentPage = 1.obs;
@@ -95,24 +96,6 @@ class MenuItemController extends GetxController {
   final selectedStoreFilter = 'all'.obs;
   final selectedStockFilter = 'all'.obs;
 
-  // Selection
-  final selectedMenuItems = <MenuItemModel>[].obs;
-  final isAllSelected = false.obs;
-
-  // Form data for add/edit
-  final formKey = GlobalKey<FormState>();
-  final nameController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final priceController = TextEditingController();
-  final quantityController = TextEditingController();
-
-  // Form state
-  final isFormLoading = false.obs;
-  final isEditMode = false.obs;
-  final editingMenuItemId = ''.obs;
-  final selectedImageBase64 = ''.obs;
-  final selectedStoreId = ''.obs;
-
   // Store options for dropdown
   final storeOptions = <Map<String, dynamic>>[].obs;
   final isLoadingStores = false.obs;
@@ -121,19 +104,21 @@ class MenuItemController extends GetxController {
   void onInit() {
     super.onInit();
     fetchMenuItems();
-    loadStoreOptions();
+    _showReadOnlyNotification();
   }
 
-  @override
-  void onClose() {
-    nameController.dispose();
-    descriptionController.dispose();
-    priceController.dispose();
-    quantityController.dispose();
-    super.onClose();
+  void _showReadOnlyNotification() {
+    Get.snackbar(
+      'Read-Only Mode',
+      'Admin can view menu items but cannot create/edit/delete.\nOnly store owners can manage their menu items.',
+      backgroundColor: Colors.blue.shade100,
+      colorText: Colors.blue.shade800,
+      duration: Duration(seconds: 4),
+      snackPosition: SnackPosition.TOP,
+    );
   }
 
-  // Fetch menu items with pagination
+  // Fetch menu items dengan pagination (ADMIN BISA AKSES)
   Future<void> fetchMenuItems({int page = 1, bool isRefresh = false}) async {
     try {
       if (isRefresh || page == 1) {
@@ -202,7 +187,7 @@ class MenuItemController extends GetxController {
     fetchMenuItems(page: 1, isRefresh: true);
   }
 
-  // Filter menu items by store
+  // Filter menu items by store (ADMIN BISA AKSES)
   void filterMenuItemsByStore(String storeId) {
     selectedStoreFilter.value = storeId;
     if (storeId != 'all') {
@@ -218,7 +203,7 @@ class MenuItemController extends GetxController {
     fetchMenuItems(page: 1, isRefresh: true);
   }
 
-  // Get menu items by store ID
+  // Get menu items by store ID (ADMIN BISA AKSES)
   Future<void> fetchMenuItemsByStore(String storeId, {int page = 1}) async {
     try {
       isLoading.value = true;
@@ -243,7 +228,7 @@ class MenuItemController extends GetxController {
     }
   }
 
-  // Get menu item by ID
+  // Get menu item by ID (ADMIN BISA AKSES)
   Future<MenuItemModel?> getMenuItemById(String id) async {
     try {
       final response = await MenuItemService.getMenuItemById(id);
@@ -254,119 +239,39 @@ class MenuItemController extends GetxController {
     }
   }
 
-  // Create new menu item
+  // CRUD Operations - ADMIN TIDAK BISA AKSES (Show notification)
   Future<bool> createMenuItem() async {
-    if (!formKey.currentState!.validate()) {
-      return false;
-    }
-
-    if (selectedStoreId.value.isEmpty) {
-      _showErrorSnackbar('Please select a store');
-      return false;
-    }
-
-    try {
-      isFormLoading.value = true;
-
-      final price = double.tryParse(priceController.text) ?? 0.0;
-      final quantity = int.tryParse(quantityController.text) ?? 0;
-
-      await MenuItemService.createMenuItemWithImage(
-        name: nameController.text,
-        price: price,
-        description: descriptionController.text,
-        quantity: quantity,
-        imageBase64: selectedImageBase64.value.isNotEmpty
-            ? selectedImageBase64.value
-            : null,
-      );
-
-      _showSuccessSnackbar('Menu item created successfully');
-      clearForm();
-      refreshMenuItems();
-      return true;
-    } catch (e) {
-      _showErrorSnackbar('Failed to create menu item: ${e.toString()}');
-      return false;
-    } finally {
-      isFormLoading.value = false;
-    }
+    _showCRUDNotAllowedNotification('create');
+    return false;
   }
 
-  // Update menu item
   Future<bool> updateMenuItem() async {
-    if (!formKey.currentState!.validate()) {
-      return false;
-    }
-
-    try {
-      isFormLoading.value = true;
-
-      final price = double.tryParse(priceController.text);
-      final quantity = int.tryParse(quantityController.text);
-
-      await MenuItemService.updateMenuItemWithImage(
-        id: editingMenuItemId.value,
-        name: nameController.text.isNotEmpty ? nameController.text : null,
-        price: price,
-        description: descriptionController.text.isNotEmpty
-            ? descriptionController.text
-            : null,
-        quantity: quantity,
-        imageBase64: selectedImageBase64.value.isNotEmpty
-            ? selectedImageBase64.value
-            : null,
-      );
-
-      _showSuccessSnackbar('Menu item updated successfully');
-      clearForm();
-      refreshMenuItems();
-      return true;
-    } catch (e) {
-      _showErrorSnackbar('Failed to update menu item: ${e.toString()}');
-      return false;
-    } finally {
-      isFormLoading.value = false;
-    }
+    _showCRUDNotAllowedNotification('update');
+    return false;
   }
 
-  // Delete menu item
   Future<bool> deleteMenuItem(String id) async {
-    try {
-      await MenuItemService.deleteMenuItem(id);
-      _showSuccessSnackbar('Menu item deleted successfully');
-      refreshMenuItems();
-      return true;
-    } catch (e) {
-      _showErrorSnackbar('Failed to delete menu item: ${e.toString()}');
-      return false;
-    }
+    _showCRUDNotAllowedNotification('delete');
+    return false;
   }
 
-  // Delete multiple menu items
   Future<bool> deleteMultipleMenuItems() async {
-    if (selectedMenuItems.isEmpty) {
-      _showErrorSnackbar('No menu items selected');
-      return false;
-    }
-
-    try {
-      for (final menuItem in selectedMenuItems) {
-        await MenuItemService.deleteMenuItem(menuItem.id.toString());
-      }
-
-      _showSuccessSnackbar(
-          '${selectedMenuItems.length} menu items deleted successfully');
-      clearSelection();
-      refreshMenuItems();
-      return true;
-    } catch (e) {
-      _showErrorSnackbar('Failed to delete menu items: ${e.toString()}');
-      return false;
-    }
+    _showCRUDNotAllowedNotification('delete multiple');
+    return false;
   }
 
-  // Search menu items by query
+  void _showCRUDNotAllowedNotification(String action) {
+    Get.snackbar(
+      'Action Not Allowed',
+      'Admin cannot $action menu items.\n\nBackend restriction: Only store owners (isOwner middleware) can create/update/delete menu items.',
+      backgroundColor: Colors.orange.shade100,
+      colorText: Colors.orange.shade800,
+      duration: Duration(seconds: 4),
+      snackPosition: SnackPosition.BOTTOM,
+    );
+  }
+
+  // Search menu items by query (ADMIN BISA AKSES)
   Future<void> searchMenuItemsApi(String query) async {
     try {
       isLoading.value = true;
@@ -386,91 +291,7 @@ class MenuItemController extends GetxController {
     }
   }
 
-  // Load store options for dropdown
-  Future<void> loadStoreOptions() async {
-    try {
-      isLoadingStores.value = true;
-      // This would need to be implemented with a StoreService call
-      // For now, we'll use a placeholder
-      storeOptions.assignAll([
-        {'id': '1', 'name': 'Store 1'},
-        {'id': '2', 'name': 'Store 2'},
-        // Add more stores as needed
-      ]);
-    } catch (e) {
-      _showErrorSnackbar('Failed to load stores: ${e.toString()}');
-    } finally {
-      isLoadingStores.value = false;
-    }
-  }
-
-  // Form management
-  void setEditMode(MenuItemModel menuItem) {
-    isEditMode.value = true;
-    editingMenuItemId.value = menuItem.id.toString();
-    nameController.text = menuItem.name;
-    descriptionController.text = menuItem.description ?? '';
-    priceController.text = menuItem.price.toString();
-    quantityController.text = menuItem.quantity.toString();
-    selectedStoreId.value = menuItem.storeId.toString();
-    selectedImageBase64.value = menuItem.imageUrl ?? '';
-  }
-
-  void clearForm() {
-    isEditMode.value = false;
-    editingMenuItemId.value = '';
-    nameController.clear();
-    descriptionController.clear();
-    priceController.clear();
-    quantityController.clear();
-    selectedStoreId.value = '';
-    selectedImageBase64.value = '';
-  }
-
-  void setSelectedImage(String base64Image) {
-    selectedImageBase64.value = base64Image;
-  }
-
-  void setSelectedStore(String storeId) {
-    selectedStoreId.value = storeId;
-  }
-
-  // Selection management
-  void toggleMenuItemSelection(MenuItemModel menuItem) {
-    if (selectedMenuItems.contains(menuItem)) {
-      selectedMenuItems.remove(menuItem);
-    } else {
-      selectedMenuItems.add(menuItem);
-    }
-    _updateSelectAllState();
-  }
-
-  void toggleSelectAll() {
-    if (isAllSelected.value) {
-      selectedMenuItems.clear();
-    } else {
-      selectedMenuItems.assignAll(menuItems);
-    }
-    _updateSelectAllState();
-  }
-
-  void clearSelection() {
-    selectedMenuItems.clear();
-    isAllSelected.value = false;
-  }
-
-  void _updateSelectAllState() {
-    isAllSelected.value =
-        menuItems.isNotEmpty && selectedMenuItems.length == menuItems.length;
-  }
-
   // Utility methods
-  bool isMenuItemSelected(MenuItemModel menuItem) {
-    return selectedMenuItems.contains(menuItem);
-  }
-
-  int get selectedCount => selectedMenuItems.length;
-
   List<MenuItemModel> get filteredMenuItems {
     var filtered = menuItems.where((menuItem) {
       // Store filter
@@ -544,17 +365,34 @@ class MenuItemController extends GetxController {
     return 'In Stock';
   }
 
-  // Snackbar helpers
-  void _showSuccessSnackbar(String message) {
-    Get.snackbar(
-      'Success',
-      message,
-      backgroundColor: Colors.green,
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
+  // Widget untuk menampilkan read-only badge
+  Widget buildReadOnlyBadge() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.visibility, size: 16, color: Colors.blue.shade700),
+          SizedBox(width: 4),
+          Text(
+            'Read-Only',
+            style: TextStyle(
+              color: Colors.blue.shade700,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
+  // Snackbar helpers
   void _showErrorSnackbar(String message) {
     Get.snackbar(
       'Error',
@@ -563,52 +401,5 @@ class MenuItemController extends GetxController {
       colorText: Colors.white,
       snackPosition: SnackPosition.BOTTOM,
     );
-  }
-
-  // Validation methods
-  String? validateName(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Name is required';
-    }
-    if (value.length < 2) {
-      return 'Name must be at least 2 characters';
-    }
-    return null;
-  }
-
-  String? validatePrice(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Price is required';
-    }
-    final price = double.tryParse(value);
-    if (price == null) {
-      return 'Please enter a valid price';
-    }
-    if (price <= 0) {
-      return 'Price must be greater than 0';
-    }
-    return null;
-  }
-
-  String? validateQuantity(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Quantity is required';
-    }
-    final quantity = int.tryParse(value);
-    if (quantity == null) {
-      return 'Please enter a valid quantity';
-    }
-    if (quantity < 0) {
-      return 'Quantity cannot be negative';
-    }
-    return null;
-  }
-
-  String? validateDescription(String? value) {
-    // Description is optional, but if provided should have some minimum length
-    if (value != null && value.isNotEmpty && value.length < 10) {
-      return 'Description should be at least 10 characters';
-    }
-    return null;
   }
 }

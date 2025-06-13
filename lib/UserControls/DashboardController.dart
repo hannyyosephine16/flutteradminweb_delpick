@@ -1,8 +1,4 @@
 import 'package:delpick_admin/src/ApiService.dart';
-import 'package:delpick_admin/src/CustomerService.dart';
-import 'package:delpick_admin/src/DriverService.dart';
-import 'package:delpick_admin/src/StoreService.dart';
-import 'package:delpick_admin/src/OrderService.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
@@ -42,13 +38,12 @@ class DashboardController extends GetxController {
     SectionModel(title: "Driver", icon: Icons.motorcycle_rounded),
     SectionModel(title: "Store", icon: Icons.shopping_bag),
     SectionModel(title: "Orders", icon: Icons.list_alt),
-    SectionModel(title: "Statistic", icon: Icons.show_chart),
+    SectionModel(title: "Menu Items", icon: Icons.restaurant_menu),
   ].obs;
 
   @override
   void onInit() {
     super.onInit();
-    // Configure Dio
     _dio.options.baseUrl = ApiService.baseUrl;
     _dio.options.connectTimeout = const Duration(seconds: 10);
     _dio.options.receiveTimeout = const Duration(seconds: 10);
@@ -72,12 +67,12 @@ class DashboardController extends GetxController {
         'Content-Type': 'application/json',
       };
 
-      // Fetch all stats concurrently
+      // Fetch stats dari endpoint yang ADA di backend
       final List<Future> futures = [
-        _fetchOrderStats(),
+        _fetchCustomerStats(),
         _fetchDriverStats(),
         _fetchStoreStats(),
-        _fetchCustomerStats(),
+        _fetchOrderStats(), // Menggunakan estimasi dari data yang ada
       ];
 
       await Future.wait(futures);
@@ -85,92 +80,63 @@ class DashboardController extends GetxController {
       print('Error fetching dashboard stats: $e');
       hasError.value = true;
       errorMessage.value = _getErrorMessage(e);
-
-      // Set default values on error
       _setDefaultValues();
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<void> _fetchOrderStats() async {
+  // Menggunakan endpoint /customers yang ADA
+  Future<void> _fetchCustomerStats() async {
     try {
-      // First try to get order stats from dedicated endpoint
-      try {
-        final response = await _dio.get('/orders/stats');
-        if (response.statusCode == 200) {
-          final data = response.data;
-          // Handle backend response format {message, data}
-          final statsData = data['data'] ?? data;
-          totalOrders.value =
-              (statsData['total'] ?? statsData['totalOrders'] ?? 0).toString();
-          ordersPercentage.value = '+${statsData['percentage'] ?? 0}%';
-          return;
-        }
-      } catch (e) {
-        print('Order stats endpoint not available, trying orders list: $e');
-      }
-
-      // Fallback: get orders count from orders list
-      final response = await _dio.get('/orders?page=1&limit=1');
+      final response = await _dio.get('/customers?page=1&limit=1');
       if (response.statusCode == 200) {
         final data = response.data;
-        final responseData = data['data'] ?? data;
 
-        // Handle different response formats
-        if (responseData is Map && responseData.containsKey('totalItems')) {
-          totalOrders.value = responseData['totalItems'].toString();
-        } else if (data is List) {
-          totalOrders.value = data.length.toString();
+        // Handle response format dari backend: {message, data: {totalItems, totalPages, currentPage, customers}}
+        if (data['data'] != null && data['data']['totalItems'] != null) {
+          totalCustomers.value = data['data']['totalItems'].toString();
         } else {
-          totalOrders.value = '0';
+          totalCustomers.value = '0';
         }
-        ordersPercentage.value = '+10%'; // Default percentage
+
+        customersPercentage.value = '+12%'; // Static percentage
       }
     } catch (e) {
-      print('Error fetching order stats: $e');
-      totalOrders.value = '0';
-      ordersPercentage.value = '+0%';
+      print('Error fetching customer stats: $e');
+      totalCustomers.value = '0';
+      customersPercentage.value = '+0%';
     }
   }
 
+  // Menggunakan endpoint /drivers yang ADA
   Future<void> _fetchDriverStats() async {
     try {
-      final response = await _dio.get(
-          '/drivers?page=1&limit=100'); // Get more drivers to count active ones
+      final response = await _dio.get('/drivers?page=1&limit=100');
       if (response.statusCode == 200) {
         final data = response.data;
 
-        // Handle backend response format
+        // Handle different response formats dari backend
+        List<dynamic> drivers = [];
+
         if (data is List) {
-          // Direct array response
-          totalDrivers.value = data.length.toString();
-          final activeCount =
-              data.where((driver) => driver['status'] == 'active').length;
-          activeDrivers.value = activeCount.toString();
-        } else if (data is Map) {
-          // Check for different response structures
-          if (data.containsKey('data')) {
-            final responseData = data['data'];
-            if (responseData is List) {
-              totalDrivers.value = responseData.length.toString();
-              final activeCount = responseData
-                  .where((driver) => driver['status'] == 'active')
-                  .length;
-              activeDrivers.value = activeCount.toString();
-            } else if (responseData is Map &&
-                responseData.containsKey('drivers')) {
-              final drivers = responseData['drivers'] as List;
-              totalDrivers.value = drivers.length.toString();
-              final activeCount = drivers
-                  .where((driver) => driver['status'] == 'active')
-                  .length;
-              activeDrivers.value = activeCount.toString();
-            }
+          drivers = data;
+        } else if (data['data'] != null) {
+          if (data['data'] is List) {
+            drivers = data['data'];
+          } else if (data['data']['drivers'] != null) {
+            drivers = data['data']['drivers'];
           }
         }
 
-        driversPercentage.value = '+5%'; // Default percentage
+        totalDrivers.value = drivers.length.toString();
+
+        // Count active drivers
+        final activeCount =
+            drivers.where((driver) => driver['status'] == 'active').length;
+        activeDrivers.value = activeCount.toString();
+
+        driversPercentage.value = '+5%'; // Static percentage
       }
     } catch (e) {
       print('Error fetching driver stats: $e');
@@ -180,22 +146,21 @@ class DashboardController extends GetxController {
     }
   }
 
+  // Menggunakan endpoint /stores yang ADA
   Future<void> _fetchStoreStats() async {
     try {
       final response = await _dio.get('/stores?page=1&limit=1');
       if (response.statusCode == 200) {
         final data = response.data;
-        final responseData = data['data'] ?? data;
 
-        if (responseData is Map && responseData.containsKey('totalItems')) {
-          totalStores.value = responseData['totalItems'].toString();
-        } else if (data is List) {
-          totalStores.value = data.length.toString();
+        // Handle response format: {message, data: {totalItems, totalPages, currentPage, stores}}
+        if (data['data'] != null && data['data']['totalItems'] != null) {
+          totalStores.value = data['data']['totalItems'].toString();
         } else {
           totalStores.value = '0';
         }
 
-        storesPercentage.value = '+8%'; // Default percentage
+        storesPercentage.value = '+8%'; // Static percentage
       }
     } catch (e) {
       print('Error fetching store stats: $e');
@@ -204,27 +169,19 @@ class DashboardController extends GetxController {
     }
   }
 
-  Future<void> _fetchCustomerStats() async {
+  // TIDAK ADA endpoint /orders untuk admin, jadi kita estimasi
+  Future<void> _fetchOrderStats() async {
     try {
-      final response = await _dio.get('/customers?page=1&limit=1');
-      if (response.statusCode == 200) {
-        final data = response.data;
-        final responseData = data['data'] ?? data;
+      // Backend tidak punya endpoint untuk admin melihat semua orders
+      // Kita set default atau bisa fetch dari user/store orders jika memungkinkan
+      totalOrders.value = '0';
+      ordersPercentage.value = '+0%';
 
-        if (responseData is Map && responseData.containsKey('totalItems')) {
-          totalCustomers.value = responseData['totalItems'].toString();
-        } else if (data is List) {
-          totalCustomers.value = data.length.toString();
-        } else {
-          totalCustomers.value = '0';
-        }
-
-        customersPercentage.value = '+12%'; // Default percentage
-      }
+      print('No admin orders endpoint available in backend');
     } catch (e) {
-      print('Error fetching customer stats: $e');
-      totalCustomers.value = '0';
-      customersPercentage.value = '+0%';
+      print('Error fetching order stats: $e');
+      totalOrders.value = '0';
+      ordersPercentage.value = '+0%';
     }
   }
 
@@ -261,24 +218,6 @@ class DashboardController extends GetxController {
       }
     }
     return error.toString();
-  }
-
-  // Method untuk demo data (tetap diperlukan untuk beberapa komponen)
-  Future<List<Map<String, dynamic>>> fetchData() async {
-    await Future.delayed(Duration(seconds: 1));
-    return List.generate(
-      6,
-      (index) => {
-        'productName': 'Product $index',
-        'sales': '\$${(index + 1) * 1000}',
-        'stock': '${(index + 1) * 20} units',
-        'category': 'Category $index',
-        'dateAdded': '2024-10-1${index + 1}',
-        'totalRevenue': '\$${(index + 1) * 5000}',
-        'averageOrderValue': '\$${(index + 1) * 50}',
-        'customerCount': (index + 1) * 100,
-      },
-    );
   }
 
   // Navigation methods
@@ -348,7 +287,7 @@ class DashboardController extends GetxController {
   bool get isDriversActive => currentSectionIndex.value == 2;
   bool get isStoresActive => currentSectionIndex.value == 3;
   bool get isOrdersActive => currentSectionIndex.value == 4;
-  bool get isStatisticsActive => currentSectionIndex.value == 5;
+  bool get isMenuItemsActive => currentSectionIndex.value == 5;
 
   @override
   void onClose() {

@@ -9,7 +9,7 @@ class DriverService {
   static const String baseUrl = 'http://127.0.0.1:6100/api/v1';
   static final FlutterSecureStorage _storage = FlutterSecureStorage();
 
-  // Get all drivers with pagination
+  // ✅ FIXED: Get all drivers with proper response handling
   static Future<Map<String, dynamic>> getAllDrivers(
       {int page = 1, int limit = 10}) async {
     final token = await ApiService.getToken();
@@ -33,21 +33,36 @@ class DriverService {
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        // Backend returns array directly or with pagination info
-        if (responseData is List) {
+
+        print(
+            '🔍 DriverService - Raw response type: ${responseData.runtimeType}');
+        print('🔍 DriverService - Raw response: $responseData');
+
+        if (responseData is Map<String, dynamic>) {
+          // ✅ Return the full response to preserve all information
+          // This ensures pagination info and data structure are maintained
+          return responseData;
+        } else if (responseData is List) {
+          // ✅ If backend returns direct array, wrap it properly
           return {
-            'drivers': responseData,
+            'statusCode': 200,
+            'message': 'Success',
+            'data': responseData,
             'totalItems': responseData.length,
             'totalPages': 1,
-            'currentPage': 1,
+            'currentPage': page,
           };
+        } else {
+          throw Exception(
+              'Unexpected response format: ${responseData.runtimeType}');
         }
-        // If it's paginated response: {message, data, totalItems, totalPages, currentPage}
-        return responseData['data'] ?? responseData;
       } else {
         throw Exception('Failed to load drivers: ${response.statusMessage}');
       }
     } on DioException catch (e) {
+      print('❌ DriverService DioException: ${e.message}');
+      print('❌ Response: ${e.response?.data}');
+
       if (e.response?.statusCode == 401) {
         throw Exception('Unauthorized: Please login again');
       } else if (e.response?.statusCode == 403) {
@@ -55,7 +70,7 @@ class DriverService {
       }
       throw Exception('Network error: ${e.message}');
     } catch (e) {
-      print('Error fetching drivers: $e');
+      print('❌ DriverService error: $e');
       throw e;
     }
   }
