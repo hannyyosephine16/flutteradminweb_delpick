@@ -5,7 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'ApiService.dart';
 
 class OrderService {
-  static const String baseUrl = 'http://127.0.0.1:6100/api/v1';
+  static const String baseUrl = 'https://delpick.horas-code.my.id/api/v1';
   static final FlutterSecureStorage _storage = FlutterSecureStorage();
 
   // ❌ TIDAK ADA - Backend tidak punya endpoint untuk admin melihat semua orders

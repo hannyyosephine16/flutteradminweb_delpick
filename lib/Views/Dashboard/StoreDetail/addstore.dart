@@ -24,7 +24,8 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
   final TextEditingController openTimeController = TextEditingController();
   final TextEditingController closeTimeController = TextEditingController();
   final TextEditingController latitudeController = TextEditingController();
-  final TextEditingController longitudeController = TextEditingController(); // Fixed: longitudeController, not longtitudeController
+  final TextEditingController longitudeController =
+      TextEditingController(); // Fixed: longitudeController, not longtitudeController
 
   String? selectedRole;
   bool isLoading = false;
@@ -42,15 +43,17 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
     try {
       final pickedImage = await ImagePickerWeb.getImageAsBytes();
 
-      if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB
+      if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) {
+        // 5MB
         // Konversi ke base64 dan tambahkan prefix yang sesuai
         final base64String = base64Encode(pickedImage);
         // Tentukan format gambar (umumnya JPEG)
         final imageBase64WithPrefix = 'data:image/jpeg;base64,' + base64String;
 
         setState(() {
-          _imageBytes = pickedImage;  // Simpan bytes untuk ditampilkan
-          _imageBase64 = imageBase64WithPrefix;  // Base64 dengan prefix yang sesuai untuk backend
+          _imageBytes = pickedImage; // Simpan bytes untuk ditampilkan
+          _imageBase64 =
+              imageBase64WithPrefix; // Base64 dengan prefix yang sesuai untuk backend
         });
 
         print('Gambar berhasil dikonversi ke base64 dengan prefix');
@@ -60,7 +63,9 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!')),
+          const SnackBar(
+              content: Text(
+                  'Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!')),
         );
       }
     } catch (e) {
@@ -75,6 +80,8 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
     }
   }
 
+// Ganti method _saveStore() di file addstore.dart dengan kode berikut:
+
   Future<void> _saveStore() async {
     // Validation logic
     if (nameController.text.isEmpty ||
@@ -87,9 +94,39 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
         openTimeController.text.isEmpty ||
         closeTimeController.text.isEmpty ||
         latitudeController.text.isEmpty ||
-        longitudeController.text.isEmpty ) {
+        longitudeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all required fields')),
+      );
+      return;
+    }
+
+    // Validate and convert latitude/longitude to double
+    double? latitude;
+    double? longitude;
+
+    try {
+      latitude = double.parse(latitudeController.text);
+      longitude = double.parse(longitudeController.text);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Please enter valid latitude and longitude values')),
+      );
+      return;
+    }
+
+    // Additional validation for latitude and longitude ranges
+    if (latitude < -90 || latitude > 90) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Latitude must be between -90 and 90')),
+      );
+      return;
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Longitude must be between -180 and 180')),
       );
       return;
     }
@@ -101,9 +138,11 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
     try {
       // Debug: periksa apakah gambar dalam format yang benar
       if (_imageBase64 != null) {
-        print('Format base64 gambar: ${_imageBase64!.substring(0, 30)}...'); // Tampilkan awal string saja
+        print(
+            'Format base64 gambar: ${_imageBase64!.substring(0, 30)}...'); // Tampilkan awal string saja
         if (!_imageBase64!.startsWith('data:image/')) {
-          print('Warning: Format base64 gambar tidak dimulai dengan "data:image/"');
+          print(
+              'Warning: Format base64 gambar tidak dimulai dengan "data:image/"');
         }
       } else {
         print('Tidak ada gambar yang dipilih');
@@ -119,7 +158,7 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
 
       // Memanggil StoreService.createStore dengan data yang benar
       final response = await StoreService.createStore(
-        nameController.text,  // name
+        nameController.text, // name
         emailController.text, // email
         passwordController.text, // password
         phoneController.text, // phone
@@ -128,8 +167,8 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
         descriptionController.text, // description
         openTimeController.text, // openTime
         closeTimeController.text, // closeTime
-        latitudeController.text, // latitude
-        longitudeController.text, // longitude
+        latitude, // latitude (double)
+        longitude, // longitude (double)
         _imageBase64, // imageBase64
       );
 
@@ -139,21 +178,7 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
         // Jika berhasil menambah store, tampilkan popup
         _showSuccessDialog();
         // Reset form
-        nameController.clear();
-        emailController.clear();
-        phoneController.clear();
-        passwordController.clear();
-        addressController.clear();
-        storeNameController.clear();
-        descriptionController.clear();
-        openTimeController.clear();
-        closeTimeController.clear();
-        latitudeController.clear();
-        longitudeController.clear();
-        setState(() {
-          _imageBytes = null;
-          _imageBase64 = null;
-        });
+        _resetForm();
         // Navigate back after successful creation
         Future.delayed(const Duration(seconds: 1), () {
           Navigator.of(context).pop(true);
@@ -179,6 +204,25 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
     }
   }
 
+// Tambahkan method helper untuk reset form
+  void _resetForm() {
+    nameController.clear();
+    emailController.clear();
+    phoneController.clear();
+    passwordController.clear();
+    addressController.clear();
+    storeNameController.clear();
+    descriptionController.clear();
+    openTimeController.clear();
+    closeTimeController.clear();
+    latitudeController.clear();
+    longitudeController.clear();
+    setState(() {
+      _imageBytes = null;
+      _imageBase64 = null;
+    });
+  }
+
   void _showSuccessDialog() {
     showDialog(
       context: context,
@@ -186,7 +230,8 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Success'),
-          content: const Text('Store berhasil ditambahkan!'), // Fixed: "Store" not "Driver"
+          content: const Text(
+              'Store berhasil ditambahkan!'), // Fixed: "Store" not "Driver"
           actions: <Widget>[
             TextButton(
               onPressed: () {
@@ -246,7 +291,8 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                         color: Theme.of(context).primaryColor.withOpacity(0.1),
                         border: Border(
                           bottom: BorderSide(
-                            color: Theme.of(context).primaryColor.withOpacity(0.2),
+                            color:
+                                Theme.of(context).primaryColor.withOpacity(0.2),
                             width: 1,
                           ),
                         ),
@@ -308,7 +354,9 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                   title: "Password",
                                   icon: Icons.lock,
                                   obscureText: !showPassword,
-                                  icon2: showPassword ? Icons.visibility : Icons.visibility_off,
+                                  icon2: showPassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
                                   controller: passwordController,
                                 ), //Password
                                 const SizedBox(height: 24),
@@ -316,15 +364,19 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                   children: [
                                     Expanded(
                                       child: ElevatedButton.icon(
-                                        onPressed: _saveStore, // Fixed: Call the actual save method
+                                        onPressed:
+                                            _saveStore, // Fixed: Call the actual save method
                                         icon: const Icon(Icons.check_circle),
                                         label: const Text('Add Store'),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Theme.of(context).primaryColor,
+                                          backgroundColor:
+                                              Theme.of(context).primaryColor,
                                           foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 16),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                         ),
                                       ),
@@ -383,7 +435,8 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                   label: "Longitude",
                                   title: "Longitude",
                                   icon: Icons.pin_drop_rounded,
-                                  controller: longitudeController, // Fixed: use longitudeController
+                                  controller:
+                                      longitudeController, // Fixed: use longitudeController
                                 ),
                                 const Text(
                                   'Profile Photo',
@@ -405,8 +458,10 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
 
                                 // Image upload area
                                 MouseRegion(
-                                  onEnter: (_) => setState(() => _isHoveringUpload = true),
-                                  onExit: (_) => setState(() => _isHoveringUpload = false),
+                                  onEnter: (_) =>
+                                      setState(() => _isHoveringUpload = true),
+                                  onExit: (_) =>
+                                      setState(() => _isHoveringUpload = false),
                                   child: GestureDetector(
                                     onTap: _pickImage,
                                     child: Container(
@@ -427,107 +482,125 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                       ),
                                       child: _imageBytes != null
                                           ? Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          // Display selected image
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(10),
-                                            child: Image.memory(
-                                              _imageBytes!,
-                                              fit: BoxFit.cover,
-                                              width: double.infinity,
-                                              height: double.infinity,
-                                            ),
-                                          ),
-                                          // Overlay for change button
-                                          Positioned(
-                                            bottom: 0,
-                                            left: 0,
-                                            right: 0,
-                                            child: Container(
-                                              color: Colors.black.withOpacity(0.6),
-                                              padding: const EdgeInsets.symmetric(
-                                                vertical: 12,
-                                                horizontal: 16,
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.edit,
-                                                    color: Colors.white,
-                                                    size: 16,
+                                              alignment: Alignment.center,
+                                              children: [
+                                                // Display selected image
+                                                ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                  child: Image.memory(
+                                                    _imageBytes!,
+                                                    fit: BoxFit.cover,
+                                                    width: double.infinity,
+                                                    height: double.infinity,
                                                   ),
-                                                  const SizedBox(width: 8),
-                                                  const Text(
-                                                    'Change Photo',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 14,
+                                                ),
+                                                // Overlay for change button
+                                                Positioned(
+                                                  bottom: 0,
+                                                  left: 0,
+                                                  right: 0,
+                                                  child: Container(
+                                                    color: Colors.black
+                                                        .withOpacity(0.6),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      vertical: 12,
+                                                      horizontal: 16,
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        const Icon(
+                                                          Icons.edit,
+                                                          color: Colors.white,
+                                                          size: 16,
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 8),
+                                                        const Text(
+                                                          'Change Photo',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 14,
+                                                          ),
+                                                        ),
+                                                        const Spacer(),
+                                                        IconButton(
+                                                          icon: const Icon(
+                                                            Icons.delete,
+                                                            color: Colors.white,
+                                                            size: 18,
+                                                          ),
+                                                          onPressed: () {
+                                                            setState(() {
+                                                              _imageBytes =
+                                                                  null;
+                                                              _imageBase64 =
+                                                                  null;
+                                                            });
+                                                          },
+                                                          padding:
+                                                              EdgeInsets.zero,
+                                                          constraints:
+                                                              const BoxConstraints(),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
-                                                  const Spacer(),
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                      Icons.delete,
-                                                      color: Colors.white,
-                                                      size: 18,
-                                                    ),
-                                                    onPressed: () {
-                                                      setState(() {
-                                                        _imageBytes = null;
-                                                        _imageBase64 = null;
-                                                      });
-                                                    },
-                                                    padding: EdgeInsets.zero,
-                                                    constraints:
-                                                    const BoxConstraints(),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      )
+                                                ),
+                                              ],
+                                            )
                                           : isLoading
-                                          ? const Center(
-                                        child: CircularProgressIndicator(),
-                                      )
-                                          : Column(
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(16),
-                                            decoration: BoxDecoration(
-                                              color: Theme.of(context).primaryColor.withOpacity(0.1),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: Icon(
-                                              Icons.cloud_upload_rounded,
-                                              size: 36,
-                                              color: Theme.of(context).primaryColor,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          Text(
-                                            'Drag & drop or click to upload',
-                                            style: TextStyle(
-                                              color: Theme.of(context).primaryColor,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'JPG, PNG or GIF (Max 2MB)',
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                              ? const Center(
+                                                  child:
+                                                      CircularProgressIndicator(),
+                                                )
+                                              : Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              16),
+                                                      decoration: BoxDecoration(
+                                                        color: Theme.of(context)
+                                                            .primaryColor
+                                                            .withOpacity(0.1),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                      child: Icon(
+                                                        Icons
+                                                            .cloud_upload_rounded,
+                                                        size: 36,
+                                                        color: Theme.of(context)
+                                                            .primaryColor,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      'Drag & drop or click to upload',
+                                                      style: TextStyle(
+                                                        color: Theme.of(context)
+                                                            .primaryColor,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Text(
+                                                      'JPG, PNG or GIF (Max 2MB)',
+                                                      style: TextStyle(
+                                                        color: Colors
+                                                            .grey.shade600,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                     ),
                                   ),
                                 ),

@@ -55,7 +55,7 @@ class CustomerController extends GetxController {
     super.onClose();
   }
 
-  // Fetch customers with pagination
+  // Fetch customers with pagination - FIXED
   Future<void> fetchCustomers({int page = 1, bool isRefresh = false}) async {
     try {
       if (isRefresh || page == 1) {
@@ -68,28 +68,58 @@ class CustomerController extends GetxController {
       hasError.value = false;
       errorMessage.value = '';
 
-      final response =
-          await CustomerService.getAllCustomers(page, itemsPerPage.value);
+      // FIXED: Use named parameters
+      final response = await CustomerService.getAllCustomers(
+        page: page,
+        limit: itemsPerPage.value,
+        search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
+      );
 
-      // Handle backend response format
-      final customersData = response['customers'] as List? ?? [];
-      final customersList =
-          customersData.map((json) => CustomerModel.fromJson(json)).toList();
+      // FIXED: Handle null response and null safety
+      if (response != null) {
+        // Handle different response formats from backend
+        List<dynamic> customersData = [];
 
-      if (page == 1) {
-        customers.assignAll(customersList);
+        if (response.containsKey('data') && response['data'] != null) {
+          final data = response['data'] as Map<String, dynamic>?;
+          if (data != null && data.containsKey('customers')) {
+            customersData = data['customers'] as List<dynamic>? ?? [];
+
+            // Update pagination info with null safety
+            currentPage.value = data['currentPage'] as int? ?? page;
+            totalPages.value = data['totalPages'] as int? ?? 1;
+            totalItems.value =
+                data['totalItems'] as int? ?? customersData.length;
+          }
+        } else if (response['customers'] != null) {
+          // Alternative format: direct customers array in response
+          customersData = response['customers'] as List<dynamic>? ?? [];
+          currentPage.value = response['currentPage'] as int? ?? page;
+          totalPages.value = response['totalPages'] as int? ?? 1;
+          totalItems.value =
+              response['totalItems'] as int? ?? customersData.length;
+        }
+
+        // Convert to CustomerModel list
+        final customersList = customersData
+            .map((json) => CustomerModel.fromJson(json as Map<String, dynamic>))
+            .toList();
+
+        if (page == 1) {
+          customers.assignAll(customersList);
+        } else {
+          customers.addAll(customersList);
+        }
+
+        print('✅ Loaded ${customersList.length} customers');
       } else {
-        customers.addAll(customersList);
+        throw Exception('No response from server');
       }
-
-      // Update pagination info
-      currentPage.value = response['currentPage'] ?? page;
-      totalPages.value = response['totalPages'] ?? 1;
-      totalItems.value = response['totalItems'] ?? customersList.length;
     } catch (e) {
       hasError.value = true;
       errorMessage.value = e.toString();
       _showErrorSnackbar('Failed to load customers: ${e.toString()}');
+      print('❌ Error fetching customers: $e');
     } finally {
       isLoading.value = false;
       isLoadingMore.value = false;
@@ -111,22 +141,36 @@ class CustomerController extends GetxController {
   // Search customers
   void searchCustomers(String query) {
     searchQuery.value = query;
-    // Implement search logic or call API with search parameter
     fetchCustomers(page: 1, isRefresh: true);
   }
 
   // Filter customers
   void filterCustomers(String filter) {
     selectedFilter.value = filter;
-    // Implement filter logic
     fetchCustomers(page: 1, isRefresh: true);
   }
 
-  // Get customer by ID
+  // Get customer by ID - FIXED
   Future<CustomerModel?> getCustomerById(String id) async {
     try {
       final response = await CustomerService.getCustomerById(id);
-      return CustomerModel.fromJson(response);
+      if (response != null) {
+        // Handle different response formats
+        Map<String, dynamic>? customerData;
+
+        if (response.containsKey('data') && response['data'] != null) {
+          customerData = response['data'] as Map<String, dynamic>?;
+        } else if (response.containsKey('name') ||
+            response.containsKey('email')) {
+          // Direct customer data
+          customerData = response;
+        }
+
+        if (customerData != null) {
+          return CustomerModel.fromJson(customerData);
+        }
+      }
+      return null;
     } catch (e) {
       _showErrorSnackbar('Failed to get customer: ${e.toString()}');
       return null;
@@ -142,7 +186,7 @@ class CustomerController extends GetxController {
     try {
       isFormLoading.value = true;
 
-      await CustomerService.createCustomer(
+      final response = await CustomerService.createCustomer(
         nameController.text,
         emailController.text,
         phoneController.text,
@@ -150,10 +194,14 @@ class CustomerController extends GetxController {
         selectedImageBase64.value.isNotEmpty ? selectedImageBase64.value : null,
       );
 
-      _showSuccessSnackbar('Customer created successfully');
-      clearForm();
-      refreshCustomers();
-      return true;
+      if (response != null) {
+        _showSuccessSnackbar('Customer created successfully');
+        clearForm();
+        refreshCustomers();
+        return true;
+      } else {
+        throw Exception('No response from server');
+      }
     } catch (e) {
       _showErrorSnackbar('Failed to create customer: ${e.toString()}');
       return false;
@@ -171,7 +219,7 @@ class CustomerController extends GetxController {
     try {
       isFormLoading.value = true;
 
-      await CustomerService.updateCustomer(
+      final response = await CustomerService.updateCustomer(
         editingCustomerId.value,
         nameController.text,
         emailController.text,
@@ -181,10 +229,14 @@ class CustomerController extends GetxController {
         selectedImageBase64.value.isNotEmpty ? selectedImageBase64.value : null,
       );
 
-      _showSuccessSnackbar('Customer updated successfully');
-      clearForm();
-      refreshCustomers();
-      return true;
+      if (response != null) {
+        _showSuccessSnackbar('Customer updated successfully');
+        clearForm();
+        refreshCustomers();
+        return true;
+      } else {
+        throw Exception('No response from server');
+      }
     } catch (e) {
       _showErrorSnackbar('Failed to update customer: ${e.toString()}');
       return false;
@@ -196,10 +248,14 @@ class CustomerController extends GetxController {
   // Delete customer
   Future<bool> deleteCustomer(String id) async {
     try {
-      await CustomerService.deleteCustomer(id);
-      _showSuccessSnackbar('Customer deleted successfully');
-      refreshCustomers();
-      return true;
+      final success = await CustomerService.deleteCustomer(id);
+      if (success) {
+        _showSuccessSnackbar('Customer deleted successfully');
+        refreshCustomers();
+        return true;
+      } else {
+        throw Exception('Delete operation failed');
+      }
     } catch (e) {
       _showErrorSnackbar('Failed to delete customer: ${e.toString()}');
       return false;
@@ -308,13 +364,15 @@ class CustomerController extends GetxController {
 
   // Statistics
   int get totalCustomersCount => totalItems.value;
+
   int get activeCustomersCount =>
-      customers.where((c) => c.isActiveCustomer).length;
+      customers.where((c) => c.isActiveCustomer ?? true).length;
+
   int get newCustomersCount =>
-      customers.where((c) => c.customerStatus == 'New Customer').length;
+      customers.where((c) => (c.customerStatus ?? '') == 'New Customer').length;
 
   double get totalSpentByAllCustomers =>
-      customers.fold(0.0, (sum, customer) => sum + customer.spent);
+      customers.fold(0.0, (sum, customer) => sum + (customer.spent ?? 0.0));
 
   // Snackbar helpers
   void _showSuccessSnackbar(String message) {

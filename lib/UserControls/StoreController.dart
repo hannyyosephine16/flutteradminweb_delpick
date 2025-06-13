@@ -78,6 +78,7 @@ class StoreController extends GetxController {
   }
 
   // Fetch stores dengan pagination (SESUAI BACKEND FORMAT)
+// ✅ COMPLETELY FIXED: Fetch stores with proper response handling
   Future<void> fetchStores({int page = 1, bool isRefresh = false}) async {
     try {
       if (isRefresh || page == 1) {
@@ -90,24 +91,76 @@ class StoreController extends GetxController {
       hasError.value = false;
       errorMessage.value = '';
 
+      // ✅ This now always returns Map<String, dynamic> from StoreService
       final response = await StoreService.getAllStores(
           page: page, limit: itemsPerPage.value);
 
-      // Handle backend response format: {message, data: {totalItems, totalPages, currentPage, stores}}
-      List<dynamic> storesData;
-      if (response.containsKey('stores')) {
-        storesData = response['stores'];
-      } else if (response.containsKey('data') && response['data'] is List) {
-        storesData = response['data'];
-      } else if (response is List) {
-        storesData = response;
+      print('🔍 StoreController - Response type: ${response.runtimeType}');
+      print('🔍 StoreController - Response keys: ${response.keys.toList()}');
+
+      // ✅ Since StoreService now always returns Map<String, dynamic>
+      // We can safely extract the data
+      List<dynamic> storesData = [];
+      int totalPages = 1;
+      int totalItems = 0;
+      int currentPageNum = page;
+
+      // Extract stores data from response
+      final dataField = response['data'];
+      print('🔍 Data field type: ${dataField.runtimeType}');
+
+      if (dataField is List) {
+        // Case 1: { data: [store1, store2, ...] } - Most common
+        print('✅ Found stores array in data field');
+        storesData = List<dynamic>.from(dataField);
+      } else if (dataField is Map<String, dynamic>) {
+        // Case 2: { data: { stores: [...], ... } } - Nested structure
+        print('📋 Data field keys: ${dataField.keys.toList()}');
+        final storesField = dataField['stores'];
+        if (storesField is List) {
+          print('✅ Found stores array in data.stores');
+          storesData = List<dynamic>.from(storesField);
+        }
       } else {
-        storesData = [];
+        print('⚠️ Unexpected data field type: ${dataField.runtimeType}');
+        // Fallback: check if stores are at root level
+        final rootStores = response['stores'];
+        if (rootStores is List) {
+          print('✅ Found stores array at root level');
+          storesData = List<dynamic>.from(rootStores);
+        }
       }
 
-      final storesList =
-          storesData.map((json) => StoreModel.fromJson(json)).toList();
+      // Extract pagination info
+      totalPages = (response['totalPages'] as num?)?.toInt() ?? 1;
+      totalItems =
+          (response['totalItems'] as num?)?.toInt() ?? storesData.length;
+      currentPageNum = (response['currentPage'] as num?)?.toInt() ?? page;
 
+      print('📊 Extracted ${storesData.length} stores from response');
+      print(
+          '📊 Pagination: Page $currentPageNum of $totalPages (Total: $totalItems)');
+
+      // Convert to StoreModel objects
+      final List<StoreModel> storesList = [];
+      for (int i = 0; i < storesData.length; i++) {
+        try {
+          final item = storesData[i];
+          if (item is Map<String, dynamic>) {
+            final store = StoreModel.fromJson(Map<String, dynamic>.from(item));
+            storesList.add(store);
+            print('✅ Parsed store ${i + 1}: ${store.name}');
+          } else {
+            print('⚠️ Store item $i is not a Map: ${item.runtimeType}');
+          }
+        } catch (e, stackTrace) {
+          print('❌ Error parsing store item $i: $e');
+          print('   Item: ${storesData[i]}');
+          // Continue with other stores even if one fails
+        }
+      }
+
+      // Update stores list
       if (page == 1) {
         stores.assignAll(storesList);
       } else {
@@ -115,14 +168,17 @@ class StoreController extends GetxController {
       }
 
       // Update pagination info
-      currentPage.value = response['currentPage'] ?? page;
-      totalPages.value = response['totalPages'] ?? 1;
-      totalItems.value = response['totalItems'] ?? storesList.length;
+      currentPage.value = currentPageNum;
+      this.totalPages.value = totalPages;
+      this.totalItems.value = totalItems;
 
-      print('Fetched ${storesList.length} stores, total: ${totalItems.value}');
-    } catch (e) {
+      print('✅ Successfully loaded ${storesList.length} stores');
+      print('📊 Final state - Total stores in list: ${stores.length}');
+    } catch (e, stackTrace) {
       hasError.value = true;
       errorMessage.value = e.toString();
+      print('❌ Error in fetchStores: $e');
+      print('📍 Stack trace: $stackTrace');
       _showErrorSnackbar('Failed to load stores: ${e.toString()}');
     } finally {
       isLoading.value = false;

@@ -5,10 +5,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'ApiService.dart';
 
 class StoreService {
-  static const String baseUrl = 'http://127.0.0.1:6100/api/v1';
+  static const String baseUrl = 'https://delpick.horas-code.my.id/api/v1';
   static final FlutterSecureStorage _storage = FlutterSecureStorage();
 
-  // Get all Stores with pagination
+  // ✅ FIXED: Get all Stores with proper response handling
   static Future<Map<String, dynamic>> getAllStores(
       {int page = 1, int limit = 10}) async {
     final token = await ApiService.getToken();
@@ -31,12 +31,35 @@ class StoreService {
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        // Backend response format: {message, data: {totalItems, totalPages, currentPage, stores}}
-        return responseData['data'] ?? responseData;
+
+        print(
+            '🔍 StoreService - Raw response type: ${responseData.runtimeType}');
+        print('🔍 StoreService - Raw response: $responseData');
+
+        if (responseData is Map<String, dynamic>) {
+          // ✅ Return the full response to preserve all information
+          return responseData;
+        } else if (responseData is List) {
+          // ✅ If backend returns direct array, wrap it properly
+          return {
+            'statusCode': 200,
+            'message': 'Success',
+            'data': responseData,
+            'totalItems': responseData.length,
+            'totalPages': 1,
+            'currentPage': page,
+          };
+        } else {
+          throw Exception(
+              'Unexpected response format: ${responseData.runtimeType}');
+        }
       } else {
         throw Exception('Failed to load Stores: ${response.statusMessage}');
       }
     } on DioException catch (e) {
+      print('❌ StoreService DioException: ${e.message}');
+      print('❌ Response: ${e.response?.data}');
+
       if (e.response?.statusCode == 401) {
         throw Exception('Unauthorized: Please login again');
       } else if (e.response?.statusCode == 403) {
@@ -44,7 +67,7 @@ class StoreService {
       }
       throw Exception('Network error: ${e.message}');
     } catch (e) {
-      print('Error fetching Stores: $e');
+      print('❌ StoreService error: $e');
       throw e;
     }
   }

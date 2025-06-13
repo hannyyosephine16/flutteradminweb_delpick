@@ -8,7 +8,7 @@ class MenuItemService {
   static const String baseUrl = 'http://127.0.0.1:6100/api/v1';
   static final FlutterSecureStorage _storage = FlutterSecureStorage();
 
-  // Get all menu items (for admin/global view)
+  // ✅ FIXED: Get all menu items (for admin/global view)
   static Future<Map<String, dynamic>> getAllMenuItems(
       {int page = 1, int limit = 10}) async {
     final token = await ApiService.getToken();
@@ -32,11 +32,35 @@ class MenuItemService {
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        return responseData['data'] ?? responseData;
+
+        print(
+            '🔍 MenuItemService - Raw response type: ${responseData.runtimeType}');
+        print('🔍 MenuItemService - Raw response: $responseData');
+
+        if (responseData is Map<String, dynamic>) {
+          // ✅ Return the full response to preserve all information
+          return responseData;
+        } else if (responseData is List) {
+          // ✅ If backend returns direct array, wrap it properly
+          return {
+            'statusCode': 200,
+            'message': 'Success',
+            'data': responseData,
+            'totalItems': responseData.length,
+            'totalPages': 1,
+            'currentPage': page,
+          };
+        } else {
+          throw Exception(
+              'Unexpected response format: ${responseData.runtimeType}');
+        }
       } else {
         throw Exception('Failed to load menu items: ${response.statusMessage}');
       }
     } on DioException catch (e) {
+      print('❌ MenuItemService DioException: ${e.message}');
+      print('❌ Response: ${e.response?.data}');
+
       if (e.response?.statusCode == 401) {
         throw Exception('Unauthorized: Please login again');
       } else if (e.response?.statusCode == 403) {
@@ -44,12 +68,12 @@ class MenuItemService {
       }
       throw Exception('Network error: ${e.message}');
     } catch (e) {
-      print('Error fetching menu items: $e');
+      print('❌ MenuItemService error: $e');
       throw e;
     }
   }
 
-  // Get menu items by store ID
+  // ✅ FIXED: Get menu items by store ID
   static Future<Map<String, dynamic>> getMenuItemsByStoreId(String storeId,
       {int page = 1, int limit = 10}) async {
     final token = await ApiService.getToken();
@@ -73,7 +97,22 @@ class MenuItemService {
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        return responseData['data'] ?? responseData;
+
+        if (responseData is Map<String, dynamic>) {
+          return responseData;
+        } else if (responseData is List) {
+          return {
+            'statusCode': 200,
+            'message': 'Success',
+            'data': responseData,
+            'totalItems': responseData.length,
+            'totalPages': 1,
+            'currentPage': page,
+          };
+        } else {
+          throw Exception(
+              'Unexpected response format: ${responseData.runtimeType}');
+        }
       } else {
         throw Exception('Failed to load menu items: ${response.statusMessage}');
       }
@@ -276,7 +315,7 @@ class MenuItemService {
     return await updateMenuItem(id, menuItemData);
   }
 
-  // Search menu items
+  // ✅ FIXED: Search menu items
   static Future<Map<String, dynamic>> searchMenuItems(String query,
       {int page = 1, int limit = 10}) async {
     final token = await ApiService.getToken();
@@ -300,7 +339,22 @@ class MenuItemService {
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        return responseData['data'] ?? responseData;
+
+        if (responseData is Map<String, dynamic>) {
+          return responseData;
+        } else if (responseData is List) {
+          return {
+            'statusCode': 200,
+            'message': 'Search completed',
+            'data': responseData,
+            'totalItems': responseData.length,
+            'totalPages': 1,
+            'currentPage': page,
+          };
+        } else {
+          throw Exception(
+              'Unexpected response format: ${responseData.runtimeType}');
+        }
       } else {
         throw Exception(
             'Failed to search menu items: ${response.statusMessage}');
@@ -310,7 +364,7 @@ class MenuItemService {
     }
   }
 
-  // Get menu items by category (if implemented in backend)
+  // ✅ FIXED: Get menu items by category (if implemented in backend)
   static Future<Map<String, dynamic>> getMenuItemsByCategory(String category,
       {int page = 1, int limit = 10}) async {
     final token = await ApiService.getToken();
@@ -334,7 +388,22 @@ class MenuItemService {
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        return responseData['data'] ?? responseData;
+
+        if (responseData is Map<String, dynamic>) {
+          return responseData;
+        } else if (responseData is List) {
+          return {
+            'statusCode': 200,
+            'message': 'Category loaded',
+            'data': responseData,
+            'totalItems': responseData.length,
+            'totalPages': 1,
+            'currentPage': page,
+          };
+        } else {
+          throw Exception(
+              'Unexpected response format: ${responseData.runtimeType}');
+        }
       } else {
         throw Exception(
             'Failed to load menu items by category: ${response.statusMessage}');

@@ -119,6 +119,7 @@ class MenuItemController extends GetxController {
   }
 
   // Fetch menu items dengan pagination (ADMIN BISA AKSES)
+// ✅ COMPLETELY FIXED: Fetch menu items with proper response handling
   Future<void> fetchMenuItems({int page = 1, bool isRefresh = false}) async {
     try {
       if (isRefresh || page == 1) {
@@ -131,24 +132,77 @@ class MenuItemController extends GetxController {
       hasError.value = false;
       errorMessage.value = '';
 
+      // ✅ This now always returns Map<String, dynamic> from MenuItemService
       final response = await MenuItemService.getAllMenuItems(
           page: page, limit: itemsPerPage.value);
 
-      // Handle backend response format
-      List<dynamic> menuItemsData;
-      if (response.containsKey('menuItems')) {
-        menuItemsData = response['menuItems'];
-      } else if (response.containsKey('data') && response['data'] is List) {
-        menuItemsData = response['data'];
-      } else if (response is List) {
-        menuItemsData = response;
+      print('🔍 MenuItemController - Response type: ${response.runtimeType}');
+      print('🔍 MenuItemController - Response keys: ${response.keys.toList()}');
+
+      // ✅ Since MenuItemService now always returns Map<String, dynamic>
+      // We can safely extract the data
+      List<dynamic> menuItemsData = [];
+      int totalPages = 1;
+      int totalItems = 0;
+      int currentPageNum = page;
+
+      // Extract menu items data from response
+      final dataField = response['data'];
+      print('🔍 Data field type: ${dataField.runtimeType}');
+
+      if (dataField is List) {
+        // Case 1: { data: [menuItem1, menuItem2, ...] } - Most common
+        print('✅ Found menu items array in data field');
+        menuItemsData = List<dynamic>.from(dataField);
+      } else if (dataField is Map<String, dynamic>) {
+        // Case 2: { data: { menuItems: [...], ... } } - Nested structure
+        print('📋 Data field keys: ${dataField.keys.toList()}');
+        final menuItemsField = dataField['menuItems'];
+        if (menuItemsField is List) {
+          print('✅ Found menu items array in data.menuItems');
+          menuItemsData = List<dynamic>.from(menuItemsField);
+        }
       } else {
-        menuItemsData = [];
+        print('⚠️ Unexpected data field type: ${dataField.runtimeType}');
+        // Fallback: check if menuItems are at root level
+        final rootMenuItems = response['menuItems'];
+        if (rootMenuItems is List) {
+          print('✅ Found menu items array at root level');
+          menuItemsData = List<dynamic>.from(rootMenuItems);
+        }
       }
 
-      final menuItemsList =
-          menuItemsData.map((json) => MenuItemModel.fromJson(json)).toList();
+      // Extract pagination info
+      totalPages = (response['totalPages'] as num?)?.toInt() ?? 1;
+      totalItems =
+          (response['totalItems'] as num?)?.toInt() ?? menuItemsData.length;
+      currentPageNum = (response['currentPage'] as num?)?.toInt() ?? page;
 
+      print('📊 Extracted ${menuItemsData.length} menu items from response');
+      print(
+          '📊 Pagination: Page $currentPageNum of $totalPages (Total: $totalItems)');
+
+      // Convert to MenuItemModel objects
+      final List<MenuItemModel> menuItemsList = [];
+      for (int i = 0; i < menuItemsData.length; i++) {
+        try {
+          final item = menuItemsData[i];
+          if (item is Map<String, dynamic>) {
+            final menuItem =
+                MenuItemModel.fromJson(Map<String, dynamic>.from(item));
+            menuItemsList.add(menuItem);
+            print('✅ Parsed menu item ${i + 1}: ${menuItem.name}');
+          } else {
+            print('⚠️ Menu item $i is not a Map: ${item.runtimeType}');
+          }
+        } catch (e, stackTrace) {
+          print('❌ Error parsing menu item $i: $e');
+          print('   Item: ${menuItemsData[i]}');
+          // Continue with other menu items even if one fails
+        }
+      }
+
+      // Update menu items list
       if (page == 1) {
         menuItems.assignAll(menuItemsList);
       } else {
@@ -156,16 +210,108 @@ class MenuItemController extends GetxController {
       }
 
       // Update pagination info
-      currentPage.value = response['currentPage'] ?? page;
-      totalPages.value = response['totalPages'] ?? 1;
-      totalItems.value = response['totalItems'] ?? menuItemsList.length;
-    } catch (e) {
+      currentPage.value = currentPageNum;
+      this.totalPages.value = totalPages;
+      this.totalItems.value = totalItems;
+
+      print('✅ Successfully loaded ${menuItemsList.length} menu items');
+      print('📊 Final state - Total menu items in list: ${menuItems.length}');
+    } catch (e, stackTrace) {
       hasError.value = true;
       errorMessage.value = e.toString();
+      print('❌ Error in fetchMenuItems: $e');
+      print('📍 Stack trace: $stackTrace');
       _showErrorSnackbar('Failed to load menu items: ${e.toString()}');
     } finally {
       isLoading.value = false;
       isLoadingMore.value = false;
+    }
+  }
+
+// ✅ FIXED: Get menu items by store ID (ADMIN BISA AKSES)
+  Future<void> fetchMenuItemsByStore(String storeId, {int page = 1}) async {
+    try {
+      isLoading.value = true;
+      final response = await MenuItemService.getMenuItemsByStoreId(storeId,
+          page: page, limit: itemsPerPage.value);
+
+      print(
+          '🔍 fetchMenuItemsByStore - Response type: ${response.runtimeType}');
+
+      // ✅ Handle response consistently
+      List<dynamic> menuItemsData = [];
+
+      final dataField = response['data'];
+      if (dataField is List) {
+        menuItemsData = List<dynamic>.from(dataField);
+      } else if (dataField is Map<String, dynamic> &&
+          dataField['menuItems'] is List) {
+        menuItemsData = List<dynamic>.from(dataField['menuItems']);
+      } else if (response['menuItems'] is List) {
+        menuItemsData = List<dynamic>.from(response['menuItems']);
+      }
+
+      final menuItemsList = menuItemsData
+          .where((item) => item is Map<String, dynamic>)
+          .map(
+              (json) => MenuItemModel.fromJson(Map<String, dynamic>.from(json)))
+          .toList();
+
+      menuItems.assignAll(menuItemsList);
+
+      // Update pagination info
+      currentPage.value = (response['currentPage'] as num?)?.toInt() ?? page;
+      totalPages.value = (response['totalPages'] as num?)?.toInt() ?? 1;
+      totalItems.value =
+          (response['totalItems'] as num?)?.toInt() ?? menuItemsList.length;
+
+      print(
+          '✅ Successfully loaded ${menuItemsList.length} menu items for store $storeId');
+    } catch (e) {
+      print('❌ Error in fetchMenuItemsByStore: $e');
+      _showErrorSnackbar('Failed to load store menu items: ${e.toString()}');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+// ✅ FIXED: Search menu items by query (ADMIN BISA AKSES)
+  Future<void> searchMenuItemsApi(String query) async {
+    try {
+      isLoading.value = true;
+      final response = await MenuItemService.searchMenuItems(query,
+          page: 1, limit: itemsPerPage.value);
+
+      print('🔍 searchMenuItemsApi - Response type: ${response.runtimeType}');
+
+      // ✅ Handle response consistently
+      List<dynamic> menuItemsData = [];
+
+      final dataField = response['data'];
+      if (dataField is List) {
+        menuItemsData = List<dynamic>.from(dataField);
+      } else if (dataField is Map<String, dynamic> &&
+          dataField['menuItems'] is List) {
+        menuItemsData = List<dynamic>.from(dataField['menuItems']);
+      } else if (response['menuItems'] is List) {
+        menuItemsData = List<dynamic>.from(response['menuItems']);
+      }
+
+      final menuItemsList = menuItemsData
+          .where((item) => item is Map<String, dynamic>)
+          .map(
+              (json) => MenuItemModel.fromJson(Map<String, dynamic>.from(json)))
+          .toList();
+
+      menuItems.assignAll(menuItemsList);
+
+      print(
+          '✅ Successfully searched ${menuItemsList.length} menu items for query: "$query"');
+    } catch (e) {
+      print('❌ Error in searchMenuItemsApi: $e');
+      _showErrorSnackbar('Failed to search menu items: ${e.toString()}');
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -201,31 +347,6 @@ class MenuItemController extends GetxController {
   void filterMenuItemsByStock(String stockFilter) {
     selectedStockFilter.value = stockFilter;
     fetchMenuItems(page: 1, isRefresh: true);
-  }
-
-  // Get menu items by store ID (ADMIN BISA AKSES)
-  Future<void> fetchMenuItemsByStore(String storeId, {int page = 1}) async {
-    try {
-      isLoading.value = true;
-      final response = await MenuItemService.getMenuItemsByStoreId(storeId,
-          page: page, limit: itemsPerPage.value);
-
-      final menuItemsData = response['menuItems'] ?? response['data'] ?? [];
-      final menuItemsList = (menuItemsData as List)
-          .map((json) => MenuItemModel.fromJson(json))
-          .toList();
-
-      menuItems.assignAll(menuItemsList);
-
-      // Update pagination info
-      currentPage.value = response['currentPage'] ?? page;
-      totalPages.value = response['totalPages'] ?? 1;
-      totalItems.value = response['totalItems'] ?? menuItemsList.length;
-    } catch (e) {
-      _showErrorSnackbar('Failed to load store menu items: ${e.toString()}');
-    } finally {
-      isLoading.value = false;
-    }
   }
 
   // Get menu item by ID (ADMIN BISA AKSES)
@@ -269,26 +390,6 @@ class MenuItemController extends GetxController {
       duration: Duration(seconds: 4),
       snackPosition: SnackPosition.BOTTOM,
     );
-  }
-
-  // Search menu items by query (ADMIN BISA AKSES)
-  Future<void> searchMenuItemsApi(String query) async {
-    try {
-      isLoading.value = true;
-      final response = await MenuItemService.searchMenuItems(query,
-          page: 1, limit: itemsPerPage.value);
-
-      final menuItemsData = response['menuItems'] ?? response['data'] ?? [];
-      final menuItemsList = (menuItemsData as List)
-          .map((json) => MenuItemModel.fromJson(json))
-          .toList();
-
-      menuItems.assignAll(menuItemsList);
-    } catch (e) {
-      _showErrorSnackbar('Failed to search menu items: ${e.toString()}');
-    } finally {
-      isLoading.value = false;
-    }
   }
 
   // Utility methods

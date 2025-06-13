@@ -10,7 +10,7 @@ import 'package:web/helpers.dart';
 class ApiService {
   // Base URL API (should be dynamic based on the environment)
   // static const String baseUrl = 'https://delpick.horas-code.my.id/api/v1';
-  static const String baseUrl = 'http://127.0.0.1:6100/api/v1';
+  static const String baseUrl = 'https://delpick.horas-code.my.id/api/v1';
   static final FlutterSecureStorage _storage = FlutterSecureStorage();
 
   // Fungsi untuk login admin
