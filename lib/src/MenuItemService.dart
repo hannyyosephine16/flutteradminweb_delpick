@@ -40,7 +40,7 @@ class MenuItemService {
         page: page,
         limit: limit,
         search: search,
-        additionalParams: category != null ? {'category': category} : null,
+        // additionalParams: category != null ? {'category': category} : null,
       );
 
       final response = await dio.get(

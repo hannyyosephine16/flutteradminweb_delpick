@@ -6,22 +6,33 @@ class ApiConstants {
   static const String developmentUrl = 'http://localhost:6100/api/v1';
   static const String stagingUrl =
       'https://staging.delpick.horas-code.my.id/api/v1';
+  static const String backendUrl = 'https://delpick.horas-code.my.id/api/v1';
 
   // ✅ FIXED: Always use production URL for hosted backend
+  // static String get baseUrl {
+  //   // For now, always use production since backend is hosted
+  //   return productionUrl;
+  //
+  //   // Original environment-based logic (uncomment if needed):
+  //   // const environment = String.fromEnvironment('ENV', defaultValue: 'production');
+  //   // switch (environment) {
+  //   //   case 'development':
+  //   //     return developmentUrl;
+  //   //   case 'staging':
+  //   //     return stagingUrl;
+  //   //   default:
+  //   //     return productionUrl;
+  //   // }
+  // }
   static String get baseUrl {
-    // For now, always use production since backend is hosted
-    return productionUrl;
+    // Untuk development, gunakan CORS proxy
+    const bool isDevelopment = true; // Set ke false untuk production
 
-    // Original environment-based logic (uncomment if needed):
-    // const environment = String.fromEnvironment('ENV', defaultValue: 'production');
-    // switch (environment) {
-    //   case 'development':
-    //     return developmentUrl;
-    //   case 'staging':
-    //     return stagingUrl;
-    //   default:
-    //     return productionUrl;
-    // }
+    if (isDevelopment) {
+      return '$backendUrl'; // https://cors-anywhere.herokuapp.com/https://delpick.horas-code.my.id/api/v1
+    } else {
+      return backendUrl; // Direct ke backend (untuk production)
+    }
   }
 
   // API Version
@@ -165,6 +176,42 @@ class ApiConstants {
   static const int maxFileSize = 5 * 1024 * 1024; // 5MB
   static const List<String> allowedImageTypes = ['jpg', 'jpeg', 'png', 'gif'];
 
+  static String buildUrl(String endpoint) => '$baseUrl$endpoint';
+
+  static String buildUrlWithParams(
+      String endpoint, Map<String, String> params) {
+    String result = endpoint;
+    params.forEach((key, value) {
+      result = result.replaceAll('{$key}', value);
+    });
+    return buildUrl(result);
+  }
+
+  static Map<String, dynamic> buildQueryParams({
+    int? page,
+    int? limit,
+    String? search,
+    String? sortBy,
+    String? sortOrder,
+  }) {
+    final params = <String, dynamic>{};
+    if (page != null) params['page'] = page;
+    if (limit != null) params['limit'] = limit;
+    if (search != null && search.isNotEmpty) params['search'] = search;
+    if (sortBy != null) params['sortBy'] = sortBy;
+    if (sortOrder != null) params['sortOrder'] = sortOrder;
+    return params;
+  }
+
+  static void printConfig() {
+    print('🔧 ========== API CONFIGURATION ==========');
+    print('📍 Base URL: $baseUrl');
+    print('🔐 Login URL: $baseUrl$login');
+    print(
+        '🚨 CORS Proxy: ${baseUrl.contains('cors-anywhere') ? 'ENABLED' : 'DISABLED'}');
+    print('🔧 ========== END CONFIGURATION ==========');
+  }
+
   // ✅ CONFIRMED: Status values sesuai backend enum
   static const List<String> orderStatuses = [
     'pending',
@@ -217,38 +264,38 @@ class ApiConstants {
     return result;
   }
 
-  static String buildUrl(String endpoint) {
-    return '$baseUrl$endpoint';
-  }
+  // static String buildUrl(String endpoint) {
+  //   return '$baseUrl$endpoint';
+  // }
+  //
+  // static String buildUrlWithParams(
+  //     String endpoint, Map<String, String> params) {
+  //   final path = replacePathParams(endpoint, params);
+  //   return buildUrl(path);
+  // }
 
-  static String buildUrlWithParams(
-      String endpoint, Map<String, String> params) {
-    final path = replacePathParams(endpoint, params);
-    return buildUrl(path);
-  }
-
-  static Map<String, dynamic> buildQueryParams({
-    int? page,
-    int? limit,
-    String? search,
-    String? sortBy,
-    String? sortOrder,
-    Map<String, dynamic>? additionalParams,
-  }) {
-    final params = <String, dynamic>{};
-
-    if (page != null) params['page'] = page;
-    if (limit != null) params['limit'] = limit;
-    if (search != null && search.isNotEmpty) params['search'] = search;
-    if (sortBy != null) params['sortBy'] = sortBy;
-    if (sortOrder != null) params['sortOrder'] = sortOrder;
-
-    if (additionalParams != null) {
-      params.addAll(additionalParams);
-    }
-
-    return params;
-  }
+  // static Map<String, dynamic> buildQueryParams({
+  //   int? page,
+  //   int? limit,
+  //   String? search,
+  //   String? sortBy,
+  //   String? sortOrder,
+  //   Map<String, dynamic>? additionalParams,
+  // }) {
+  //   final params = <String, dynamic>{};
+  //
+  //   if (page != null) params['page'] = page;
+  //   if (limit != null) params['limit'] = limit;
+  //   if (search != null && search.isNotEmpty) params['search'] = search;
+  //   if (sortBy != null) params['sortBy'] = sortBy;
+  //   if (sortOrder != null) params['sortOrder'] = sortOrder;
+  //
+  //   if (additionalParams != null) {
+  //     params.addAll(additionalParams);
+  //   }
+  //
+  //   return params;
+  // }
 
   // ✅ ADDED: Debug helpers for hosted backend
   static void printCurrentConfig() {
