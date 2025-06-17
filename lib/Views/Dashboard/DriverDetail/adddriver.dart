@@ -7,7 +7,6 @@ import '../../../Common/widgets/texts/customtextfield.dart';
 
 class AddNewDriverScreen extends StatefulWidget {
   const AddNewDriverScreen({super.key});
-
   @override
   State<AddNewDriverScreen> createState() => _AddNewDriverScreenState();
 }
@@ -17,25 +16,24 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController licenseController =
+      TextEditingController(); // ✅ ADDED
   final TextEditingController vehicleController = TextEditingController();
-
   bool isLoading = false;
   bool showPassword = false;
-
   Uint8List? _imageBytes;
   String? _imageBase64;
   String? _imageName;
   bool _isHoveringUpload = false;
-
   Future<void> _pickImage() async {
     setState(() {
       isLoading = true;
     });
-
     try {
       final pickedImage = await ImagePickerWeb.getImageAsBytes();
 
-      if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB
+      if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) {
+        // 5MB
         // Konversi ke base64 dan tambahkan prefix yang sesuai
         final base64String = base64Encode(pickedImage);
         // Tentukan format gambar (umumnya JPEG)
@@ -43,8 +41,9 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
         final imageBase64WithPrefix = 'data:image/jpeg;base64,' + base64String;
 
         setState(() {
-          _imageBytes = pickedImage;  // Simpan bytes untuk ditampilkan
-          _imageBase64 = imageBase64WithPrefix;  // Base64 dengan prefix yang sesuai untuk backend
+          _imageBytes = pickedImage; // Simpan bytes untuk ditampilkan
+          _imageBase64 =
+              imageBase64WithPrefix; // Base64 dengan prefix yang sesuai untuk backend
         });
 
         print('Gambar berhasil dikonversi ke base64 dengan prefix');
@@ -54,7 +53,9 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!')),
+          const SnackBar(
+              content: Text(
+                  'Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!')),
         );
       }
     } catch (e) {
@@ -70,41 +71,43 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
   }
 
   Future<void> _saveDriver() async {
-    // Validation logic
+// ✅ UPDATED: Validation logic untuk semua field termasuk license
     if (nameController.text.isEmpty ||
         emailController.text.isEmpty ||
         phoneController.text.isEmpty ||
         passwordController.text.isEmpty ||
+        licenseController.text.isEmpty || // ✅ ADDED
         vehicleController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all required fields')),
       );
       return;
     }
-
     setState(() {
       isLoading = true;
     });
     try {
       // Debug: periksa apakah gambar dalam format yang benar
       if (_imageBase64 != null) {
-        print('Format base64 gambar: ${_imageBase64!.substring(0, 30)}...'); // Tampilkan awal string saja
+        print(
+            'Format base64 gambar: ${_imageBase64!.substring(0, 30)}...'); // Tampilkan awal string saja
         if (!_imageBase64!.startsWith('data:image/')) {
-          print('Warning: Format base64 gambar tidak dimulai dengan "data:image/"');
+          print(
+              'Warning: Format base64 gambar tidak dimulai dengan "data:image/"');
         }
       } else {
         print('Tidak ada gambar yang dipilih');
       }
 
-      // Memanggil DriverService.createDriver dengan data yang diambil dari form
-      // Perhatikan urutan parameter sesuai dengan method yang sudah diperbaiki
+      // ✅ FIXED: Memanggil DriverService.createDriver dengan 7 parameter yang benar
       final response = await DriverService.createDriver(
-        nameController.text,         // name
-        emailController.text,        // email
-        passwordController.text,     // password
-        phoneController.text,        // phone
-        vehicleController.text,      // vehicle_number
-        _imageBase64,                // imageBase64
+        nameController.text, // name
+        emailController.text, // email
+        passwordController.text, // password
+        phoneController.text, // phone
+        licenseController.text, // licenseNumber ✅ ADDED
+        vehicleController.text, // vehiclePlate
+        _imageBase64, // avatar (nullable String?) ✅ FIXED
       );
 
       print('Response dari server: $response');
@@ -117,6 +120,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
         emailController.clear();
         phoneController.clear();
         passwordController.clear();
+        licenseController.clear(); // ✅ ADDED
         vehicleController.clear();
         setState(() {
           _imageBytes = null;
@@ -205,7 +209,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header
+// Header
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -213,7 +217,8 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                         color: Theme.of(context).primaryColor.withOpacity(0.1),
                         border: Border(
                           bottom: BorderSide(
-                            color: Theme.of(context).primaryColor.withOpacity(0.2),
+                            color:
+                                Theme.of(context).primaryColor.withOpacity(0.2),
                             width: 1,
                           ),
                         ),
@@ -237,7 +242,6 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                         ],
                       ),
                     ),
-
                     // Form content
                     Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -276,16 +280,25 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                   icon: Icons.lock,
                                   obscureText: !showPassword,
                                   controller: passwordController,
-                                  icon2: showPassword ? Icons.visibility : Icons.visibility_off,
+                                  icon2: showPassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
                                   // onIcon2Press: () {
                                   //   setState(() {
                                   //     showPassword = !showPassword;
                                   //   });
                                   // },
                                 ),
+                                // ✅ ADDED: License Number field
                                 CustomTextField(
-                                  label: "Enter vehicle number",
-                                  title: "Vehicle Number",
+                                  label: "Enter license number",
+                                  title: "License Number",
+                                  icon: Icons.badge,
+                                  controller: licenseController,
+                                ),
+                                CustomTextField(
+                                  label: "Enter vehicle plate number",
+                                  title: "Vehicle Plate",
                                   icon: Icons.motorcycle,
                                   controller: vehicleController,
                                 ),
@@ -294,24 +307,30 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                   children: [
                                     Expanded(
                                       child: ElevatedButton.icon(
-                                        onPressed: isLoading ? null : _saveDriver,
+                                        onPressed:
+                                            isLoading ? null : _saveDriver,
                                         icon: isLoading
                                             ? const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2,
-                                            )
-                                        )
+                                                width: 20,
+                                                height: 20,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  color: Colors.white,
+                                                  strokeWidth: 2,
+                                                ))
                                             : const Icon(Icons.check_circle),
-                                        label: Text(isLoading ? 'Adding...' : 'Add Driver'),
+                                        label: Text(isLoading
+                                            ? 'Adding...'
+                                            : 'Add Driver'),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Theme.of(context).primaryColor,
+                                          backgroundColor:
+                                              Theme.of(context).primaryColor,
                                           foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 16),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                         ),
                                       ),
@@ -350,8 +369,10 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
 
                                 // Image upload area
                                 MouseRegion(
-                                  onEnter: (_) => setState(() => _isHoveringUpload = true),
-                                  onExit: (_) => setState(() => _isHoveringUpload = false),
+                                  onEnter: (_) =>
+                                      setState(() => _isHoveringUpload = true),
+                                  onExit: (_) =>
+                                      setState(() => _isHoveringUpload = false),
                                   child: GestureDetector(
                                     onTap: _pickImage,
                                     child: Container(
@@ -371,109 +392,127 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                         ),
                                       ),
                                       child: _imageBytes != null
-                                      //   child : _imageBase64 != null
+                                          //   child : _imageBase64 != null
                                           ? Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          // Display selected image
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(10),
-                                            child: Image.memory(
-                                              _imageBytes!,
-                                              fit: BoxFit.cover,
-                                              width: double.infinity,
-                                              height: double.infinity,
-                                            ),
-                                          ),
-                                          // Overlay for change button
-                                          Positioned(
-                                            bottom: 0,
-                                            left: 0,
-                                            right: 0,
-                                            child: Container(
-                                              color: Colors.black.withOpacity(0.6),
-                                              padding: const EdgeInsets.symmetric(
-                                                vertical: 12,
-                                                horizontal: 16,
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.edit,
-                                                    color: Colors.white,
-                                                    size: 16,
+                                              alignment: Alignment.center,
+                                              children: [
+                                                // Display selected image
+                                                ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                  child: Image.memory(
+                                                    _imageBytes!,
+                                                    fit: BoxFit.cover,
+                                                    width: double.infinity,
+                                                    height: double.infinity,
                                                   ),
-                                                  const SizedBox(width: 8),
-                                                  const Text(
-                                                    'Change Photo',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 14,
+                                                ),
+                                                // Overlay for change button
+                                                Positioned(
+                                                  bottom: 0,
+                                                  left: 0,
+                                                  right: 0,
+                                                  child: Container(
+                                                    color: Colors.black
+                                                        .withOpacity(0.6),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      vertical: 12,
+                                                      horizontal: 16,
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        const Icon(
+                                                          Icons.edit,
+                                                          color: Colors.white,
+                                                          size: 16,
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 8),
+                                                        const Text(
+                                                          'Change Photo',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 14,
+                                                          ),
+                                                        ),
+                                                        const Spacer(),
+                                                        IconButton(
+                                                          icon: const Icon(
+                                                            Icons.delete,
+                                                            color: Colors.white,
+                                                            size: 18,
+                                                          ),
+                                                          onPressed: () {
+                                                            setState(() {
+                                                              _imageBytes =
+                                                                  null;
+                                                              _imageBase64 =
+                                                                  null;
+                                                            });
+                                                          },
+                                                          padding:
+                                                              EdgeInsets.zero,
+                                                          constraints:
+                                                              const BoxConstraints(),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
-                                                  const Spacer(),
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                      Icons.delete,
-                                                      color: Colors.white,
-                                                      size: 18,
-                                                    ),
-                                                    onPressed: () {
-                                                      setState(() {
-                                                        _imageBytes = null;
-                                                        _imageBase64 = null;
-                                                      });
-                                                    },
-                                                    padding: EdgeInsets.zero,
-                                                    constraints:
-                                                    const BoxConstraints(),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      )
+                                                ),
+                                              ],
+                                            )
                                           : isLoading
-                                          ? const Center(
-                                        child: CircularProgressIndicator(),
-                                      )
-                                          : Column(
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(16),
-                                            decoration: BoxDecoration(
-                                              color: Theme.of(context).primaryColor.withOpacity(0.1),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: Icon(
-                                              Icons.cloud_upload_rounded,
-                                              size: 36,
-                                              color: Theme.of(context).primaryColor,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          Text(
-                                            'Drag & drop or click to upload',
-                                            style: TextStyle(
-                                              color: Theme.of(context).primaryColor,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'JPG, PNG or GIF (Max 2MB)',
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                              ? const Center(
+                                                  child:
+                                                      CircularProgressIndicator(),
+                                                )
+                                              : Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              16),
+                                                      decoration: BoxDecoration(
+                                                        color: Theme.of(context)
+                                                            .primaryColor
+                                                            .withOpacity(0.1),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                      child: Icon(
+                                                        Icons
+                                                            .cloud_upload_rounded,
+                                                        size: 36,
+                                                        color: Theme.of(context)
+                                                            .primaryColor,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      'Drag & drop or click to upload',
+                                                      style: TextStyle(
+                                                        color: Theme.of(context)
+                                                            .primaryColor,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Text(
+                                                      'JPG, PNG or GIF (Max 2MB)',
+                                                      style: TextStyle(
+                                                        color: Colors
+                                                            .grey.shade600,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                     ),
                                   ),
                                 ),

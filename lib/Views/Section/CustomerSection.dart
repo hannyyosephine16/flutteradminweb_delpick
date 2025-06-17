@@ -1,3 +1,4 @@
+// FIXED: CustomerSection.dart - Updated to match backend response format
 import 'package:flutter/material.dart';
 import 'package:delpick_admin/Views/Dashboard/CustomerDetail/EditCustomer.dart';
 import 'package:delpick_admin/Views/Dashboard/CustomerDetail/AddCustomer.dart';
@@ -22,8 +23,7 @@ class CustomerSectionState extends State<CustomerSection> {
   int _totalPages = 1;
   bool _isLoading = false;
 
-  // FIXED: Proper type handling and null safety
-// FIXED: Simple and direct approach matching backend format
+  // FIXED: Updated to match backend response format (snake_case)
   Future<void> fetchCustomers() async {
     try {
       setState(() {
@@ -42,14 +42,15 @@ class CustomerSectionState extends State<CustomerSection> {
       print('📄 Response received: ${data != null}');
 
       if (data != null) {
-        // Backend returns exact format:
+        // Backend returns format:
         // {
+        //   "statusCode": 200,
         //   "message": "Berhasil mendapatkan data customer",
         //   "data": {
-        //     "totalItems": count,
-        //     "totalPages": Math.ceil(count / queryOptions.limit),
-        //     "currentPage": parseInt(req.query.page) || 1,
-        //     "customers": [...] // array of User objects
+        //     "total_items": count,     // ✅ FIXED: snake_case
+        //     "total_pages": pages,     // ✅ FIXED: snake_case
+        //     "current_page": page,     // ✅ FIXED: snake_case
+        //     "customers": [...]
         //   }
         // }
 
@@ -57,11 +58,11 @@ class CustomerSectionState extends State<CustomerSection> {
         final customersList = responseData['customers'] as List<dynamic>;
 
         setState(() {
-          customers =
-              customersList; // Direct assignment - this is guaranteed to be a List
-          _totalItems = responseData['totalItems'] as int? ?? 0;
-          _totalPages = responseData['totalPages'] as int? ?? 1;
-          _currentPage = responseData['currentPage'] as int? ?? _currentPage;
+          customers = customersList;
+          // ✅ FIXED: Use snake_case keys to match backend
+          _totalItems = responseData['total_items'] as int? ?? 0;
+          _totalPages = responseData['total_pages'] as int? ?? 1;
+          _currentPage = responseData['current_page'] as int? ?? _currentPage;
         });
 
         print('✅ Loaded ${customersList.length} customers');
@@ -87,9 +88,8 @@ class CustomerSectionState extends State<CustomerSection> {
         );
       }
 
-      // Set empty state on error
       setState(() {
-        customers = []; // Always assign a List
+        customers = [];
         _totalItems = 0;
         _totalPages = 1;
       });
@@ -100,7 +100,7 @@ class CustomerSectionState extends State<CustomerSection> {
     }
   }
 
-  // Delete customer implementation
+  // Rest of the code remains the same...
   Future<void> _deleteCustomer(String customerId) async {
     if (customerId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -127,8 +127,6 @@ class CustomerSectionState extends State<CustomerSection> {
             ),
           );
         }
-
-        // Refresh the list after successful deletion
         await fetchCustomers();
       } else {
         throw Exception('Delete operation failed');
@@ -152,7 +150,6 @@ class CustomerSectionState extends State<CustomerSection> {
     }
   }
 
-  // FIXED: Safe filtering with null checks
   List<dynamic> get _filteredCustomers {
     if (_searchQuery.isEmpty) {
       return customers;
@@ -161,7 +158,6 @@ class CustomerSectionState extends State<CustomerSection> {
     return customers.where((customer) {
       if (customer == null) return false;
 
-      // Safe access to customer data with null checks
       final name = customer["name"]?.toString().toLowerCase() ?? '';
       final email = customer["email"]?.toString().toLowerCase() ?? '';
       final phone = customer["phone"]?.toString().toLowerCase() ?? '';
@@ -187,7 +183,6 @@ class CustomerSectionState extends State<CustomerSection> {
     super.dispose();
   }
 
-  // Navigate to edit customer screen with proper error handling
   void _navigateToEditCustomer(dynamic customer) {
     try {
       if (customer == null) {
@@ -197,7 +192,6 @@ class CustomerSectionState extends State<CustomerSection> {
         return;
       }
 
-      // Convert customer ID to string to ensure compatibility
       String customerId = customer["id"]?.toString() ?? '';
 
       if (customerId.isEmpty) {
@@ -217,7 +211,6 @@ class CustomerSectionState extends State<CustomerSection> {
           ),
         ),
       ).then((_) {
-        // Refresh the data when returning from edit screen
         print('🔄 Returned from edit screen, refreshing data');
         fetchCustomers();
       });
@@ -240,7 +233,6 @@ class CustomerSectionState extends State<CustomerSection> {
         backgroundColor: Colors.white,
         elevation: 1,
         actions: [
-          // Debug button for testing API connection
           IconButton(
             icon: const Icon(Icons.bug_report, color: Colors.orange),
             onPressed: () async {
@@ -262,7 +254,6 @@ class CustomerSectionState extends State<CustomerSection> {
                   MaterialPageRoute(
                       builder: (context) => const AddNewCustomerScreen()),
                 ).then((_) {
-                  // Refresh the data when returning from add screen
                   fetchCustomers();
                 });
               },
@@ -300,7 +291,6 @@ class CustomerSectionState extends State<CustomerSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header with title and search button/field
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -326,8 +316,6 @@ class CustomerSectionState extends State<CustomerSection> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // Loading indicator or content
                   _isLoading
                       ? const Expanded(
                           child: Center(
@@ -345,10 +333,7 @@ class CustomerSectionState extends State<CustomerSection> {
                           child:
                               isSmallScreen ? _buildListView() : _buildTable(),
                         ),
-
                   const SizedBox(height: 16),
-
-                  // Pagination
                   if (!_isLoading) _buildPagination(),
                 ],
               ),
@@ -359,7 +344,6 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // Search bar
   Widget _buildSearchField() {
     return Expanded(
       child: Padding(
@@ -393,7 +377,7 @@ class CustomerSectionState extends State<CustomerSection> {
           onChanged: (value) {
             setState(() {
               _searchQuery = value;
-              _currentPage = 1; // Reset to first page when searching
+              _currentPage = 1;
             });
           },
         ),
@@ -401,7 +385,6 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // Table to display customers
   Widget _buildTable() {
     final displayedCustomers = _filteredCustomers;
 
@@ -412,7 +395,6 @@ class CustomerSectionState extends State<CustomerSection> {
       ),
       child: Column(
         children: [
-          // Header Row with gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -438,8 +420,6 @@ class CustomerSectionState extends State<CustomerSection> {
               ),
             ),
           ),
-
-          // No results message
           if (displayedCustomers.isEmpty)
             Container(
               padding: const EdgeInsets.all(24),
@@ -452,8 +432,6 @@ class CustomerSectionState extends State<CustomerSection> {
                 ),
               ),
             ),
-
-          // Table Body
           Expanded(
             child: ListView.builder(
               itemCount: displayedCustomers.length,
@@ -562,7 +540,6 @@ class CustomerSectionState extends State<CustomerSection> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Previous page button
           IconButton(
             icon: const Icon(Icons.chevron_left, color: Color(0xFF1A3B89)),
             onPressed: _currentPage > 1
@@ -574,8 +551,6 @@ class CustomerSectionState extends State<CustomerSection> {
                   }
                 : null,
           ),
-
-          // Page number indicators
           Row(
             mainAxisSize: MainAxisSize.min,
             children: List.generate(
@@ -631,8 +606,6 @@ class CustomerSectionState extends State<CustomerSection> {
               },
             ),
           ),
-
-          // Next page button
           IconButton(
             icon: const Icon(Icons.chevron_right, color: Color(0xFF1A3B89)),
             onPressed: _currentPage < totalPages
@@ -649,7 +622,6 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // Delete confirmation with proper string handling
   void _showDeleteConfirmation(String customerId) {
     if (customerId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(

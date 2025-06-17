@@ -13,11 +13,9 @@ class LoginScreen extends StatefulWidget {
 
   @override
   LoginScreenState createState() => LoginScreenState();
-
 }
 
-class LoginScreenState extends State<LoginScreen>{
-
+class LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   bool _isLoading = false;
@@ -60,8 +58,8 @@ class LoginScreenState extends State<LoginScreen>{
       }
 
       // Simpan token ke localStorage
-      html.window.localStorage['auth_token'] = token; // Menyimpan token ke localStorage
-
+      html.window.localStorage['auth_token'] =
+          token; // Menyimpan token ke localStorage
 
       // print("Decoded Token: $token");
 
@@ -93,7 +91,6 @@ class LoginScreenState extends State<LoginScreen>{
       } else {
         showError("Token tidak valid");
       }
-
     } catch (e) {
       print("Error: $e"); // Debugging error
       showError(e.toString());
@@ -104,9 +101,9 @@ class LoginScreenState extends State<LoginScreen>{
     }
   }
 
-
   void showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -120,7 +117,8 @@ class LoginScreenState extends State<LoginScreen>{
                 Expanded(
                   flex: 1,
                   child: Container(
-                    color: Colors.blue, // Replace with your GlobalStyle.buttonColor
+                    color: Colors
+                        .blue, // Replace with your GlobalStyle.buttonColor
                     width: double.infinity,
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 32.0),
@@ -173,7 +171,8 @@ class LoginScreenState extends State<LoginScreen>{
                   flex: 1,
                   child: Container(
                     width: double.infinity,
-                    color: Colors.blue, // Replace with your GlobalStyle.buttonColor
+                    color: Colors
+                        .blue, // Replace with your GlobalStyle.buttonColor
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 32.0),
                       child: Column(
@@ -311,7 +310,8 @@ class LoginScreenState extends State<LoginScreen>{
                 height: 48,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue, // Replace with your GlobalStyle.buttonColor
+                    backgroundColor: Colors
+                        .blue, // Replace with your GlobalStyle.buttonColor
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),

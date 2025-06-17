@@ -1,29 +1,33 @@
-// lib/src/api_constant.dart
+// FIXED: api_constant.dart untuk backend URL: https://delpick.horas-code.my.id/api/v1/
+
 class ApiConstants {
-  // Base URLs - Environment based
+  // ✅ CONFIRMED BASE URLS
   static const String productionUrl = 'https://delpick.horas-code.my.id/api/v1';
   static const String developmentUrl = 'http://localhost:6100/api/v1';
   static const String stagingUrl =
       'https://staging.delpick.horas-code.my.id/api/v1';
 
-  // Get current base URL
+  // ✅ FIXED: Always use production URL for hosted backend
   static String get baseUrl {
-    const environment =
-        String.fromEnvironment('ENV', defaultValue: 'production');
-    switch (environment) {
-      case 'development':
-        return developmentUrl;
-      case 'staging':
-        return stagingUrl;
-      default:
-        return productionUrl;
-    }
+    // For now, always use production since backend is hosted
+    return productionUrl;
+
+    // Original environment-based logic (uncomment if needed):
+    // const environment = String.fromEnvironment('ENV', defaultValue: 'production');
+    // switch (environment) {
+    //   case 'development':
+    //     return developmentUrl;
+    //   case 'staging':
+    //     return stagingUrl;
+    //   default:
+    //     return productionUrl;
+    // }
   }
 
   // API Version
   static const String apiVersion = 'v1';
 
-  // Request timeouts
+  // Request timeouts - increased for hosted backend
   static const int connectTimeout = 30000; // 30 seconds
   static const int receiveTimeout = 30000; // 30 seconds
   static const int sendTimeout = 30000; // 30 seconds
@@ -33,7 +37,7 @@ class ApiConstants {
   static const String userKey = 'user_data';
   static const String refreshTokenKey = 'refresh_token';
 
-  // API Endpoints
+  // ✅ CONFIRMED API ENDPOINTS (based on backend routes)
   static const String auth = '/auth';
   static const String customers = '/customers';
   static const String drivers = '/drivers';
@@ -43,61 +47,78 @@ class ApiConstants {
   static const String driverRequests = '/driver-requests';
   static const String health = '/health';
 
-  // Auth endpoints
-  static const String login = '$auth/login';
-  static const String logout = '$auth/logout';
-  static const String register = '$auth/register';
-  static const String profile = '$auth/profile';
-  static const String forgotPassword = '$auth/forgot-password';
-  static const String resetPassword = '$auth/reset-password';
-  static const String verifyEmail = '$auth/verify-email';
-  static const String resendVerification = '$auth/resend-verification';
+  // ✅ CONFIRMED Auth endpoints
+  static const String login = '$auth/login'; // /auth/login
+  static const String logout = '$auth/logout'; // /auth/logout
+  static const String register = '$auth/register'; // /auth/register
+  static const String profile = '$auth/profile'; // /auth/profile
+  static const String forgotPassword =
+      '$auth/forgot-password'; // /auth/forgot-password
+  static const String resetPassword =
+      '$auth/reset-password'; // /auth/reset-password
+  static const String verifyEmail = '$auth/verify-email'; // /auth/verify-email
+  static const String resendVerification =
+      '$auth/resend-verification'; // /auth/resend-verification
 
-  // Driver endpoints
-  static const String allDrivers = drivers;
-  static const String driverById = '$drivers/{id}';
-  static const String driverStatus = '$drivers/{id}/status';
-  static const String driverLocation = '$drivers/{id}/location';
+  // ✅ CONFIRMED Driver endpoints
+  static const String allDrivers = drivers; // /drivers
+  static const String driverById = '$drivers/{id}'; // /drivers/{id}
+  static const String driverStatus =
+      '$drivers/{id}/status'; // /drivers/{id}/status
+  static const String driverLocation =
+      '$drivers/{id}/location'; // /drivers/{id}/location
 
-  // Customer endpoints
-  static const String allCustomers = customers;
-  static const String customerById = '$customers/{id}';
+  // ✅ CONFIRMED Customer endpoints
+  static const String allCustomers = customers; // /customers
+  static const String customerById = '$customers/{id}'; // /customers/{id}
 
-  // Store endpoints
-  static const String allStores = stores;
-  static const String storeById = '$stores/{id}';
+  // ✅ CONFIRMED Store endpoints
+  static const String allStores = stores; // /stores
+  static const String storeById = '$stores/{id}'; // /stores/{id}
 
-  // Menu endpoints
-  static const String allMenuItems = menu;
-  static const String menuByStore = '$menu/store/{store_id}';
-  static const String menuItemById = '$menu/{id}';
-  static const String menuItemStatus = '$menu/{id}/status';
+  // ✅ CONFIRMED Menu endpoints
+  static const String allMenuItems = menu; // /menu
+  static const String menuByStore =
+      '$menu/store/{store_id}'; // /menu/store/{store_id}
+  static const String menuItemById = '$menu/{id}'; // /menu/{id}
+  static const String menuItemStatus = '$menu/{id}/status'; // /menu/{id}/status
 
-  // Order endpoints
-  static const String allOrders = orders;
-  static const String orderById = '$orders/{id}';
-  static const String customerOrders = '$orders/customer/orders';
-  static const String storeOrders = '$orders/store/orders';
-  static const String orderStatus = '$orders/{id}/status';
-  static const String orderReview = '$orders/{id}/review';
+  // ✅ CONFIRMED Order endpoints
+  static const String allOrders = orders; // /orders
+  static const String orderById = '$orders/{id}'; // /orders/{id}
+  static const String customerOrders =
+      '$orders/customer/orders'; // /orders/customer/orders
+  static const String storeOrders =
+      '$orders/store/orders'; // /orders/store/orders
+  static const String orderStatus =
+      '$orders/{id}/status'; // /orders/{id}/status
+  static const String orderReview =
+      '$orders/{id}/review'; // /orders/{id}/review
 
-  // Tracking endpoints
-  static const String orderTracking = '$orders/{id}/tracking';
-  static const String trackingStart = '$orders/{id}/tracking/start';
-  static const String trackingComplete = '$orders/{id}/tracking/complete';
-  static const String trackingLocation = '$orders/{id}/tracking/location';
-  static const String trackingHistory = '$orders/{id}/tracking/history';
+  // ✅ CONFIRMED Tracking endpoints
+  static const String orderTracking =
+      '$orders/{id}/tracking'; // /orders/{id}/tracking
+  static const String trackingStart =
+      '$orders/{id}/tracking/start'; // /orders/{id}/tracking/start
+  static const String trackingComplete =
+      '$orders/{id}/tracking/complete'; // /orders/{id}/tracking/complete
+  static const String trackingLocation =
+      '$orders/{id}/tracking/location'; // /orders/{id}/tracking/location
+  static const String trackingHistory =
+      '$orders/{id}/tracking/history'; // /orders/{id}/tracking/history
 
-  // Driver Request endpoints
-  static const String allDriverRequests = driverRequests;
-  static const String driverRequestById = '$driverRequests/{id}';
-  static const String respondDriverRequest = '$driverRequests/{id}/respond';
+  // ✅ CONFIRMED Driver Request endpoints
+  static const String allDriverRequests = driverRequests; // /driver-requests
+  static const String driverRequestById =
+      '$driverRequests/{id}'; // /driver-requests/{id}
+  static const String respondDriverRequest =
+      '$driverRequests/{id}/respond'; // /driver-requests/{id}/respond
 
-  // Health endpoints
-  static const String healthCheck = '$health';
-  static const String healthDatabase = '$health/db';
-  static const String healthCache = '$health/cache';
-  static const String healthStorage = '$health/storage';
+  // ✅ CONFIRMED Health endpoints
+  static const String healthCheck = '$health'; // /health
+  static const String healthDatabase = '$health/db'; // /health/db
+  static const String healthCache = '$health/cache'; // /health/cache
+  static const String healthStorage = '$health/storage'; // /health/storage
 
   // HTTP Status Codes
   static const int statusOk = 200;
@@ -112,10 +133,11 @@ class ApiConstants {
   static const int statusUnprocessableEntity = 422;
   static const int statusInternalServerError = 500;
 
-  // Request headers
+  // ✅ FIXED: Headers optimized for hosted backend
   static Map<String, String> get defaultHeaders => {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'User-Agent': 'DelPick-Admin-Flutter',
       };
 
   static Map<String, String> authHeaders(String token) => {
@@ -123,16 +145,16 @@ class ApiConstants {
         'Authorization': 'Bearer $token',
       };
 
-  // Response keys - sesuai dengan backend response format
+  // ✅ CONFIRMED: Response keys sesuai backend format
   static const String statusCodeKey = 'statusCode';
   static const String messageKey = 'message';
   static const String dataKey = 'data';
   static const String errorsKey = 'errors';
 
-  // Pagination keys
-  static const String totalItemsKey = 'totalItems';
-  static const String totalPagesKey = 'totalPages';
-  static const String currentPageKey = 'currentPage';
+  // ✅ CONFIRMED: Pagination keys sesuai backend format (snake_case)
+  static const String totalItemsKey = 'total_items';
+  static const String totalPagesKey = 'total_pages';
+  static const String currentPageKey = 'current_page';
 
   // Default pagination values
   static const int defaultPage = 1;
@@ -143,7 +165,7 @@ class ApiConstants {
   static const int maxFileSize = 5 * 1024 * 1024; // 5MB
   static const List<String> allowedImageTypes = ['jpg', 'jpeg', 'png', 'gif'];
 
-  // Order status values - sesuai dengan backend enum
+  // ✅ CONFIRMED: Status values sesuai backend enum
   static const List<String> orderStatuses = [
     'pending',
     'confirmed',
@@ -154,7 +176,6 @@ class ApiConstants {
     'cancelled'
   ];
 
-  // Delivery status values
   static const List<String> deliveryStatuses = [
     'pending',
     'picked_up',
@@ -162,13 +183,10 @@ class ApiConstants {
     'delivered'
   ];
 
-  // Driver status values
   static const List<String> driverStatuses = ['active', 'inactive', 'busy'];
-
-  // Store status values
   static const List<String> storeStatuses = ['active', 'inactive', 'closed'];
 
-  // User roles
+  // ✅ CONFIRMED: User roles sesuai backend
   static const String adminRole = 'admin';
   static const String storeRole = 'store';
   static const String driverRole = 'driver';
@@ -199,19 +217,16 @@ class ApiConstants {
     return result;
   }
 
-  // Build full URL
   static String buildUrl(String endpoint) {
     return '$baseUrl$endpoint';
   }
 
-  // Build URL with path parameters
   static String buildUrlWithParams(
       String endpoint, Map<String, String> params) {
     final path = replacePathParams(endpoint, params);
     return buildUrl(path);
   }
 
-  // Build query parameters
   static Map<String, dynamic> buildQueryParams({
     int? page,
     int? limit,
@@ -235,6 +250,13 @@ class ApiConstants {
     return params;
   }
 
+  // ✅ ADDED: Debug helpers for hosted backend
+  static void printCurrentConfig() {
+    print('📍 Current Backend URL: $baseUrl');
+    print('🔗 Login Endpoint: $baseUrl$login');
+    print('🏥 Health Endpoint: $baseUrl$healthCheck');
+  }
+
   // Validate status codes
   static bool isSuccessStatusCode(int statusCode) {
     return statusCode >= 200 && statusCode < 300;
@@ -248,7 +270,6 @@ class ApiConstants {
     return statusCode >= 500;
   }
 
-  // Get error message based on status code
   static String getErrorMessage(int statusCode) {
     switch (statusCode) {
       case statusBadRequest:

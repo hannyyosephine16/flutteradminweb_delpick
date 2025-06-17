@@ -1,3 +1,4 @@
+// FIXED: CustomerController.dart - Updated to match backend response format
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../src/CustomerService.dart';
@@ -55,7 +56,7 @@ class CustomerController extends GetxController {
     super.onClose();
   }
 
-  // Fetch customers with pagination - FIXED
+  // FIXED: Fetch customers with correct response parsing
   Future<void> fetchCustomers({int page = 1, bool isRefresh = false}) async {
     try {
       if (isRefresh || page == 1) {
@@ -68,36 +69,39 @@ class CustomerController extends GetxController {
       hasError.value = false;
       errorMessage.value = '';
 
-      // FIXED: Use named parameters
+      print(
+          '🔄 Fetching customers - Page: $page, Limit: ${itemsPerPage.value}');
+
       final response = await CustomerService.getAllCustomers(
         page: page,
         limit: itemsPerPage.value,
         search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
       );
 
-      // FIXED: Handle null response and null safety
       if (response != null) {
-        // Handle different response formats from backend
         List<dynamic> customersData = [];
 
+        // ✅ FIXED: Handle backend response format with snake_case keys
         if (response.containsKey('data') && response['data'] != null) {
           final data = response['data'] as Map<String, dynamic>?;
           if (data != null && data.containsKey('customers')) {
             customersData = data['customers'] as List<dynamic>? ?? [];
 
-            // Update pagination info with null safety
-            currentPage.value = data['currentPage'] as int? ?? page;
-            totalPages.value = data['totalPages'] as int? ?? 1;
-            totalItems.value =
-                data['totalItems'] as int? ?? customersData.length;
+            // ✅ FIXED: Use snake_case keys to match backend
+            currentPage.value =
+                data['current_page'] as int? ?? page; // Was: currentPage
+            totalPages.value =
+                data['total_pages'] as int? ?? 1; // Was: totalPages
+            totalItems.value = data['total_items'] as int? ??
+                customersData.length; // Was: totalItems
           }
         } else if (response['customers'] != null) {
           // Alternative format: direct customers array in response
           customersData = response['customers'] as List<dynamic>? ?? [];
-          currentPage.value = response['currentPage'] as int? ?? page;
-          totalPages.value = response['totalPages'] as int? ?? 1;
+          currentPage.value = response['current_page'] as int? ?? page;
+          totalPages.value = response['total_pages'] as int? ?? 1;
           totalItems.value =
-              response['totalItems'] as int? ?? customersData.length;
+              response['total_items'] as int? ?? customersData.length;
         }
 
         // Convert to CustomerModel list
@@ -112,6 +116,8 @@ class CustomerController extends GetxController {
         }
 
         print('✅ Loaded ${customersList.length} customers');
+        print(
+            '📊 Pagination - Page: ${currentPage.value}, Total Pages: ${totalPages.value}, Total Items: ${totalItems.value}');
       } else {
         throw Exception('No response from server');
       }
@@ -150,7 +156,7 @@ class CustomerController extends GetxController {
     fetchCustomers(page: 1, isRefresh: true);
   }
 
-  // Get customer by ID - FIXED
+  // FIXED: Get customer by ID with proper response handling
   Future<CustomerModel?> getCustomerById(String id) async {
     try {
       final response = await CustomerService.getCustomerById(id);
@@ -158,6 +164,7 @@ class CustomerController extends GetxController {
         // Handle different response formats
         Map<String, dynamic>? customerData;
 
+        // Backend format: { statusCode: 200, message: "...", data: {...} }
         if (response.containsKey('data') && response['data'] != null) {
           customerData = response['data'] as Map<String, dynamic>?;
         } else if (response.containsKey('name') ||
@@ -365,14 +372,8 @@ class CustomerController extends GetxController {
   // Statistics
   int get totalCustomersCount => totalItems.value;
 
-  // int get activeCustomersCount =>
-  //     customers.where((c) => c.isActiveCustomer ?? true).length;
-
   int get newCustomersCount =>
       customers.where((c) => (c.customerStatus ?? '') == 'New Customer').length;
-
-  // double get totalSpentByAllCustomers =>
-  //     customers.fold(0.0, (sum, customer) => sum + (customer.spent ?? 0.0));
 
   // Snackbar helpers
   void _showSuccessSnackbar(String message) {

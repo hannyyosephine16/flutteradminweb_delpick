@@ -1,43 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../src/StoreService.dart';
-
 // StoreModel sudah ada di Models/StoreModel.dart, import dari sana
 import '../Models/StoreModel.dart';
 
 class StoreController extends GetxController {
-  // Observable variables
+// Observable variables
   final stores = <StoreModel>[].obs;
   final isLoading = false.obs;
   final isLoadingMore = false.obs;
   final hasError = false.obs;
   final errorMessage = ''.obs;
-
-  // Pagination
+// Pagination
   final currentPage = 1.obs;
   final totalPages = 0.obs;
   final totalItems = 0.obs;
   final itemsPerPage = 10.obs;
-
-  // Search and filter
+// Search and filter
   final searchQuery = ''.obs;
   final selectedStatusFilter = 'all'.obs;
-
-  // Selection
+// Selection
   final selectedStores = <StoreModel>[].obs;
   final isAllSelected = false.obs;
-
-  // Form data for add/edit
+// Form data for add/edit
   final formKey = GlobalKey<FormState>();
-
-  // Owner data
+// Owner data
   final ownerNameController = TextEditingController();
   final ownerEmailController = TextEditingController();
   final ownerPhoneController = TextEditingController();
   final ownerPasswordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
-
-  // Store data
+// Store data
   final storeNameController = TextEditingController();
   final addressController = TextEditingController();
   final descriptionController = TextEditingController();
@@ -45,14 +38,12 @@ class StoreController extends GetxController {
   final closeTimeController = TextEditingController();
   final latitudeController = TextEditingController();
   final longitudeController = TextEditingController();
-
-  // Form state
+// Form state
   final isFormLoading = false.obs;
   final isEditMode = false.obs;
   final editingStoreId = ''.obs;
   final selectedImageBase64 = ''.obs;
   final selectedStatus = 'active'.obs;
-
   @override
   void onInit() {
     super.onInit();
@@ -61,7 +52,7 @@ class StoreController extends GetxController {
 
   @override
   void onClose() {
-    // Dispose all controllers
+// Dispose all controllers
     ownerNameController.dispose();
     ownerEmailController.dispose();
     ownerPhoneController.dispose();
@@ -77,7 +68,6 @@ class StoreController extends GetxController {
     super.onClose();
   }
 
-  // Fetch stores dengan pagination (SESUAI BACKEND FORMAT)
 // ✅ COMPLETELY FIXED: Fetch stores with proper response handling
   Future<void> fetchStores({int page = 1, bool isRefresh = false}) async {
     try {
@@ -87,7 +77,6 @@ class StoreController extends GetxController {
       } else {
         isLoadingMore.value = true;
       }
-
       hasError.value = false;
       errorMessage.value = '';
 
@@ -186,31 +175,31 @@ class StoreController extends GetxController {
     }
   }
 
-  // Load more stores (pagination)
+// Load more stores (pagination)
   Future<void> loadMoreStores() async {
     if (currentPage.value < totalPages.value && !isLoadingMore.value) {
       await fetchStores(page: currentPage.value + 1);
     }
   }
 
-  // Refresh stores list
+// Refresh stores list
   Future<void> refreshStores() async {
     await fetchStores(page: 1, isRefresh: true);
   }
 
-  // Search stores
+// Search stores
   void searchStores(String query) {
     searchQuery.value = query;
     fetchStores(page: 1, isRefresh: true);
   }
 
-  // Filter stores by status
+// Filter stores by status
   void filterStoresByStatus(String status) {
     selectedStatusFilter.value = status;
     fetchStores(page: 1, isRefresh: true);
   }
 
-  // Get store by ID
+// Get store by ID
   Future<StoreModel?> getStoreById(String id) async {
     try {
       final response = await StoreService.getStoreById(id);
@@ -221,12 +210,11 @@ class StoreController extends GetxController {
     }
   }
 
-  // Create new store (ADMIN BISA AKSES)
+// Create new store (ADMIN BISA AKSES)
   Future<bool> createStore() async {
     if (!formKey.currentState!.validate()) {
       return false;
     }
-
     try {
       isFormLoading.value = true;
 
@@ -265,12 +253,11 @@ class StoreController extends GetxController {
     }
   }
 
-  // Update store (ADMIN BISA AKSES)
+// Update store (ADMIN BISA AKSES)
   Future<bool> updateStore() async {
     if (!formKey.currentState!.validate()) {
       return false;
     }
-
     try {
       isFormLoading.value = true;
 
@@ -319,7 +306,7 @@ class StoreController extends GetxController {
     }
   }
 
-  // Delete store (ADMIN BISA AKSES)
+// Delete store (ADMIN BISA AKSES)
   Future<bool> deleteStore(String id) async {
     try {
       await StoreService.deleteStore(id);
@@ -332,13 +319,12 @@ class StoreController extends GetxController {
     }
   }
 
-  // Delete multiple stores
+// Delete multiple stores
   Future<bool> deleteMultipleStores() async {
     if (selectedStores.isEmpty) {
       _showErrorSnackbar('No stores selected');
       return false;
     }
-
     try {
       for (final store in selectedStores) {
         await StoreService.deleteStore(store.id.toString());
@@ -355,11 +341,10 @@ class StoreController extends GetxController {
     }
   }
 
-  // Update store status (ADMIN BISA AKSES)
+// Update store status (ADMIN BISA AKSES)
   Future<void> updateStoreStatus(String storeId, String status) async {
     try {
       await StoreService.updateStoreStatus(storeId, status);
-
       // Update local store status
       final storeIndex = stores.indexWhere((s) => s.id.toString() == storeId);
       if (storeIndex != -1) {
@@ -373,26 +358,25 @@ class StoreController extends GetxController {
     }
   }
 
-  // Form management
+// Form management
   void setEditMode(StoreModel store) {
     isEditMode.value = true;
     editingStoreId.value = store.id.toString();
-
-    // Owner data
+// Owner data
     ownerNameController.text = store.ownerName;
     ownerEmailController.text = store.ownerEmail;
     ownerPhoneController.text = store.ownerPhone;
     ownerPasswordController.clear();
     confirmPasswordController.clear();
 
-    // Store data
+// Store data
     storeNameController.text = store.name;
     addressController.text = store.address;
     descriptionController.text = store.description ?? '';
     openTimeController.text = store.openTime ?? '';
     closeTimeController.text = store.closeTime ?? '';
-    latitudeController.text = store.latitude?.toString() ?? '';
-    longitudeController.text = store.longitude?.toString() ?? '';
+    latitudeController.text = store.latitude.toString();
+    longitudeController.text = store.longitude.toString();
     selectedStatus.value = store.status;
     selectedImageBase64.value = store.imageUrl ?? '';
   }
@@ -400,15 +384,14 @@ class StoreController extends GetxController {
   void clearForm() {
     isEditMode.value = false;
     editingStoreId.value = '';
-
-    // Clear owner data
+// Clear owner data
     ownerNameController.clear();
     ownerEmailController.clear();
     ownerPhoneController.clear();
     ownerPasswordController.clear();
     confirmPasswordController.clear();
 
-    // Clear store data
+// Clear store data
     storeNameController.clear();
     addressController.clear();
     descriptionController.clear();
@@ -428,7 +411,7 @@ class StoreController extends GetxController {
     selectedStatus.value = status;
   }
 
-  // Selection management
+// Selection management
   void toggleStoreSelection(StoreModel store) {
     if (selectedStores.contains(store)) {
       selectedStores.remove(store);
@@ -457,21 +440,19 @@ class StoreController extends GetxController {
         stores.isNotEmpty && selectedStores.length == stores.length;
   }
 
-  // Utility methods
+// Utility methods
   bool isStoreSelected(StoreModel store) {
     return selectedStores.contains(store);
   }
 
   int get selectedCount => selectedStores.length;
-
   List<StoreModel> get filteredStores {
     var filtered = stores.where((store) {
-      // Status filter
+// Status filter
       if (selectedStatusFilter.value != 'all' &&
           store.status != selectedStatusFilter.value) {
         return false;
       }
-
       // Search filter
       if (searchQuery.value.isNotEmpty) {
         final query = searchQuery.value.toLowerCase();
@@ -487,24 +468,29 @@ class StoreController extends GetxController {
     return filtered;
   }
 
-  // Statistics
+// ✅ FIXED: Statistics - Handle null rating values properly
   int get totalStoresCount => totalItems.value;
   int get activeStoresCount => stores.where((s) => s.isActive).length;
   int get inactiveStoresCount => stores.where((s) => s.isInactive).length;
+  double get averageRating {
+    if (stores.isEmpty) return 0.0;
+    final validRatings = stores
+        .where((store) => store.rating != null)
+        .map((store) => store.rating!)
+        .toList();
 
-  double get averageRating => stores.isEmpty
-      ? 0.0
-      : stores.fold(0.0, (sum, store) => sum + store.rating) / stores.length;
+    if (validRatings.isEmpty) return 0.0;
+
+    return validRatings.fold(0.0, (sum, rating) => sum + rating) /
+        validRatings.length;
+  }
 
   String get averageRatingDisplay => averageRating.toStringAsFixed(1);
-
-  // Status options for dropdown
+// Status options for dropdown
   List<String> get statusOptions => ['active', 'inactive'];
-
-  // Filter options
+// Filter options
   List<String> get filterOptions => ['all', 'active', 'inactive'];
-
-  // Snackbar helpers
+// Snackbar helpers
   void _showSuccessSnackbar(String message) {
     Get.snackbar(
       'Success',
@@ -525,7 +511,7 @@ class StoreController extends GetxController {
     );
   }
 
-  // Validation methods
+// Validation methods
   String? validateOwnerName(String? value) {
     if (value == null || value.isEmpty) {
       return 'Owner name is required';
