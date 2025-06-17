@@ -6,7 +6,7 @@ import '../src/MenuItemService.dart';
 class MenuItemModel {
   final int id;
   final String name;
-  final int price;
+  final double price; // Changed from int to double
   final String? description;
   final String? imageUrl;
   final int storeId;
@@ -32,15 +32,15 @@ class MenuItemModel {
     return MenuItemModel(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
-      price: json['price'] ?? 0,
+      price: (json['price'] ?? 0).toDouble(), // Ensure double conversion
       description: json['description'],
-      imageUrl: json['imageUrl'],
-      storeId: json['storeId'] ?? 0,
+      imageUrl: json['image_url'], // Fixed key name
+      storeId: json['store_id'] ?? 0, // Fixed key name
       quantity: json['quantity'] ?? 0,
-      createdAt:
-          DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt:
-          DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
+      createdAt: DateTime.parse(json['created_at'] ??
+          DateTime.now().toIso8601String()), // Fixed key name
+      updatedAt: DateTime.parse(json['updated_at'] ??
+          DateTime.now().toIso8601String()), // Fixed key name
       store: json['store'] != null ? StoreInfo.fromJson(json['store']) : null,
     );
   }
@@ -118,8 +118,7 @@ class MenuItemController extends GetxController {
     );
   }
 
-  // Fetch menu items dengan pagination (ADMIN BISA AKSES)
-// ✅ COMPLETELY FIXED: Fetch menu items with proper response handling
+  // ✅ FIXED: Fetch menu items with proper response handling
   Future<void> fetchMenuItems({int page = 1, bool isRefresh = false}) async {
     try {
       if (isRefresh || page == 1) {
@@ -132,30 +131,29 @@ class MenuItemController extends GetxController {
       hasError.value = false;
       errorMessage.value = '';
 
-      // ✅ This now always returns Map<String, dynamic> from MenuItemService
+      // Use search query if available
       final response = await MenuItemService.getAllMenuItems(
-          page: page, limit: itemsPerPage.value);
+        page: page,
+        limit: itemsPerPage.value,
+        search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
+      );
 
       print('🔍 MenuItemController - Response type: ${response.runtimeType}');
       print('🔍 MenuItemController - Response keys: ${response.keys.toList()}');
 
-      // ✅ Since MenuItemService now always returns Map<String, dynamic>
-      // We can safely extract the data
+      // Extract menu items data from response
       List<dynamic> menuItemsData = [];
       int totalPages = 1;
       int totalItems = 0;
       int currentPageNum = page;
 
-      // Extract menu items data from response
       final dataField = response['data'];
       print('🔍 Data field type: ${dataField.runtimeType}');
 
       if (dataField is List) {
-        // Case 1: { data: [menuItem1, menuItem2, ...] } - Most common
         print('✅ Found menu items array in data field');
         menuItemsData = List<dynamic>.from(dataField);
       } else if (dataField is Map<String, dynamic>) {
-        // Case 2: { data: { menuItems: [...], ... } } - Nested structure
         print('📋 Data field keys: ${dataField.keys.toList()}');
         final menuItemsField = dataField['menuItems'];
         if (menuItemsField is List) {
@@ -164,7 +162,6 @@ class MenuItemController extends GetxController {
         }
       } else {
         print('⚠️ Unexpected data field type: ${dataField.runtimeType}');
-        // Fallback: check if menuItems are at root level
         final rootMenuItems = response['menuItems'];
         if (rootMenuItems is List) {
           print('✅ Found menu items array at root level');
@@ -198,7 +195,6 @@ class MenuItemController extends GetxController {
         } catch (e, stackTrace) {
           print('❌ Error parsing menu item $i: $e');
           print('   Item: ${menuItemsData[i]}');
-          // Continue with other menu items even if one fails
         }
       }
 
@@ -228,7 +224,7 @@ class MenuItemController extends GetxController {
     }
   }
 
-// ✅ FIXED: Get menu items by store ID (ADMIN BISA AKSES)
+  // ✅ FIXED: Get menu items by store ID
   Future<void> fetchMenuItemsByStore(String storeId, {int page = 1}) async {
     try {
       isLoading.value = true;
@@ -238,7 +234,7 @@ class MenuItemController extends GetxController {
       print(
           '🔍 fetchMenuItemsByStore - Response type: ${response.runtimeType}');
 
-      // ✅ Handle response consistently
+      // Handle response consistently
       List<dynamic> menuItemsData = [];
 
       final dataField = response['data'];
@@ -275,16 +271,22 @@ class MenuItemController extends GetxController {
     }
   }
 
-// ✅ FIXED: Search menu items by query (ADMIN BISA AKSES)
+  // ✅ FIXED: Search menu items using getAllMenuItems with search parameter
   Future<void> searchMenuItemsApi(String query) async {
     try {
       isLoading.value = true;
-      final response = await MenuItemService.searchMenuItems(query,
-          page: 1, limit: itemsPerPage.value);
+      searchQuery.value = query;
+
+      // Use getAllMenuItems with search parameter instead of non-existent searchMenuItems
+      final response = await MenuItemService.getAllMenuItems(
+        page: 1,
+        limit: itemsPerPage.value,
+        search: query.isNotEmpty ? query : null,
+      );
 
       print('🔍 searchMenuItemsApi - Response type: ${response.runtimeType}');
 
-      // ✅ Handle response consistently
+      // Handle response consistently
       List<dynamic> menuItemsData = [];
 
       final dataField = response['data'];
@@ -327,13 +329,13 @@ class MenuItemController extends GetxController {
     await fetchMenuItems(page: 1, isRefresh: true);
   }
 
-  // Search menu items
+  // ✅ FIXED: Search menu items - now triggers fetchMenuItems with search
   void searchMenuItems(String query) {
     searchQuery.value = query;
     fetchMenuItems(page: 1, isRefresh: true);
   }
 
-  // Filter menu items by store (ADMIN BISA AKSES)
+  // Filter menu items by store
   void filterMenuItemsByStore(String storeId) {
     selectedStoreFilter.value = storeId;
     if (storeId != 'all') {
@@ -349,7 +351,7 @@ class MenuItemController extends GetxController {
     fetchMenuItems(page: 1, isRefresh: true);
   }
 
-  // Get menu item by ID (ADMIN BISA AKSES)
+  // Get menu item by ID
   Future<MenuItemModel?> getMenuItemById(String id) async {
     try {
       final response = await MenuItemService.getMenuItemById(id);

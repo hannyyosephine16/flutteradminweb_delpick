@@ -33,6 +33,7 @@ class DriverController extends GetxController {
   final phoneController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
+  final licenseNumberController = TextEditingController(); // ✅ ADDED
   final vehicleNumberController = TextEditingController();
 
   // Form state
@@ -58,6 +59,7 @@ class DriverController extends GetxController {
     phoneController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
+    licenseNumberController.dispose(); // ✅ ADDED
     vehicleNumberController.dispose();
     super.onClose();
   }
@@ -77,7 +79,10 @@ class DriverController extends GetxController {
 
       // ✅ Handle null response from DriverService
       final response = await DriverService.getAllDrivers(
-          page: page, limit: itemsPerPage.value);
+        page: page,
+        limit: itemsPerPage.value,
+        search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
+      );
 
       // ✅ Add null check for response
       if (response == null) {
@@ -217,7 +222,7 @@ class DriverController extends GetxController {
     }
   }
 
-  // Create new driver
+  // ✅ FIXED: Create new driver with proper parameters
   Future<bool> createDriver() async {
     if (!formKey.currentState!.validate()) {
       return false;
@@ -226,13 +231,17 @@ class DriverController extends GetxController {
     try {
       isFormLoading.value = true;
 
+      // ✅ FIXED: All 7 parameters in correct order
       await DriverService.createDriver(
-        nameController.text,
-        emailController.text,
-        passwordController.text,
-        phoneController.text,
-        vehicleNumberController.text,
-        selectedImageBase64.value.isNotEmpty ? selectedImageBase64.value : null,
+        nameController.text, // name
+        emailController.text, // email
+        passwordController.text, // password
+        phoneController.text, // phone
+        licenseNumberController.text, // licenseNumber (ADDED)
+        vehicleNumberController.text, // vehiclePlate
+        selectedImageBase64.value.isNotEmpty
+            ? selectedImageBase64.value
+            : null, // avatar
       );
 
       _showSuccessSnackbar('Driver created successfully');
@@ -260,7 +269,8 @@ class DriverController extends GetxController {
         'name': nameController.text,
         'email': emailController.text,
         'phone': phoneController.text,
-        'vehicle_number': vehicleNumberController.text,
+        'license_number': licenseNumberController.text, // ✅ ADDED
+        'vehicle_plate': vehicleNumberController.text,
         'status': selectedStatus.value,
       };
 
@@ -269,7 +279,7 @@ class DriverController extends GetxController {
       }
 
       if (selectedImageBase64.value.isNotEmpty) {
-        updateData['image'] = selectedImageBase64.value;
+        updateData['avatar'] = selectedImageBase64.value;
       }
 
       await DriverService.updateDriver(editingDriverId.value, updateData);
@@ -356,7 +366,6 @@ class DriverController extends GetxController {
       final driverIndex =
           drivers.indexWhere((d) => d.id.toString() == driverId);
       if (driverIndex != -1) {
-        // Note: This is a simplified update. In a real app, you'd want to refresh the driver data
         refreshDrivers();
       }
 
@@ -399,7 +408,8 @@ class DriverController extends GetxController {
     nameController.text = driver.displayName;
     emailController.text = driver.displayEmail;
     phoneController.text = driver.displayPhone;
-    vehicleNumberController.text = driver.vehicleNumber;
+    licenseNumberController.text = driver.licenseNumber; // ✅ ADDED
+    vehicleNumberController.text = driver.vehiclePlate;
     selectedStatus.value = driver.status;
     passwordController.clear();
     confirmPasswordController.clear();
@@ -412,6 +422,7 @@ class DriverController extends GetxController {
     nameController.clear();
     emailController.clear();
     phoneController.clear();
+    licenseNumberController.clear(); // ✅ ADDED
     vehicleNumberController.clear();
     passwordController.clear();
     confirmPasswordController.clear();
@@ -477,7 +488,7 @@ class DriverController extends GetxController {
         return driver.displayName.toLowerCase().contains(query) ||
             driver.displayEmail.toLowerCase().contains(query) ||
             driver.displayPhone.contains(query) ||
-            driver.vehicleNumber.toLowerCase().contains(query);
+            driver.vehiclePlate.toLowerCase().contains(query);
       }
 
       return true;
@@ -554,6 +565,17 @@ class DriverController extends GetxController {
     }
     if (value.length < 10) {
       return 'Phone must be at least 10 digits';
+    }
+    return null;
+  }
+
+  // ✅ ADDED: License number validation
+  String? validateLicenseNumber(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'License number is required';
+    }
+    if (value.length < 5) {
+      return 'License number must be at least 5 characters';
     }
     return null;
   }
