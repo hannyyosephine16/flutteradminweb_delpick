@@ -1,406 +1,284 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'api_constant.dart';
 
 class TrackingService {
-  static const String baseUrl = 'http://127.0.0.1:6100/api/v1';
   static final FlutterSecureStorage _storage = FlutterSecureStorage();
 
-  // Get tracking data for an order
-  static Future<Map<String, dynamic>> getTrackingData(String orderId) async {
-    final token = await getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
+  static Dio _createDioClient() {
     final dio = Dio();
+    dio.options.baseUrl = ApiConstants.baseUrl;
+    dio.options.connectTimeout = Duration(seconds: 30);
+    dio.options.receiveTimeout = Duration(seconds: 30);
+
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = await _getToken();
+        if (token != null) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        options.headers['Content-Type'] = 'application/json';
+        handler.next(options);
+      },
+    ));
+
+    return dio;
+  }
+
+  // ✅ FIXED: Get tracking data for an order
+  static Future<Map<String, dynamic>> getTrackingData(String orderId) async {
+    final dio = _createDioClient();
 
     try {
       final response = await dio.get(
-        '$baseUrl/tracking/$orderId',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
+        ApiConstants.buildUrlWithParams(
+            ApiConstants.orderTracking, {'id': orderId}),
       );
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        return responseData['data'] ?? responseData;
+        if (responseData['statusCode'] == 200) {
+          return responseData['data'];
+        }
+        throw Exception('Invalid response: ${responseData['message']}');
       } else {
         throw Exception(
             'Failed to get tracking data: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        throw Exception('Order not found');
-      }
-      throw Exception('Failed to get tracking data: ${e.message}');
-    } catch (e) {
-      print('Error fetching tracking data: $e');
-      throw e;
+      _handleDioException(e, 'get tracking data');
     }
+    throw Exception('Unexpected error occurred');
   }
 
-  // Start delivery (by driver)
+  // ✅ FIXED: Start delivery (by driver) - Changed to POST
   static Future<Map<String, dynamic>> startDelivery(String orderId) async {
-    final token = await getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
+    final dio = _createDioClient();
 
     try {
-      final response = await dio.put(
-        '$baseUrl/tracking/$orderId/start',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
+      final response = await dio.post(
+        // Changed from PUT to POST
+        ApiConstants.buildUrlWithParams(
+            ApiConstants.trackingStart, {'id': orderId}),
       );
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        return responseData['data'] ?? responseData;
+        if (responseData['statusCode'] == 200) {
+          return responseData['data'];
+        }
+        throw Exception('Invalid response: ${responseData['message']}');
       } else {
         throw Exception('Failed to start delivery: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 400) {
-        final errorData = e.response!.data;
-        final errorMessage = errorData['message'] ?? 'Cannot start delivery';
-        throw Exception(errorMessage);
-      } else if (e.response?.statusCode == 404) {
-        throw Exception('Order not found');
-      }
-      throw Exception('Failed to start delivery: ${e.message}');
+      _handleDioException(e, 'start delivery');
     }
+    throw Exception('Unexpected error occurred');
   }
 
-  // Complete delivery (by driver)
+  // ✅ FIXED: Complete delivery (by driver) - Changed to POST
   static Future<Map<String, dynamic>> completeDelivery(String orderId) async {
-    final token = await getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
+    final dio = _createDioClient();
 
     try {
-      final response = await dio.put(
-        '$baseUrl/tracking/$orderId/complete',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
+      final response = await dio.post(
+        // Changed from PUT to POST
+        ApiConstants.buildUrlWithParams(
+            ApiConstants.trackingComplete, {'id': orderId}),
       );
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        return responseData['data'] ?? responseData;
+        if (responseData['statusCode'] == 200) {
+          return responseData['data'];
+        }
+        throw Exception('Invalid response: ${responseData['message']}');
       } else {
         throw Exception(
             'Failed to complete delivery: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 400) {
-        final errorData = e.response!.data;
-        final errorMessage = errorData['message'] ?? 'Cannot complete delivery';
-        throw Exception(errorMessage);
-      } else if (e.response?.statusCode == 404) {
-        throw Exception('Order not found');
-      }
-      throw Exception('Failed to complete delivery: ${e.message}');
+      _handleDioException(e, 'complete delivery');
     }
+    throw Exception('Unexpected error occurred');
   }
 
-  // Get real-time tracking info (for periodic updates)
+  // ✅ NEW: Update driver location during delivery
+  static Future<Map<String, dynamic>> updateDriverLocation(
+    String orderId,
+    double latitude,
+    double longitude,
+  ) async {
+    final dio = _createDioClient();
+
+    try {
+      final response = await dio.put(
+        ApiConstants.buildUrlWithParams(
+            ApiConstants.trackingLocation, {'id': orderId}),
+        data: {
+          'latitude': latitude,
+          'longitude': longitude,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        if (responseData['statusCode'] == 200) {
+          return responseData['data'];
+        }
+        throw Exception('Invalid response: ${responseData['message']}');
+      } else {
+        throw Exception(
+            'Failed to update driver location: ${response.statusMessage}');
+      }
+    } on DioException catch (e) {
+      _handleDioException(e, 'update driver location');
+    }
+    throw Exception('Unexpected error occurred');
+  }
+
+  // ✅ NEW: Get tracking history for order
+  static Future<Map<String, dynamic>> getTrackingHistory(String orderId) async {
+    final dio = _createDioClient();
+
+    try {
+      final response = await dio.get(
+        ApiConstants.buildUrlWithParams(
+            ApiConstants.trackingHistory, {'id': orderId}),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        if (responseData['statusCode'] == 200) {
+          return responseData['data'];
+        }
+        throw Exception('Invalid response: ${responseData['message']}');
+      } else {
+        throw Exception(
+            'Failed to get tracking history: ${response.statusMessage}');
+      }
+    } on DioException catch (e) {
+      _handleDioException(e, 'get tracking history');
+    }
+    throw Exception('Unexpected error occurred');
+  }
+
+  // ✅ Helper method: Get real-time tracking (same as getTrackingData)
   static Future<Map<String, dynamic>> getRealTimeTracking(
       String orderId) async {
-    final token = await getToken();
+    return await getTrackingData(orderId);
+  }
 
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
-
+  // ✅ Helper method: Check if order is being delivered
+  static Future<bool> isOrderBeingDelivered(String orderId) async {
     try {
-      final response = await dio.get(
-        '$baseUrl/tracking/$orderId/realtime',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception(
-            'Failed to get real-time tracking: ${response.statusMessage}');
-      }
+      final trackingData = await getTrackingData(orderId);
+      final orderStatus = trackingData['order_status'];
+      return orderStatus == 'on_delivery';
     } catch (e) {
-      throw Exception('Failed to get real-time tracking: ${e.toString()}');
+      return false;
     }
   }
 
-  // Get all active deliveries (admin view)
-  static Future<Map<String, dynamic>> getAllActiveDeliveries(
-      {int page = 1, int limit = 10}) async {
-    final token = await getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
-
-    try {
-      final response = await dio.get(
-        '$baseUrl/tracking/active?page=$page&limit=$limit',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception(
-            'Failed to get active deliveries: ${response.statusMessage}');
-      }
-    } catch (e) {
-      throw Exception('Failed to get active deliveries: ${e.toString()}');
-    }
-  }
-
-  // Get delivery history
-  static Future<Map<String, dynamic>> getDeliveryHistory(
-      {int page = 1, int limit = 10}) async {
-    final token = await getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
-
-    try {
-      final response = await dio.get(
-        '$baseUrl/tracking/history?page=$page&limit=$limit',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception(
-            'Failed to get delivery history: ${response.statusMessage}');
-      }
-    } catch (e) {
-      throw Exception('Failed to get delivery history: ${e.toString()}');
-    }
-  }
-
-  // Get delivery statistics
-  static Future<Map<String, dynamic>> getDeliveryStats() async {
-    final token = await getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
-
-    try {
-      final response = await dio.get(
-        '$baseUrl/tracking/stats',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception(
-            'Failed to get delivery stats: ${response.statusMessage}');
-      }
-    } catch (e) {
-      throw Exception('Failed to get delivery stats: ${e.toString()}');
-    }
-  }
-
-  // Update delivery status (admin action)
-  static Future<Map<String, dynamic>> updateDeliveryStatus(
-      String orderId, String status) async {
-    final token = await getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
-
-    try {
-      final response = await dio.put(
-        '$baseUrl/tracking/$orderId/status',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-        data: {'status': status},
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception(
-            'Failed to update delivery status: ${response.statusMessage}');
-      }
-    } catch (e) {
-      throw Exception('Failed to update delivery status: ${e.toString()}');
-    }
-  }
-
-  // Get driver's current deliveries
-  static Future<Map<String, dynamic>> getDriverCurrentDeliveries() async {
-    final token = await getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
-
-    try {
-      final response = await dio.get(
-        '$baseUrl/tracking/driver/current',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception(
-            'Failed to get driver deliveries: ${response.statusMessage}');
-      }
-    } catch (e) {
-      throw Exception('Failed to get driver deliveries: ${e.toString()}');
-    }
-  }
-
-  // Cancel delivery (admin action)
-  static Future<Map<String, dynamic>> cancelDelivery(
-      String orderId, String reason) async {
-    final token = await getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
-
-    try {
-      final response = await dio.put(
-        '$baseUrl/tracking/$orderId/cancel',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-        data: {'reason': reason},
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception('Failed to cancel delivery: ${response.statusMessage}');
-      }
-    } catch (e) {
-      throw Exception('Failed to cancel delivery: ${e.toString()}');
-    }
-  }
-
-  // Get estimated delivery time
-  static Future<Map<String, dynamic>> getEstimatedDeliveryTime(
+  // ✅ Helper method: Get delivery progress
+  static Future<Map<String, dynamic>?> getDeliveryProgress(
       String orderId) async {
-    final token = await getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
-
     try {
-      final response = await dio.get(
-        '$baseUrl/tracking/$orderId/estimate',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
+      final trackingData = await getTrackingData(orderId);
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception(
-            'Failed to get estimated delivery time: ${response.statusMessage}');
+      if (trackingData['order_status'] == 'on_delivery') {
+        return {
+          'order_id': orderId,
+          'order_status': trackingData['order_status'],
+          'delivery_status': trackingData['delivery_status'],
+          'driver_location': trackingData['driver_location'],
+          'estimated_delivery_time': trackingData['estimated_delivery_time'],
+          'driver': trackingData['driver'],
+        };
       }
+      return null;
     } catch (e) {
-      throw Exception('Failed to get estimated delivery time: ${e.toString()}');
+      return null;
     }
   }
 
-  // Token Management
-  static Future<void> saveToken(String token) async {
-    await _storage.write(key: 'auth_token', value: token);
+  // ✅ Helper method: Get estimated delivery time
+  static Future<DateTime?> getEstimatedDeliveryTime(String orderId) async {
+    try {
+      final trackingData = await getTrackingData(orderId);
+      final estimatedTime = trackingData['estimated_delivery_time'];
+
+      if (estimatedTime != null) {
+        return DateTime.parse(estimatedTime);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 
-  static Future<String?> getToken() async {
-    return await _storage.read(key: 'auth_token');
+  // ===== UTILITY METHODS =====
+
+  static Future<String?> _getToken() async {
+    return await _storage.read(key: ApiConstants.tokenKey);
+  }
+
+  static void _handleDioException(DioException e, String operation) {
+    String errorMessage;
+
+    switch (e.type) {
+      case DioExceptionType.connectionError:
+        errorMessage =
+            'Connection failed. Please check your internet connection.';
+        break;
+      case DioExceptionType.connectionTimeout:
+        errorMessage = 'Connection timeout. Server may be slow or unreachable.';
+        break;
+      case DioExceptionType.receiveTimeout:
+        errorMessage = 'Server response timeout. Request took too long.';
+        break;
+      case DioExceptionType.badResponse:
+        if (e.response?.statusCode == 401) {
+          errorMessage = 'Authentication failed. Please login again.';
+        } else if (e.response?.statusCode == 403) {
+          errorMessage = 'Access denied. Required permissions missing.';
+        } else if (e.response?.statusCode == 404) {
+          errorMessage = 'Order not found or no tracking data available.';
+        } else if (e.response?.statusCode == 400) {
+          final responseData = e.response?.data;
+          if (responseData is Map && responseData.containsKey('message')) {
+            errorMessage = responseData['message'];
+          } else {
+            errorMessage = 'Invalid request data.';
+          }
+        } else {
+          final responseData = e.response?.data;
+          if (responseData is Map && responseData.containsKey('message')) {
+            errorMessage = responseData['message'];
+          } else {
+            errorMessage = 'Server error: ${e.response?.statusCode}';
+          }
+        }
+        break;
+      default:
+        errorMessage = 'Network error: ${e.message}';
+    }
+
+    throw Exception('Failed to $operation: $errorMessage');
+  }
+
+  // ===== CONNECTION TEST =====
+
+  static Future<bool> testConnection() async {
+    try {
+      final dio = _createDioClient();
+      final response = await dio.get(ApiConstants.healthCheck);
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Tracking service connection test failed: $e');
+      return false;
+    }
   }
 }

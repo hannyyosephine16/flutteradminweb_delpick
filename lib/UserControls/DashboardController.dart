@@ -1,4 +1,5 @@
 import 'package:delpick_admin/src/ApiService.dart';
+import 'package:delpick_admin/src/api_constant.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart';
@@ -44,7 +45,7 @@ class DashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _dio.options.baseUrl = ApiService.baseUrl;
+    _dio.options.baseUrl = ApiConstants.baseUrl;
     _dio.options.connectTimeout = const Duration(seconds: 10);
     _dio.options.receiveTimeout = const Duration(seconds: 10);
 
