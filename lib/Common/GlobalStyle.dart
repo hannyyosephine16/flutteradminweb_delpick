@@ -1,28 +1,52 @@
 import 'package:flutter/material.dart';
 
 class GlobalStyle {
+  // Primary Colors - sesuai dengan backend theme
+  static const Color primaryColor = Color(0xFFB71C1C);      // Brick Red untuk primary
+  static const Color primaryLightColor = Color(0xFFE57373); // Light Red
+  static const Color primaryDarkColor = Color(0xFF8B0000);  // Dark Red
 
-  static const Color tabColor = Color(0xffFFFFFF);  // Slightly darker Indigo for stronger tabs
-  static const Color tab2Color = Color(0xff1A73E8);  // Lighter, vibrant Blue for active tabs (more contrast)
-  static const Color primaryBgColor = Color(0xFFB71C1C);
-  static const Color bgColor = Color(0xffF5F7FA);   // Lighter Cool Gray for a cleaner, brighter background
+  // Secondary Colors
+  static const Color secondaryColor = Color(0xFF0A84FF);    // Blue untuk accent
+  static const Color warningColor = Color(0xFFFFB300);      // Amber untuk warning
+  static const Color successColor = Color(0xFF4CAF50);      // Green untuk success
+  static const Color errorColor = Color(0xFFF44336);        // Red untuk error
+  static const Color infoColor = Color(0xFF2196F3);         // Blue untuk info
 
-  static const Color buttonColor = Color(0xff0A84FF); // Softer Brick Red for action buttons
+  // Background Colors
+  static const Color bgColor = Color(0xFFF5F7FA);           // Light Gray background
+  static const Color primaryBgColor = Color(0xFFB71C1C);   // Primary background
+  static const Color cardBgColor = Color(0xFFFFFFFF);       // White untuk cards
 
-  static const Color button2Color = Color(0xffFFB300); // Golden Amber for secondary buttons, stronger than yellow
+  // Text Colors
+  static const Color text1Color = Color(0xFF333333);        // Dark text
+  static const Color text2Color = Color(0xFF666666);        // Medium text
+  static const Color text3Color = Color(0xFFFFA726);        // Accent text
+  static const Color textLightColor = Color(0xFFFFFFFF);    // White text
 
-  static const Color buttonTextColor = Color(0xffFFFFFF); // White (unchanged, works well on all backgrounds)
+  // Button Colors
+  static const Color buttonColor = Color(0xFF0A84FF);       // Primary button
+  static const Color button2Color = Color(0xFFFFB300);      // Secondary button
+  static const Color buttonTextColor = Color(0xFFFFFFFF);   // Button text
 
-  static const Color textFormFieldBorderColor = Color(0xff424242); // Darker Soft Gray for better visibility on input fields
+  // Form Colors
+  static const Color textFormFieldBorderColor = Color(0xFF424242);
+  static const Color textFormFieldLabelColor = Color(0xFF37474F);
 
-  static const Color textFormFieldLabelColor = Color(0xff37474F); // Darker Cool Gray for label contrast (less stark than black)
+  // Other Colors
+  static const Color tabColor = Color(0xFFFFFFFF);          // Tab background
+  static const Color tab2Color = Color(0xFF1A73E8);         // Active tab
+  static const Color strokeColor = Color(0xFFB0BEC5);       // Border color
 
-  static const Color text1Color = Color(0xff333333); // Deep Navy Blue for main text to add warmth and less intensity than black
-  static const Color text2Color = Color(0xff666666); // Muted Blue-Gray for secondary text for a more balanced, modern look
+  // Status Colors (untuk order status, dll)
+  static const Color pendingColor = Color(0xFFFF9800);      // Orange
+  static const Color confirmedColor = Color(0xFF2196F3);    // Blue
+  static const Color preparingColor = Color(0xFF9C27B0);    // Purple
+  static const Color deliveredColor = Color(0xFF4CAF50);    // Green
+  static const Color cancelledColor = Color(0xFFF44336);    // Red
 
-  static const Color text3Color = Color(0xffFFA726); // Soft Orange for accents, provides a fresh feel over Amber
-
-  static const Color strokeColor = Color(0xffB0BEC5); // Light Cool Gray for subtle borders, blending with the new lighter background
-
-
+  // Driver Status Colors
+  static const Color activeDriverColor = Color(0xFF4CAF50); // Green
+  static const Color inactiveDriverColor = Color(0xFF9E9E9E); // Gray
+  static const Color busyDriverColor = Color(0xFFFF9800);   // Orange
 }

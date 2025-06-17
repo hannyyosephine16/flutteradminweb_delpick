@@ -1,75 +1,81 @@
 class OrderModel {
   final int id;
-  final String code;
-  final String deliveryAddress;
-  final double subtotal;
-  final double serviceCharge;
-  final double total;
-  final String
-      orderStatus; // 'pending', 'approved', 'preparing', 'on_delivery', 'delivered', 'cancelled'
-  final String
-      deliveryStatus; // 'waiting', 'picking_up', 'on_delivery', 'delivered'
-  final DateTime orderDate;
-  final String? notes;
   final int customerId;
-  final int? driverId;
   final int storeId;
+  final int? driverId;
+  final String orderStatus;
+  final String deliveryStatus;
+  final double totalAmount;
+  final double deliveryFee;
+  final double? destinationLatitude;
+  final double? destinationLongitude;
+  final DateTime? estimatedPickupTime;
+  final DateTime? actualPickupTime;
+  final DateTime? estimatedDeliveryTime;
+  final DateTime? actualDeliveryTime;
+  final List<dynamic>? trackingUpdates;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  // Related data
+  // Relations
   final List<OrderItemInfo>? items;
   final StoreInfo? store;
   final CustomerInfo? customer;
   final DriverInfo? driver;
-  final List<OrderReviewInfo>? orderReviews;
-  final List<DriverReviewInfo>? driverReviews;
 
   OrderModel({
     required this.id,
-    required this.code,
-    required this.deliveryAddress,
-    required this.subtotal,
-    required this.serviceCharge,
-    required this.total,
+    required this.customerId,
+    required this.storeId,
+    this.driverId,
     required this.orderStatus,
     required this.deliveryStatus,
-    required this.orderDate,
-    this.notes,
-    required this.customerId,
-    this.driverId,
-    required this.storeId,
+    required this.totalAmount,
+    required this.deliveryFee,
+    this.destinationLatitude,
+    this.destinationLongitude,
+    this.estimatedPickupTime,
+    this.actualPickupTime,
+    this.estimatedDeliveryTime,
+    this.actualDeliveryTime,
+    this.trackingUpdates,
     required this.createdAt,
     required this.updatedAt,
     this.items,
     this.store,
     this.customer,
     this.driver,
-    this.orderReviews,
-    this.driverReviews,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
       id: json['id'] ?? 0,
-      code: json['code'] ?? '',
-      deliveryAddress: json['deliveryAddress'] ?? '',
-      subtotal: (json['subtotal'] ?? 0).toDouble(),
-      serviceCharge: (json['serviceCharge'] ?? 0).toDouble(),
-      total: (json['total'] ?? 0).toDouble(),
-      orderStatus: json['order_status'] ?? json['orderStatus'] ?? 'pending',
-      deliveryStatus:
-          json['delivery_status'] ?? json['deliveryStatus'] ?? 'waiting',
-      orderDate:
-          DateTime.parse(json['orderDate'] ?? DateTime.now().toIso8601String()),
-      notes: json['notes'],
-      customerId: json['customerId'] ?? 0,
-      driverId: json['driverId'],
-      storeId: json['storeId'] ?? 0,
-      createdAt:
-          DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt:
-          DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
+      customerId: json['customer_id'] ?? 0,
+      storeId: json['store_id'] ?? 0,
+      driverId: json['driver_id'],
+      orderStatus: json['order_status'] ?? 'pending',
+      deliveryStatus: json['delivery_status'] ?? 'pending',
+      totalAmount: (json['total_amount'] ?? 0).toDouble(),
+      deliveryFee: (json['delivery_fee'] ?? 0).toDouble(),
+      destinationLatitude: json['destination_latitude']?.toDouble(),
+      destinationLongitude: json['destination_longitude']?.toDouble(),
+      estimatedPickupTime: json['estimated_pickup_time'] != null
+          ? DateTime.parse(json['estimated_pickup_time'])
+          : null,
+      actualPickupTime: json['actual_pickup_time'] != null
+          ? DateTime.parse(json['actual_pickup_time'])
+          : null,
+      estimatedDeliveryTime: json['estimated_delivery_time'] != null
+          ? DateTime.parse(json['estimated_delivery_time'])
+          : null,
+      actualDeliveryTime: json['actual_delivery_time'] != null
+          ? DateTime.parse(json['actual_delivery_time'])
+          : null,
+      trackingUpdates: json['tracking_updates'],
+      createdAt: DateTime.parse(
+          json['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(
+          json['updated_at'] ?? DateTime.now().toIso8601String()),
       items: json['items'] != null
           ? (json['items'] as List)
               .map((item) => OrderItemInfo.fromJson(item))
@@ -81,125 +87,49 @@ class OrderModel {
           : null,
       driver:
           json['driver'] != null ? DriverInfo.fromJson(json['driver']) : null,
-      orderReviews: json['orderReviews'] != null
-          ? (json['orderReviews'] as List)
-              .map((review) => OrderReviewInfo.fromJson(review))
-              .toList()
-          : null,
-      driverReviews: json['driverReviews'] != null
-          ? (json['driverReviews'] as List)
-              .map((review) => DriverReviewInfo.fromJson(review))
-              .toList()
-          : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'code': code,
-      'deliveryAddress': deliveryAddress,
-      'subtotal': subtotal,
-      'serviceCharge': serviceCharge,
-      'total': total,
+      'customer_id': customerId,
+      'store_id': storeId,
+      'driver_id': driverId,
       'order_status': orderStatus,
       'delivery_status': deliveryStatus,
-      'orderDate': orderDate.toIso8601String(),
-      'notes': notes,
-      'customerId': customerId,
-      'driverId': driverId,
-      'storeId': storeId,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'items': items?.map((item) => item.toJson()).toList(),
-      'store': store?.toJson(),
-      'customer': customer?.toJson(),
-      'driver': driver?.toJson(),
-      'orderReviews': orderReviews?.map((review) => review.toJson()).toList(),
-      'driverReviews': driverReviews?.map((review) => review.toJson()).toList(),
+      'total_amount': totalAmount,
+      'delivery_fee': deliveryFee,
+      'destination_latitude': destinationLatitude,
+      'destination_longitude': destinationLongitude,
+      'estimated_pickup_time': estimatedPickupTime?.toIso8601String(),
+      'actual_pickup_time': actualPickupTime?.toIso8601String(),
+      'estimated_delivery_time': estimatedDeliveryTime?.toIso8601String(),
+      'actual_delivery_time': actualDeliveryTime?.toIso8601String(),
+      'tracking_updates': trackingUpdates,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
 
-  OrderModel copyWith({
-    int? id,
-    String? code,
-    String? deliveryAddress,
-    double? subtotal,
-    double? serviceCharge,
-    double? total,
-    String? orderStatus,
-    String? deliveryStatus,
-    DateTime? orderDate,
-    String? notes,
-    int? customerId,
-    int? driverId,
-    int? storeId,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    List<OrderItemInfo>? items,
-    StoreInfo? store,
-    CustomerInfo? customer,
-    DriverInfo? driver,
-    List<OrderReviewInfo>? orderReviews,
-    List<DriverReviewInfo>? driverReviews,
-  }) {
-    return OrderModel(
-      id: id ?? this.id,
-      code: code ?? this.code,
-      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
-      subtotal: subtotal ?? this.subtotal,
-      serviceCharge: serviceCharge ?? this.serviceCharge,
-      total: total ?? this.total,
-      orderStatus: orderStatus ?? this.orderStatus,
-      deliveryStatus: deliveryStatus ?? this.deliveryStatus,
-      orderDate: orderDate ?? this.orderDate,
-      notes: notes ?? this.notes,
-      customerId: customerId ?? this.customerId,
-      driverId: driverId ?? this.driverId,
-      storeId: storeId ?? this.storeId,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      items: items ?? this.items,
-      store: store ?? this.store,
-      customer: customer ?? this.customer,
-      driver: driver ?? this.driver,
-      orderReviews: orderReviews ?? this.orderReviews,
-      driverReviews: driverReviews ?? this.driverReviews,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'OrderModel(id: $id, code: $code, orderStatus: $orderStatus, total: $total)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is OrderModel && other.id == id;
-  }
-
-  @override
-  int get hashCode => id.hashCode;
-
-  // Utility getters
-  String get displayCode => code;
+  String get totalDisplay => 'Rp ${totalAmount.toStringAsFixed(0)}';
+  String get deliveryFeeDisplay => 'Rp ${deliveryFee.toStringAsFixed(0)}';
   String get customerName => customer?.name ?? 'Unknown Customer';
   String get storeName => store?.name ?? 'Unknown Store';
   String get driverName => driver?.name ?? 'No Driver Assigned';
-
-  String get totalDisplay => 'Rp ${total.toStringAsFixed(0)}';
-  String get subtotalDisplay => 'Rp ${subtotal.toStringAsFixed(0)}';
-  String get serviceChargeDisplay => 'Rp ${serviceCharge.toStringAsFixed(0)}';
+  bool get hasDriver => driverId != null;
+  String get orderDateDisplay => createdAt.toString().split(' ')[0];
 
   String get orderStatusDisplay {
     switch (orderStatus) {
       case 'pending':
         return 'Pending';
-      case 'approved':
-        return 'Approved';
+      case 'confirmed':
+        return 'Confirmed';
       case 'preparing':
         return 'Preparing';
+      case 'ready_for_pickup':
+        return 'Ready for Pickup';
       case 'on_delivery':
         return 'On Delivery';
       case 'delivered':
@@ -210,111 +140,89 @@ class OrderModel {
         return 'Unknown';
     }
   }
-
-  String get deliveryStatusDisplay {
-    switch (deliveryStatus) {
-      case 'waiting':
-        return 'Waiting';
-      case 'picking_up':
-        return 'Picking Up';
-      case 'on_delivery':
-        return 'On Delivery';
-      case 'delivered':
-        return 'Delivered';
-      default:
-        return 'Unknown';
-    }
-  }
-
-  bool get isPending => orderStatus == 'pending';
-  bool get isApproved => orderStatus == 'approved';
-  bool get isPreparing => orderStatus == 'preparing';
-  bool get isOnDelivery => orderStatus == 'on_delivery';
-  bool get isDelivered => orderStatus == 'delivered';
-  bool get isCancelled => orderStatus == 'cancelled';
-
-  bool get hasDriver => driverId != null;
-  bool get hasItems => items != null && items!.isNotEmpty;
-  bool get hasReviews =>
-      (orderReviews != null && orderReviews!.isNotEmpty) ||
-      (driverReviews != null && driverReviews!.isNotEmpty);
-
-  int get itemCount => items?.length ?? 0;
-  int get totalQuantity =>
-      items?.fold(0, (sum, item) => sum! + item.quantity) ?? 0;
-
-  String get orderDateDisplay =>
-      orderDate.toString().split(' ')[0]; // YYYY-MM-DD format
-  String get orderTimeDisplay =>
-      orderDate.toString().split(' ')[1].substring(0, 5); // HH:MM format
 }
 
-// Supporting classes for relations
+// Supporting classes
 class OrderItemInfo {
   final int id;
   final int orderId;
+  final int? menuItemId;
   final String name;
-  final int quantity;
-  final int price;
+  final String? description;
   final String? imageUrl;
+  final String category;
+  final int quantity;
+  final double price;
+  final String? notes;
 
   OrderItemInfo({
     required this.id,
     required this.orderId,
+    this.menuItemId,
     required this.name,
+    this.description,
+    this.imageUrl,
+    required this.category,
     required this.quantity,
     required this.price,
-    this.imageUrl,
+    this.notes,
   });
 
   factory OrderItemInfo.fromJson(Map<String, dynamic> json) {
     return OrderItemInfo(
       id: json['id'] ?? 0,
-      orderId: json['orderId'] ?? 0,
+      orderId: json['order_id'] ?? 0,
+      menuItemId: json['menu_item_id'],
       name: json['name'] ?? '',
+      description: json['description'],
+      imageUrl: json['image_url'],
+      category: json['category'] ?? '',
       quantity: json['quantity'] ?? 0,
-      price: json['price'] ?? 0,
-      imageUrl: json['imageUrl'],
+      price: (json['price'] ?? 0).toDouble(),
+      notes: json['notes'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'orderId': orderId,
+      'order_id': orderId,
+      'menu_item_id': menuItemId,
       'name': name,
+      'description': description,
+      'image_url': imageUrl,
+      'category': category,
       'quantity': quantity,
       'price': price,
-      'imageUrl': imageUrl,
+      'notes': notes,
     };
   }
 
   String get totalPrice => 'Rp ${(price * quantity).toStringAsFixed(0)}';
-  String get unitPrice => 'Rp ${price.toStringAsFixed(0)}';
 }
 
 class StoreInfo {
   final int id;
   final String name;
-  final String address;
-  final String? imageUrl;
+  final String? address;
   final String? phone;
+  final String? imageUrl;
 
   StoreInfo({
     required this.id,
     required this.name,
-    required this.address,
-    this.imageUrl,
+    this.address,
     this.phone,
+    this.imageUrl,
   });
 
   factory StoreInfo.fromJson(Map<String, dynamic> json) {
     return StoreInfo(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
-      address: json['address'] ?? '',
-      imageUrl: json['imageUrl'],
+      address: json['address'],
       phone: json['phone'],
+      imageUrl: json['image_url'],
     );
   }
 
@@ -323,8 +231,8 @@ class StoreInfo {
       'id': id,
       'name': name,
       'address': address,
-      'imageUrl': imageUrl,
       'phone': phone,
+      'image_url': imageUrl,
     };
   }
 }
@@ -375,11 +283,13 @@ class DriverInfo {
   });
 
   factory DriverInfo.fromJson(Map<String, dynamic> json) {
+    // Handle nested user data if driver info comes with user relation
+    final userData = json['user'];
     return DriverInfo(
       id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      phone: json['phone'],
-      vehicleNumber: json['vehicle_number'],
+      name: userData?['name'] ?? json['name'] ?? '',
+      phone: userData?['phone'] ?? json['phone'],
+      vehicleNumber: json['vehicle_plate'] ?? json['vehicle_number'],
     );
   }
 
@@ -389,74 +299,6 @@ class DriverInfo {
       'name': name,
       'phone': phone,
       'vehicle_number': vehicleNumber,
-    };
-  }
-}
-
-class OrderReviewInfo {
-  final int id;
-  final int orderId;
-  final int rating;
-  final String? comment;
-
-  OrderReviewInfo({
-    required this.id,
-    required this.orderId,
-    required this.rating,
-    this.comment,
-  });
-
-  factory OrderReviewInfo.fromJson(Map<String, dynamic> json) {
-    return OrderReviewInfo(
-      id: json['id'] ?? 0,
-      orderId: json['orderId'] ?? 0,
-      rating: json['rating'] ?? 0,
-      comment: json['comment'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'orderId': orderId,
-      'rating': rating,
-      'comment': comment,
-    };
-  }
-}
-
-class DriverReviewInfo {
-  final int id;
-  final int driverId;
-  final int orderId;
-  final int rating;
-  final String? comment;
-
-  DriverReviewInfo({
-    required this.id,
-    required this.driverId,
-    required this.orderId,
-    required this.rating,
-    this.comment,
-  });
-
-  factory DriverReviewInfo.fromJson(Map<String, dynamic> json) {
-    return DriverReviewInfo(
-      id: json['id'] ?? 0,
-      driverId: json['driverId'] ?? 0,
-      orderId: json['orderId'] ?? 0,
-      rating: json['rating'] ?? 0,
-      comment: json['comment'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'driverId': driverId,
-      'orderId': orderId,
-      'rating': rating,
-      'comment': comment,
     };
   }
 }

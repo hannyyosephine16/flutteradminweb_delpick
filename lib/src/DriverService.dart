@@ -1,32 +1,160 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:delpick_admin/src/ApiService.dart';
 import 'package:dio/dio.dart';
 import 'dart:html' as html;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class DriverService {
-  static const String baseUrl = 'http://127.0.0.1:6100/api/v1';
+  // Production backend URL
+  static const String baseUrl = 'https://delpick.horas-code.my.id/api/v1';
   static final FlutterSecureStorage _storage = FlutterSecureStorage();
 
-  // ✅ FIXED: Get all drivers with proper response handling
-  static Future<Map<String, dynamic>> getAllDrivers(
-      {int page = 1, int limit = 10}) async {
-    final token = await ApiService.getToken();
-
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
+  /// Configure Dio with CORS handling
+  static Dio _createDioClient() {
     final dio = Dio();
 
+    // Configure timeouts
+    dio.options.connectTimeout = Duration(seconds: 15);
+    dio.options.receiveTimeout = Duration(seconds: 30);
+
+    // Add interceptor to handle CORS
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        // Add necessary headers
+        options.headers.addAll({
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        });
+
+        print('📤 Request: ${options.method} ${options.uri}');
+        print('📤 Headers: ${options.headers}');
+
+        handler.next(options);
+      },
+      onResponse: (response, handler) {
+        print('📥 Response: ${response.statusCode} ${response.statusMessage}');
+        handler.next(response);
+      },
+      onError: (error, handler) {
+        print('❌ Error: ${error.type} - ${error.message}');
+
+        // Handle CORS errors specifically
+        if (error.type == DioExceptionType.connectionError ||
+            error.message?.contains('CORS') == true ||
+            error.message?.contains('Cross-Origin') == true) {
+          print('🔧 CORS Error detected. Trying alternative approach...');
+
+          // You could implement fallback logic here
+          // For now, just provide a clearer error message
+          final corsError = DioException(
+            requestOptions: error.requestOptions,
+            type: DioExceptionType.connectionError,
+            message:
+                'CORS Error: Backend needs to allow origin from localhost:55111',
+          );
+          handler.next(corsError);
+        } else {
+          handler.next(error);
+        }
+      },
+    ));
+
+    // Add logging interceptor
+    dio.interceptors.add(LogInterceptor(
+      requestBody: true,
+      responseBody: true,
+      requestHeader: true,
+      responseHeader: false,
+      error: true,
+      logPrint: (object) => print('🔧 DIO: $object'),
+    ));
+
+    return dio;
+  }
+
+  /// Test backend connection with better error handling
+  static Future<Map<String, String>> diagnoseConnection() async {
+    final results = <String, String>{};
+
     try {
+      // Test 1: Basic connectivity
+      final dio = _createDioClient();
+
+      final response = await dio.get('$baseUrl/drivers');
+      results['connectivity'] = 'Success - Backend reachable';
+      results['status'] = '${response.statusCode}';
+    } catch (e) {
+      if (e is DioException) {
+        switch (e.type) {
+          case DioExceptionType.connectionError:
+            if (e.message?.contains('CORS') == true) {
+              results['connectivity'] =
+                  'CORS Error - Backend needs CORS configuration';
+              results['solution'] =
+                  'Update backend app.js to allow localhost:55111';
+            } else {
+              results['connectivity'] =
+                  'Connection Error - Backend may be down';
+              results['solution'] = 'Check if backend is running at $baseUrl';
+            }
+            break;
+          case DioExceptionType.connectionTimeout:
+            results['connectivity'] =
+                'Timeout - Backend too slow or unreachable';
+            break;
+          case DioExceptionType.badResponse:
+            results['connectivity'] =
+                'Backend Error - ${e.response?.statusCode}';
+            break;
+          default:
+            results['connectivity'] = 'Unknown Error - ${e.message}';
+        }
+      } else {
+        results['connectivity'] = 'Unexpected Error - $e';
+      }
+    }
+
+    return results;
+  }
+
+  // ===== ADMIN OPERATIONS (Following Customer Pattern) =====
+
+  /// Get all drivers with enhanced error handling - Admin only
+  static Future<Map<String, dynamic>?> getAllDrivers({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String sortBy = 'createdAt',
+    String sortOrder = 'ASC',
+  }) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('Authentication required. Please login as admin.');
+    }
+
+    final dio = _createDioClient();
+
+    try {
+      // Build query parameters
+      Map<String, dynamic> queryParams = {
+        'page': page,
+        'limit': limit,
+        'sortBy': sortBy,
+        'sortOrder': sortOrder,
+      };
+
+      if (search != null && search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+
+      print('📞 Calling: $baseUrl/drivers');
+
       final response = await dio.get(
-        '$baseUrl/drivers?page=$page&limit=$limit',
+        '$baseUrl/drivers',
+        queryParameters: queryParams,
         options: Options(
           headers: {
             'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
           },
         ),
       );
@@ -34,339 +162,687 @@ class DriverService {
       if (response.statusCode == 200) {
         final responseData = response.data;
 
-        print(
-            '🔍 DriverService - Raw response type: ${responseData.runtimeType}');
-        print('🔍 DriverService - Raw response: $responseData');
+        if (responseData is Map<String, dynamic> &&
+            responseData.containsKey('data') &&
+            responseData['data'] != null) {
+          final data = responseData['data'] as Map<String, dynamic>;
 
-        if (responseData is Map<String, dynamic>) {
-          // ✅ Return the full response to preserve all information
-          // This ensures pagination info and data structure are maintained
-          return responseData;
-        } else if (responseData is List) {
-          // ✅ If backend returns direct array, wrap it properly
-          return {
-            'statusCode': 200,
-            'message': 'Success',
-            'data': responseData,
-            'totalItems': responseData.length,
-            'totalPages': 1,
-            'currentPage': page,
-          };
+          if (data.containsKey('drivers') && data['drivers'] is List) {
+            print('✅ Successfully fetched ${data['drivers'].length} drivers');
+            return responseData;
+          } else {
+            throw Exception('Invalid response format: missing drivers array');
+          }
         } else {
-          throw Exception(
-              'Unexpected response format: ${responseData.runtimeType}');
+          throw Exception('Invalid response format: missing data field');
         }
       } else {
-        throw Exception('Failed to load drivers: ${response.statusMessage}');
+        throw Exception(
+            'HTTP Error: ${response.statusCode} - ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      print('❌ DriverService DioException: ${e.message}');
-      print('❌ Response: ${e.response?.data}');
+      // Provide specific error messages based on error type
+      String errorMessage;
 
-      if (e.response?.statusCode == 401) {
-        throw Exception('Unauthorized: Please login again');
-      } else if (e.response?.statusCode == 403) {
-        throw Exception('Forbidden: Admin access required');
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+          errorMessage = 'Connection failed. This is likely a CORS issue. '
+              'Please ensure the backend at $baseUrl allows requests from localhost:55111';
+          break;
+        case DioExceptionType.connectionTimeout:
+          errorMessage =
+              'Connection timeout. Backend server may be slow or unreachable.';
+          break;
+        case DioExceptionType.receiveTimeout:
+          errorMessage = 'Server response timeout. Request took too long.';
+          break;
+        case DioExceptionType.badResponse:
+          if (e.response?.statusCode == 401) {
+            errorMessage = 'Authentication failed. Please login again.';
+          } else if (e.response?.statusCode == 403) {
+            errorMessage = 'Access denied. Admin role required.';
+          } else if (e.response?.statusCode == 404) {
+            errorMessage = 'API endpoint not found. Check backend URL.';
+          } else {
+            errorMessage =
+                'Server error: ${e.response?.statusCode} - ${e.response?.data}';
+          }
+          break;
+        default:
+          errorMessage = 'Network error: ${e.message}';
       }
-      throw Exception('Network error: ${e.message}');
+
+      throw Exception(errorMessage);
     } catch (e) {
-      print('❌ DriverService error: $e');
-      throw e;
+      throw Exception('Unexpected error: $e');
     }
   }
 
-  // Get driver by ID
-  static Future<Map<String, dynamic>> getDriverById(String id) async {
-    final token = await ApiService.getToken();
-
+  /// Get driver by ID with enhanced error handling - Admin only
+  static Future<Map<String, dynamic>?> getDriverById(String id) async {
+    final token = await getToken();
     if (token == null) {
-      throw Exception('Token not found. Please login.');
+      throw Exception('Authentication required. Please login as admin.');
     }
 
-    final dio = Dio();
+    final dio = _createDioClient();
 
     try {
+      print('📞 Calling: $baseUrl/drivers/$id');
+
       final response = await dio.get(
         '$baseUrl/drivers/$id',
         options: Options(
           headers: {
             'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
           },
         ),
       );
 
       if (response.statusCode == 200) {
         final responseData = response.data;
+        print('✅ Successfully fetched driver with ID: $id');
         return responseData['data'] ?? responseData;
       } else {
-        throw Exception('Failed to get driver: ${response.statusMessage}');
+        throw Exception(
+            'HTTP Error: ${response.statusCode} - ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        throw Exception('Driver not found');
+      String errorMessage;
+
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+          errorMessage = 'Connection failed. This is likely a CORS issue.';
+          break;
+        case DioExceptionType.badResponse:
+          if (e.response?.statusCode == 401) {
+            errorMessage = 'Authentication failed. Please login again.';
+          } else if (e.response?.statusCode == 403) {
+            errorMessage = 'Access denied. Admin role required.';
+          } else if (e.response?.statusCode == 404) {
+            errorMessage = 'Driver not found.';
+          } else {
+            errorMessage = 'Server error: ${e.response?.statusCode}';
+          }
+          break;
+        default:
+          errorMessage = 'Network error: ${e.message}';
       }
-      throw Exception('Failed to get driver: ${e.message}');
+
+      throw Exception(errorMessage);
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
     }
   }
 
-  // Create driver
-  static Future<Map<String, dynamic>> createDriver(
+  /// Create driver with enhanced error handling - Admin only
+  static Future<Map<String, dynamic>?> createDriver(
       String name,
       String email,
       String password,
       String phone,
       String vehicleNumber,
       String? imageBase64) async {
-    final token = await ApiService.getToken();
+    final token = await getToken();
     if (token == null) {
-      throw Exception('Token tidak ditemukan, harap login terlebih dahulu');
+      throw Exception('Authentication required. Please login as admin.');
     }
 
-    final request = html.HttpRequest();
-    request.open('POST', '$baseUrl/drivers');
-    request.setRequestHeader('Content-Type', 'application/json');
-    request.setRequestHeader('Authorization', 'Bearer $token');
-
-    final completer = Completer<Map<String, dynamic>>();
-
-    request.onLoadEnd.listen((event) {
-      try {
-        if (request.status == 201) {
-          final Map<String, dynamic> response =
-              json.decode(request.responseText!);
-          completer.complete(response['data'] ?? response);
-        } else {
-          final errorResponse = json.decode(request.responseText ?? '{}');
-          final errorMessage =
-              errorResponse['message'] ?? 'Failed to create driver';
-          completer.completeError(Exception(errorMessage));
-        }
-      } catch (e) {
-        completer.completeError(
-            Exception('Failed to create driver: ${request.statusText}'));
-      }
-    });
-
-    final data = jsonEncode({
-      'name': name,
-      'email': email,
-      'password': password,
-      'phone': phone,
-      'vehicle_number': vehicleNumber,
-      'image': imageBase64,
-    });
-
-    request.send(data);
-    return completer.future;
-  }
-
-  // Update existing driver
-  static Future<Map<String, dynamic>> updateDriver(
-    String id,
-    Map<String, dynamic> driverData,
-  ) async {
-    final token = await ApiService.getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = Dio();
+    final dio = _createDioClient();
 
     try {
-      final response = await dio.put(
-        '$baseUrl/drivers/$id',
+      print('📞 Calling: $baseUrl/drivers (POST)');
+
+      final data = {
+        'name': name,
+        'email': email,
+        'password': password,
+        'phone': phone,
+        'vehicle_number': vehicleNumber,
+        'image': imageBase64,
+      };
+
+      final response = await dio.post(
+        '$baseUrl/drivers',
+        data: data,
         options: Options(
           headers: {
             'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
           },
         ),
+      );
+
+      if (response.statusCode == 201) {
+        final responseData = response.data;
+        print('✅ Successfully created driver');
+        return responseData['data'] ?? responseData;
+      } else {
+        throw Exception(
+            'HTTP Error: ${response.statusCode} - ${response.statusMessage}');
+      }
+    } on DioException catch (e) {
+      String errorMessage;
+
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+          errorMessage = 'Connection failed. This is likely a CORS issue.';
+          break;
+        case DioExceptionType.badResponse:
+          if (e.response?.statusCode == 400) {
+            final responseData = e.response?.data;
+            if (responseData is Map && responseData.containsKey('message')) {
+              errorMessage = responseData['message'];
+            } else {
+              errorMessage = 'Invalid data provided.';
+            }
+          } else if (e.response?.statusCode == 401) {
+            errorMessage = 'Authentication failed. Please login again.';
+          } else if (e.response?.statusCode == 403) {
+            errorMessage = 'Access denied. Admin role required.';
+          } else {
+            errorMessage = 'Server error: ${e.response?.statusCode}';
+          }
+          break;
+        default:
+          errorMessage = 'Network error: ${e.message}';
+      }
+
+      throw Exception(errorMessage);
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// Update driver with enhanced error handling - Admin only
+  static Future<Map<String, dynamic>?> updateDriver(
+    String id,
+    Map<String, dynamic> driverData,
+  ) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('Authentication required. Please login as admin.');
+    }
+
+    final dio = _createDioClient();
+
+    try {
+      print('📞 Calling: $baseUrl/drivers/$id (PUT)');
+
+      final response = await dio.put(
+        '$baseUrl/drivers/$id',
         data: driverData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
       );
 
       if (response.statusCode == 200) {
         final responseData = response.data;
+        print('✅ Successfully updated driver with ID: $id');
         return responseData['data'] ?? responseData;
       } else {
-        throw Exception('Failed to update driver: ${response.statusMessage}');
+        throw Exception(
+            'HTTP Error: ${response.statusCode} - ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        throw Exception('Driver not found');
+      String errorMessage;
+
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+          errorMessage = 'Connection failed. This is likely a CORS issue.';
+          break;
+        case DioExceptionType.badResponse:
+          if (e.response?.statusCode == 400) {
+            final responseData = e.response?.data;
+            if (responseData is Map && responseData.containsKey('message')) {
+              errorMessage = responseData['message'];
+            } else {
+              errorMessage = 'Invalid data provided.';
+            }
+          } else if (e.response?.statusCode == 401) {
+            errorMessage = 'Authentication failed. Please login again.';
+          } else if (e.response?.statusCode == 403) {
+            errorMessage = 'Access denied. Admin role required.';
+          } else if (e.response?.statusCode == 404) {
+            errorMessage = 'Driver not found.';
+          } else {
+            errorMessage = 'Server error: ${e.response?.statusCode}';
+          }
+          break;
+        default:
+          errorMessage = 'Network error: ${e.message}';
       }
-      throw Exception('Failed to update driver: ${e.message}');
+
+      throw Exception(errorMessage);
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
     }
   }
 
-  // Delete driver
-  static Future<Map<String, dynamic>> deleteDriver(String id) async {
-    final token = await ApiService.getToken();
+  /// Delete driver with enhanced error handling - Admin only
+  static Future<Map<String, dynamic>?> deleteDriver(String id) async {
+    final token = await getToken();
     if (token == null) {
-      throw Exception('Token not found. Please login.');
+      throw Exception('Authentication required. Please login as admin.');
     }
 
-    final dio = Dio();
+    final dio = _createDioClient();
 
     try {
+      print('📞 Calling: $baseUrl/drivers/$id (DELETE)');
+
       final response = await dio.delete(
         '$baseUrl/drivers/$id',
         options: Options(
           headers: {
             'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
           },
         ),
       );
 
       if (response.statusCode == 200) {
         final responseData = response.data;
+        print('✅ Successfully deleted driver with ID: $id');
         return responseData['data'] ?? responseData;
       } else {
-        throw Exception('Failed to delete driver: ${response.statusMessage}');
+        throw Exception(
+            'HTTP Error: ${response.statusCode} - ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        throw Exception('Driver not found');
+      String errorMessage;
+
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+          errorMessage = 'Connection failed. This is likely a CORS issue.';
+          break;
+        case DioExceptionType.badResponse:
+          if (e.response?.statusCode == 401) {
+            errorMessage = 'Authentication failed. Please login again.';
+          } else if (e.response?.statusCode == 403) {
+            errorMessage = 'Access denied. Admin role required.';
+          } else if (e.response?.statusCode == 404) {
+            errorMessage = 'Driver not found.';
+          } else {
+            errorMessage = 'Server error: ${e.response?.statusCode}';
+          }
+          break;
+        default:
+          errorMessage = 'Network error: ${e.message}';
       }
-      throw Exception('Failed to delete driver: ${e.message}');
+
+      throw Exception(errorMessage);
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
     }
   }
 
-  // Update driver location (for real-time tracking)
-  static Future<Map<String, dynamic>> updateDriverLocation(
+  // ===== DRIVER SELF-MANAGEMENT OPERATIONS =====
+
+  /// Update driver location with enhanced error handling - Driver only
+  static Future<Map<String, dynamic>?> updateDriverLocation(
     double latitude,
     double longitude,
   ) async {
-    final token = await ApiService.getToken();
+    final token = await getToken();
     if (token == null) {
-      throw Exception('Token not found. Please login.');
+      throw Exception('Authentication required. Please login as driver.');
     }
 
-    final dio = Dio();
+    final dio = _createDioClient();
 
     try {
+      print('📞 Calling: $baseUrl/drivers/location/update (PUT)');
+
       final response = await dio.put(
-        '$baseUrl/drivers/location',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
+        '$baseUrl/drivers/location/update',
         data: {
           'latitude': latitude,
           'longitude': longitude,
         },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
       );
 
       if (response.statusCode == 200) {
         final responseData = response.data;
+        print('✅ Successfully updated driver location');
         return responseData['data'] ?? responseData;
       } else {
         throw Exception(
-            'Failed to update driver location: ${response.statusMessage}');
+            'HTTP Error: ${response.statusCode} - ${response.statusMessage}');
       }
+    } on DioException catch (e) {
+      String errorMessage;
+
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+          errorMessage = 'Connection failed. This is likely a CORS issue.';
+          break;
+        case DioExceptionType.badResponse:
+          if (e.response?.statusCode == 401) {
+            errorMessage = 'Authentication failed. Please login again.';
+          } else if (e.response?.statusCode == 403) {
+            errorMessage = 'Access denied. Driver role required.';
+          } else {
+            errorMessage = 'Server error: ${e.response?.statusCode}';
+          }
+          break;
+        default:
+          errorMessage = 'Network error: ${e.message}';
+      }
+
+      throw Exception(errorMessage);
     } catch (e) {
-      throw Exception('Failed to update driver location: ${e.toString()}');
+      throw Exception('Unexpected error: $e');
     }
   }
 
-  // Get driver location
-  static Future<Map<String, dynamic>> getDriverLocation(String driverId) async {
-    final token = await ApiService.getToken();
+  /// Update driver status with enhanced error handling - Driver only
+  static Future<Map<String, dynamic>?> updateDriverStatus(String status) async {
+    final token = await getToken();
     if (token == null) {
-      throw Exception('Token not found. Please login.');
+      throw Exception('Authentication required. Please login as driver.');
     }
 
-    final dio = Dio();
+    final dio = _createDioClient();
 
     try {
+      print('📞 Calling: $baseUrl/drivers/status/update (PUT)');
+
+      final response = await dio.put(
+        '$baseUrl/drivers/status/update',
+        data: {'status': status},
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        print('✅ Successfully updated driver status to: $status');
+        return responseData['data'] ?? responseData;
+      } else {
+        throw Exception(
+            'HTTP Error: ${response.statusCode} - ${response.statusMessage}');
+      }
+    } on DioException catch (e) {
+      String errorMessage;
+
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+          errorMessage = 'Connection failed. This is likely a CORS issue.';
+          break;
+        case DioExceptionType.badResponse:
+          if (e.response?.statusCode == 400) {
+            errorMessage =
+                'Invalid status value. Must be active, inactive, or busy.';
+          } else if (e.response?.statusCode == 401) {
+            errorMessage = 'Authentication failed. Please login again.';
+          } else if (e.response?.statusCode == 403) {
+            errorMessage = 'Access denied. Driver role required.';
+          } else {
+            errorMessage = 'Server error: ${e.response?.statusCode}';
+          }
+          break;
+        default:
+          errorMessage = 'Network error: ${e.message}';
+      }
+
+      throw Exception(errorMessage);
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// Update driver profile with enhanced error handling - Driver only
+  static Future<Map<String, dynamic>?> updateDriverProfile(
+    Map<String, dynamic> profileData,
+  ) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('Authentication required. Please login as driver.');
+    }
+
+    final dio = _createDioClient();
+
+    try {
+      print('📞 Calling: $baseUrl/drivers/profile/update (PUT)');
+
+      final response = await dio.put(
+        '$baseUrl/drivers/profile/update',
+        data: profileData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        print('✅ Successfully updated driver profile');
+        return responseData['data'] ?? responseData;
+      } else {
+        throw Exception(
+            'HTTP Error: ${response.statusCode} - ${response.statusMessage}');
+      }
+    } on DioException catch (e) {
+      String errorMessage;
+
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+          errorMessage = 'Connection failed. This is likely a CORS issue.';
+          break;
+        case DioExceptionType.badResponse:
+          if (e.response?.statusCode == 400) {
+            final responseData = e.response?.data;
+            if (responseData is Map && responseData.containsKey('message')) {
+              errorMessage = responseData['message'];
+            } else {
+              errorMessage = 'Invalid data provided.';
+            }
+          } else if (e.response?.statusCode == 401) {
+            errorMessage = 'Authentication failed. Please login again.';
+          } else if (e.response?.statusCode == 403) {
+            errorMessage = 'Access denied. Driver role required.';
+          } else {
+            errorMessage = 'Server error: ${e.response?.statusCode}';
+          }
+          break;
+        default:
+          errorMessage = 'Network error: ${e.message}';
+      }
+
+      throw Exception(errorMessage);
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  /// Get driver orders with enhanced error handling - Driver only
+  static Future<Map<String, dynamic>?> getDriverOrders({
+    int page = 1,
+    int limit = 10,
+  }) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('Authentication required. Please login as driver.');
+    }
+
+    final dio = _createDioClient();
+
+    try {
+      print('📞 Calling: $baseUrl/drivers/orders/my');
+
+      final response = await dio.get(
+        '$baseUrl/drivers/orders/my',
+        queryParameters: {
+          'page': page,
+          'limit': limit,
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        print('✅ Successfully fetched driver orders');
+        return responseData['data'] ?? responseData;
+      } else {
+        throw Exception(
+            'HTTP Error: ${response.statusCode} - ${response.statusMessage}');
+      }
+    } on DioException catch (e) {
+      String errorMessage;
+
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+          errorMessage = 'Connection failed. This is likely a CORS issue.';
+          break;
+        case DioExceptionType.badResponse:
+          if (e.response?.statusCode == 401) {
+            errorMessage = 'Authentication failed. Please login again.';
+          } else if (e.response?.statusCode == 403) {
+            errorMessage = 'Access denied. Driver role required.';
+          } else {
+            errorMessage = 'Server error: ${e.response?.statusCode}';
+          }
+          break;
+        default:
+          errorMessage = 'Network error: ${e.message}';
+      }
+
+      throw Exception(errorMessage);
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  // ===== TRACKING OPERATIONS =====
+
+  /// Get driver location for tracking with enhanced error handling
+  static Future<Map<String, dynamic>?> getDriverLocation(
+      String driverId) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('Authentication required. Please login.');
+    }
+
+    final dio = _createDioClient();
+
+    try {
+      print('📞 Calling: $baseUrl/drivers/$driverId/location');
+
       final response = await dio.get(
         '$baseUrl/drivers/$driverId/location',
         options: Options(
           headers: {
             'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
           },
         ),
       );
 
       if (response.statusCode == 200) {
         final responseData = response.data;
+        print('✅ Successfully fetched driver location');
         return responseData['data'] ?? responseData;
       } else {
         throw Exception(
-            'Failed to get driver location: ${response.statusMessage}');
+            'HTTP Error: ${response.statusCode} - ${response.statusMessage}');
       }
+    } on DioException catch (e) {
+      String errorMessage;
+
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+          errorMessage = 'Connection failed. This is likely a CORS issue.';
+          break;
+        case DioExceptionType.badResponse:
+          if (e.response?.statusCode == 401) {
+            errorMessage = 'Authentication failed. Please login again.';
+          } else if (e.response?.statusCode == 404) {
+            errorMessage = 'Driver location not found or not available.';
+          } else {
+            errorMessage = 'Server error: ${e.response?.statusCode}';
+          }
+          break;
+        default:
+          errorMessage = 'Network error: ${e.message}';
+      }
+
+      throw Exception(errorMessage);
     } catch (e) {
-      throw Exception('Failed to get driver location: ${e.toString()}');
+      throw Exception('Unexpected error: $e');
     }
   }
 
-  // Update driver status
-  static Future<Map<String, dynamic>> updateDriverStatus(String status) async {
-    final token = await ApiService.getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
+  // ===== UTILITY METHODS =====
 
-    final dio = Dio();
+  /// Token management
+  static Future<void> saveToken(String token) async {
+    await _storage.write(key: 'auth_token', value: token);
+  }
 
+  static Future<String?> getToken() async {
+    return await _storage.read(key: 'auth_token');
+  }
+
+  /// Quick connection test
+  static Future<bool> testConnection() async {
     try {
-      final response = await dio.put(
-        '$baseUrl/drivers/status',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-        data: {'status': status},
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception(
-            'Failed to update driver status: ${response.statusMessage}');
-      }
+      final dio = _createDioClient();
+      final response = await dio.get('$baseUrl/');
+      return response.statusCode == 200;
     } catch (e) {
-      throw Exception('Failed to update driver status: ${e.toString()}');
+      print('Connection test failed: $e');
+      return false;
     }
   }
 
-  // Get driver orders
-  static Future<Map<String, dynamic>> getDriverOrders(
-      {int page = 1, int limit = 10}) async {
-    final token = await ApiService.getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
+  /// Validate driver data before sending
+  static bool validateDriverData(Map<String, dynamic> data) {
+    final requiredFields = ['name', 'email', 'phone'];
+
+    for (String field in requiredFields) {
+      if (!data.containsKey(field) ||
+          data[field] == null ||
+          data[field].toString().trim().isEmpty) {
+        return false;
+      }
     }
 
-    final dio = Dio();
+    // Email validation
+    final emailRegex =
+        RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    if (!emailRegex.hasMatch(data['email'])) {
+      return false;
+    }
 
-    try {
-      final response = await dio.get(
-        '$baseUrl/drivers/orders?page=$page&limit=$limit',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
+    return true;
+  }
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        return responseData['data'] ?? responseData;
-      } else {
-        throw Exception(
-            'Failed to get driver orders: ${response.statusMessage}');
-      }
-    } catch (e) {
-      throw Exception('Failed to get driver orders: ${e.toString()}');
+  /// Format error message for user display
+  static String formatErrorMessage(String error) {
+    if (error.contains('CORS')) {
+      return 'Connection issue: Please contact administrator to enable CORS for this domain.';
+    } else if (error.contains('Authentication')) {
+      return 'Please login again to continue.';
+    } else if (error.contains('Access denied')) {
+      return 'You do not have permission to perform this action.';
+    } else if (error.contains('Connection failed')) {
+      return 'Unable to connect to server. Please check your internet connection.';
+    } else {
+      return error;
     }
   }
 }

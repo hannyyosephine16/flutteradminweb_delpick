@@ -23,6 +23,7 @@ class CustomerSectionState extends State<CustomerSection> {
   bool _isLoading = false;
 
   // FIXED: Proper type handling and null safety
+// FIXED: Simple and direct approach matching backend format
   Future<void> fetchCustomers() async {
     try {
       setState(() {
@@ -32,129 +33,40 @@ class CustomerSectionState extends State<CustomerSection> {
       print(
           '🔄 Fetching customers - Page: $_currentPage, Limit: $_rowsPerPage');
 
-      // Use named parameters
       final data = await CustomerService.getAllCustomers(
         page: _currentPage,
         limit: _rowsPerPage,
         search: _searchQuery.isNotEmpty ? _searchQuery : null,
       );
 
-      print('📄 Fetched data structure: ${data?.runtimeType}');
-      print('📋 Data keys: ${data?.keys ?? "null"}');
+      print('📄 Response received: ${data != null}');
 
-      // FIXED: Proper null safety and type handling
       if (data != null) {
-        print('📦 Response data: $data');
+        // Backend returns exact format:
+        // {
+        //   "message": "Berhasil mendapatkan data customer",
+        //   "data": {
+        //     "totalItems": count,
+        //     "totalPages": Math.ceil(count / queryOptions.limit),
+        //     "currentPage": parseInt(req.query.page) || 1,
+        //     "customers": [...] // array of User objects
+        //   }
+        // }
 
-        // Handle different response formats from backend
-        if (data.containsKey('data') && data['data'] != null) {
-          final dataField = data['data'];
-          print('📊 Data field type: ${dataField.runtimeType}');
-          print('📊 Data content: $dataField');
+        final responseData = data['data'] as Map<String, dynamic>;
+        final customersList = responseData['customers'] as List<dynamic>;
 
-          // FIXED: Check if data field contains customers
-          if (dataField is Map<String, dynamic> &&
-              dataField.containsKey('customers')) {
-            final customersList = dataField['customers'];
+        setState(() {
+          customers =
+              customersList; // Direct assignment - this is guaranteed to be a List
+          _totalItems = responseData['totalItems'] as int? ?? 0;
+          _totalPages = responseData['totalPages'] as int? ?? 1;
+          _currentPage = responseData['currentPage'] as int? ?? _currentPage;
+        });
 
-            if (customersList is List) {
-              setState(() {
-                customers = customersList;
-                _totalItems =
-                    (dataField['totalItems'] as int?) ?? customersList.length;
-                _totalPages = (dataField['totalPages'] as int?) ?? 1;
-                _currentPage =
-                    (dataField['currentPage'] as int?) ?? _currentPage;
-              });
-
-              print(
-                  '✅ Standard format - Processed ${customersList.length} customers');
-              print('📈 Total items: $_totalItems, Total pages: $_totalPages');
-            } else {
-              print(
-                  '⚠️  customers field is not a List: ${customersList.runtimeType}');
-              throw Exception("'customers' field is not a List");
-            }
-          }
-          // FIXED: Check if data field is directly a List (alternative format)
-          else if (dataField is List) {
-            setState(() {
-              customers = dataField;
-              _totalItems = dataField.length;
-              _totalPages = (dataField.length / _rowsPerPage).ceil();
-            });
-            print(
-                '✅ Direct List format - Processed ${dataField.length} customers');
-          }
-          // Check if data field is Map but has different structure
-          else if (dataField is Map<String, dynamic>) {
-            print('⚠️  Data is Map but does not contain customers array');
-            print('📄 Available data keys: ${dataField.keys}');
-
-            // Try to find customers in different possible keys
-            List<dynamic>? customersList;
-            if (dataField.containsKey('rows')) {
-              customersList = dataField['rows'] as List<dynamic>?;
-            } else if (dataField.containsKey('results')) {
-              customersList = dataField['results'] as List<dynamic>?;
-            } else if (dataField.containsKey('items')) {
-              customersList = dataField['items'] as List<dynamic>?;
-            }
-
-            if (customersList != null) {
-              setState(() {
-                customers = customersList!;
-                _totalItems = (dataField['totalItems'] as int?) ??
-                    (dataField['count'] as int?) ??
-                    customersList.length;
-                _totalPages = (dataField['totalPages'] as int?) ??
-                    (((_totalItems / _rowsPerPage).ceil()));
-              });
-              print(
-                  '✅ Alternative format - Processed ${customersList.length} customers');
-            } else {
-              throw Exception(
-                  "No recognizable customer data found in response");
-            }
-          } else {
-            throw Exception(
-                "Unexpected data field type: ${dataField.runtimeType}");
-          }
-        }
-        // FIXED: Check if response directly contains customers (no 'data' wrapper)
-        else if (data.containsKey('customers')) {
-          final customersList = data['customers'];
-
-          if (customersList is List) {
-            setState(() {
-              customers = customersList;
-              _totalItems =
-                  (data['totalItems'] as int?) ?? customersList.length;
-              _totalPages = (data['totalPages'] as int?) ?? 1;
-              _currentPage = (data['currentPage'] as int?) ?? _currentPage;
-            });
-            print(
-                '✅ Direct customers format - Processed ${customersList.length} customers');
-          } else {
-            throw Exception(
-                "'customers' field is not a List: ${customersList.runtimeType}");
-          }
-        }
-        // FIXED: Check if response is directly a List
-        else if (data is List) {
-          setState(() {
-            customers = data;
-            _totalItems = data.length;
-            _totalPages = (data.length / _rowsPerPage).ceil();
-          });
-          print('✅ Direct array response - Processed ${data.length} customers');
-        } else {
-          print('❌ Unexpected response format');
-          print('📄 Available keys: ${data.keys}');
-          print('📄 Full response: $data');
-          throw Exception(
-              "Invalid response format - no recognizable customer data structure found");
-        }
+        print('✅ Loaded ${customersList.length} customers');
+        print(
+            '📈 Total: $_totalItems, Pages: $_totalPages, Current: $_currentPage');
       } else {
         throw Exception("No response data received from server");
       }
@@ -177,7 +89,7 @@ class CustomerSectionState extends State<CustomerSection> {
 
       // Set empty state on error
       setState(() {
-        customers = [];
+        customers = []; // Always assign a List
         _totalItems = 0;
         _totalPages = 1;
       });
@@ -332,7 +244,7 @@ class CustomerSectionState extends State<CustomerSection> {
           IconButton(
             icon: const Icon(Icons.bug_report, color: Colors.orange),
             onPressed: () async {
-              await CustomerService.debugApiConnection();
+              await CustomerService.diagnoseConnection();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Check console for debug info')),

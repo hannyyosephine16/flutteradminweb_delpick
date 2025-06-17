@@ -31,6 +31,7 @@ class DriverSectionState extends State<DriverSection> {
     _fetchDrivers();
   }
 
+  // ✅ FIXED: Fetch drivers with proper null safety handling
   Future<void> _fetchDrivers() async {
     setState(() {
       _isLoading = true;
@@ -43,30 +44,63 @@ class DriverSectionState extends State<DriverSection> {
         limit: _rowsPerPage,
       );
 
-      if (response.containsKey('data') && response['data'] is List) {
-        final List<dynamic> driversData = response['data'];
+      // ✅ Add null check for response
+      if (response == null) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'No response received from server';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // ✅ Safe access to response data with null checks
+      if (response.containsKey('data') && response['data'] != null) {
+        final data = response['data'];
+
+        // Handle both List and Map<String, dynamic> cases
+        List<dynamic> driversData = [];
+
+        if (data is List) {
+          driversData = data;
+        } else if (data is Map<String, dynamic> &&
+            data.containsKey('drivers')) {
+          final drivers = data['drivers'];
+          if (drivers is List) {
+            driversData = drivers;
+          }
+        }
+
         setState(() {
           _allDrivers = driversData.map((driver) {
+            // ✅ Safe access to nested data with null checks
+            final driverMap = driver as Map<String, dynamic>? ?? {};
+            final userData = driverMap['user'] as Map<String, dynamic>? ?? {};
+
             return {
-              'id': driver['id'].toString(),
-              'username': driver['user']['name'],
-              'email': driver['user']['email'],
-              'phone': driver['user']['phone'],
-              'status': driver['status'] == 'active' ? 'ON' : 'OFF',
-              'vehicle_number': driver['vehicle_number'],
-              'userId': driver['userId'],
-              'driverData': driver,
-              'userData': driver['user'],
+              'id': (driverMap['id'] ?? 0).toString(),
+              'username': userData['name'] ?? 'Unknown',
+              'email': userData['email'] ?? 'No email',
+              'phone': userData['phone'] ?? 'No phone',
+              'status': (driverMap['status'] ?? 'inactive') == 'active'
+                  ? 'ON'
+                  : 'OFF',
+              'vehicle_number': driverMap['vehicle_number'] ?? 'N/A',
+              'userId': driverMap['userId'] ?? 0,
+              'driverData': driverMap,
+              'userData': userData,
             };
           }).toList();
-          _totalItems = response['totalItems'] ?? 0;
-          _totalPages = response['totalPages'] ?? 1;
+
+          // ✅ Safe access to pagination data with null checks
+          _totalItems = (response['totalItems'] as int?) ?? 0;
+          _totalPages = (response['totalPages'] as int?) ?? 1;
           _isLoading = false;
         });
       } else {
         setState(() {
           _hasError = true;
-          _errorMessage = 'Invalid response format';
+          _errorMessage = 'Invalid response format: missing data field';
           _isLoading = false;
         });
       }
@@ -86,10 +120,16 @@ class DriverSectionState extends State<DriverSection> {
     }
 
     return _allDrivers.where((driver) {
-      return driver["id"].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          driver["username"].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          driver["email"].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          driver["phone"].toLowerCase().contains(_searchQuery.toLowerCase());
+      final id = driver["id"]?.toString().toLowerCase() ?? '';
+      final username = driver["username"]?.toString().toLowerCase() ?? '';
+      final email = driver["email"]?.toString().toLowerCase() ?? '';
+      final phone = driver["phone"]?.toString().toLowerCase() ?? '';
+      final query = _searchQuery.toLowerCase();
+
+      return id.contains(query) ||
+          username.contains(query) ||
+          email.contains(query) ||
+          phone.contains(query);
     }).toList();
   }
 
@@ -184,13 +224,14 @@ class DriverSectionState extends State<DriverSection> {
                         _isSearchActive
                             ? _buildSearchField()
                             : IconButton(
-                          icon: const Icon(Icons.search, color: Color(0xFF1A3B89)),
-                          onPressed: () {
-                            setState(() {
-                              _isSearchActive = true;
-                            });
-                          },
-                        ),
+                                icon: const Icon(Icons.search,
+                                    color: Color(0xFF1A3B89)),
+                                onPressed: () {
+                                  setState(() {
+                                    _isSearchActive = true;
+                                  });
+                                },
+                              ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -230,7 +271,7 @@ class DriverSectionState extends State<DriverSection> {
                         ),
                       )
                     else
-                    // Table Section
+                      // Table Section
                       Expanded(
                         child: isSmallScreen ? _buildListView() : _buildTable(),
                       ),
@@ -267,14 +308,16 @@ class DriverSectionState extends State<DriverSection> {
                 });
               },
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8.0),
               borderSide: BorderSide(color: Colors.grey.shade300),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8.0),
-              borderSide: const BorderSide(color: Color(0xFF1A3B89), width: 2.0),
+              borderSide:
+                  const BorderSide(color: Color(0xFF1A3B89), width: 2.0),
             ),
           ),
           onChanged: (value) {
@@ -314,7 +357,7 @@ class DriverSectionState extends State<DriverSection> {
               padding: const EdgeInsets.symmetric(vertical: 12.0),
               child: Row(
                 children: [
-                  _tableHeaderCell("Customer ID", 1),
+                  _tableHeaderCell("Driver ID", 1),
                   _tableHeaderCell("Username", 2),
                   _tableHeaderCell("Email", 3),
                   _tableHeaderCell("No Telp", 2),
@@ -348,32 +391,34 @@ class DriverSectionState extends State<DriverSection> {
                   final driver = displayedDrivers[index];
                   return Container(
                     decoration: BoxDecoration(
-                      color: index % 2 == 0 ? Colors.grey.shade50 : Colors.white,
+                      color:
+                          index % 2 == 0 ? Colors.grey.shade50 : Colors.white,
                       border: Border(
                         bottom: BorderSide(color: Colors.grey.shade200),
                       ),
                     ),
                     child: Row(
                       children: [
-                        _tableCell(driver["id"], 1),
-                        _tableCell(driver["username"], 2),
-                        _tableCell(driver["email"], 3),
-                        _tableCell(driver["phone"], 2),
+                        _tableCell(driver["id"] ?? "N/A", 1),
+                        _tableCell(driver["username"] ?? "N/A", 2),
+                        _tableCell(driver["email"] ?? "N/A", 3),
+                        _tableCell(driver["phone"] ?? "N/A", 2),
                         Expanded(
                           flex: 10, // 1
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: driver["status"] == "ON"
+                                color: (driver["status"] ?? "OFF") == "ON"
                                     ? const Color(0xFF6FCF97)
                                     : Colors.red.shade400,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               alignment: Alignment.center,
                               child: Text(
-                                driver["status"],
+                                driver["status"] ?? "OFF",
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -391,26 +436,30 @@ class DriverSectionState extends State<DriverSection> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.edit, color: Color(0xFF1A3B89)),
+                                  icon: const Icon(Icons.edit,
+                                      color: Color(0xFF1A3B89)),
                                   onPressed: () {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => EditDriverScreen(
-                                          driverId: driver["id"],
+                                          driverId: driver["id"] ?? "0",
                                           initialData: driver,
                                         ),
                                       ),
-                                    ).then((_) => _fetchDrivers()); // Refresh after editing
+                                    ).then((_) =>
+                                        _fetchDrivers()); // Refresh after editing
                                   },
                                   tooltip: "Edit",
                                 ),
                                 const SizedBox(width: 8),
                                 IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.red),
                                   onPressed: () {
                                     // Show delete confirmation dialog
-                                    _showDeleteConfirmation(context, driver["id"]);
+                                    _showDeleteConfirmation(
+                                        context, driver["id"] ?? "0");
                                   },
                                   tooltip: "Delete",
                                 ),
@@ -520,10 +569,10 @@ class DriverSectionState extends State<DriverSection> {
             padding: const EdgeInsets.all(12.0),
             child: Column(
               children: [
-                _listTile("Driver ID", driver["id"]),
-                _listTile("Username", driver["username"]),
-                _listTile("Email", driver["email"]),
-                _listTile("Phone", driver["phone"]),
+                _listTile("Driver ID", driver["id"] ?? "N/A"),
+                _listTile("Username", driver["username"] ?? "N/A"),
+                _listTile("Email", driver["email"] ?? "N/A"),
+                _listTile("Phone", driver["phone"] ?? "N/A"),
                 _listTile("Vehicle", driver["vehicle_number"] ?? "N/A"),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -539,15 +588,16 @@ class DriverSectionState extends State<DriverSection> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: driver["status"] == "ON"
+                          color: (driver["status"] ?? "OFF") == "ON"
                               ? const Color(0xFF6FCF97)
                               : Colors.red.shade400,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          driver["status"],
+                          driver["status"] ?? "OFF",
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -569,11 +619,12 @@ class DriverSectionState extends State<DriverSection> {
                             context,
                             MaterialPageRoute(
                               builder: (context) => EditDriverScreen(
-                                driverId: driver["id"],
+                                driverId: driver["id"] ?? "0",
                                 initialData: driver,
                               ),
                             ),
-                          ).then((_) => _fetchDrivers()); // Refresh after editing
+                          ).then(
+                              (_) => _fetchDrivers()); // Refresh after editing
                         },
                         icon: const Icon(Icons.edit, size: 18),
                         label: const Text("Edit"),
@@ -590,7 +641,7 @@ class DriverSectionState extends State<DriverSection> {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          _showDeleteConfirmation(context, driver["id"]);
+                          _showDeleteConfirmation(context, driver["id"] ?? "0");
                         },
                         icon: const Icon(Icons.delete, size: 18),
                         label: const Text("Delete"),
@@ -659,11 +710,11 @@ class DriverSectionState extends State<DriverSection> {
             icon: const Icon(Icons.chevron_left, color: Color(0xFF1A3B89)),
             onPressed: _currentPage > 1
                 ? () {
-              setState(() {
-                _currentPage--;
-                _fetchDrivers();
-              });
-            }
+                    setState(() {
+                      _currentPage--;
+                      _fetchDrivers();
+                    });
+                  }
                 : null,
             style: IconButton.styleFrom(
               foregroundColor: const Color(0xFF1A3B89),
@@ -676,7 +727,7 @@ class DriverSectionState extends State<DriverSection> {
               mainAxisSize: MainAxisSize.min,
               children: List.generate(
                 _totalPages > 4 ? 4 : _totalPages,
-                    (index) {
+                (index) {
                   // Calculate which page numbers to show
                   int pageNum;
                   if (_totalPages <= 4) {
@@ -739,11 +790,11 @@ class DriverSectionState extends State<DriverSection> {
             icon: const Icon(Icons.chevron_right, color: Color(0xFF1A3B89)),
             onPressed: _currentPage < _totalPages
                 ? () {
-              setState(() {
-                _currentPage++;
-                _fetchDrivers();
-              });
-            }
+                    setState(() {
+                      _currentPage++;
+                      _fetchDrivers();
+                    });
+                  }
                 : null,
             style: IconButton.styleFrom(
               foregroundColor: const Color(0xFF1A3B89),

@@ -1,3 +1,6 @@
+import 'DriverModel.dart';
+import 'UserInfo.dart';
+
 class StoreModel {
   final int id;
   final int userId;
@@ -6,23 +9,20 @@ class StoreModel {
   final String? description;
   final String? openTime;
   final String? closeTime;
-  final double rating;
-  final int totalProducts;
+  final double? rating;
+  final int? totalProducts;
   final String? imageUrl;
-  final String? phone;
-  final int reviewCount;
-  final double? latitude;
-  final double? longitude;
+  final String phone;
+  final int? reviewCount;
+  final double latitude;
+  final double longitude;
   final double? distance;
-  final String status; // 'active', 'inactive'
+  final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  // User information (owner)
+  // Relations
   final UserInfo? user;
-
-  // Menu items (from relation)
-  final List<MenuItemInfo>? menuItems;
 
   StoreModel({
     required this.id,
@@ -32,166 +32,82 @@ class StoreModel {
     this.description,
     this.openTime,
     this.closeTime,
-    required this.rating,
-    required this.totalProducts,
+    this.rating,
+    this.totalProducts,
     this.imageUrl,
-    this.phone,
-    required this.reviewCount,
-    this.latitude,
-    this.longitude,
+    required this.phone,
+    this.reviewCount,
+    required this.latitude,
+    required this.longitude,
     this.distance,
     required this.status,
     required this.createdAt,
     required this.updatedAt,
     this.user,
-    this.menuItems,
   });
 
   factory StoreModel.fromJson(Map<String, dynamic> json) {
     return StoreModel(
       id: json['id'] ?? 0,
-      userId: json['userId'] ?? 0,
+      userId: json['user_id'] ?? 0,
       name: json['name'] ?? '',
       address: json['address'] ?? '',
       description: json['description'],
-      openTime: json['openTime'],
-      closeTime: json['closeTime'],
-      rating: (json['rating'] ?? 0).toDouble(),
-      totalProducts: json['totalProducts'] ?? 0,
-      imageUrl: json['imageUrl'],
-      phone: json['phone'],
-      reviewCount: json['reviewCount'] ?? 0,
-      latitude: json['latitude'] != null
-          ? (json['latitude'] as num).toDouble()
-          : null,
-      longitude: json['longitude'] != null
-          ? (json['longitude'] as num).toDouble()
-          : null,
-      distance: json['distance'] != null
-          ? (json['distance'] as num).toDouble()
-          : null,
+      openTime: json['open_time'],
+      closeTime: json['close_time'],
+      rating: json['rating']?.toDouble(),
+      totalProducts: json['total_products'],
+      imageUrl: json['image_url'],
+      phone: json['phone'] ?? '',
+      reviewCount: json['review_count'],
+      latitude: (json['latitude'] ?? 0).toDouble(),
+      longitude: (json['longitude'] ?? 0).toDouble(),
+      distance: json['distance']?.toDouble(),
       status: json['status'] ?? 'active',
-      createdAt:
-          DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt:
-          DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
+      createdAt: DateTime.parse(
+          json['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(
+          json['updated_at'] ?? DateTime.now().toIso8601String()),
       user: json['user'] != null ? UserInfo.fromJson(json['user']) : null,
-      menuItems: json['menuItems'] != null
-          ? (json['menuItems'] as List)
-              .map((item) => MenuItemInfo.fromJson(item))
-              .toList()
-          : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'userId': userId,
+      'user_id': userId,
       'name': name,
       'address': address,
       'description': description,
-      'openTime': openTime,
-      'closeTime': closeTime,
+      'open_time': openTime,
+      'close_time': closeTime,
       'rating': rating,
-      'totalProducts': totalProducts,
-      'imageUrl': imageUrl,
+      'total_products': totalProducts,
+      'image_url': imageUrl,
       'phone': phone,
-      'reviewCount': reviewCount,
+      'review_count': reviewCount,
       'latitude': latitude,
       'longitude': longitude,
       'distance': distance,
       'status': status,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'user': user?.toJson(),
-      'menuItems': menuItems?.map((item) => item.toJson()).toList(),
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
 
-  StoreModel copyWith({
-    int? id,
-    int? userId,
-    String? name,
-    String? address,
-    String? description,
-    String? openTime,
-    String? closeTime,
-    double? rating,
-    int? totalProducts,
-    String? imageUrl,
-    String? phone,
-    int? reviewCount,
-    double? latitude,
-    double? longitude,
-    double? distance,
-    String? status,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    UserInfo? user,
-    List<MenuItemInfo>? menuItems,
-  }) {
-    return StoreModel(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      name: name ?? this.name,
-      address: address ?? this.address,
-      description: description ?? this.description,
-      openTime: openTime ?? this.openTime,
-      closeTime: closeTime ?? this.closeTime,
-      rating: rating ?? this.rating,
-      totalProducts: totalProducts ?? this.totalProducts,
-      imageUrl: imageUrl ?? this.imageUrl,
-      phone: phone ?? this.phone,
-      reviewCount: reviewCount ?? this.reviewCount,
-      latitude: latitude ?? this.latitude,
-      longitude: longitude ?? this.longitude,
-      distance: distance ?? this.distance,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      user: user ?? this.user,
-      menuItems: menuItems ?? this.menuItems,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'StoreModel(id: $id, name: $name, address: $address, status: $status, rating: $rating)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is StoreModel && other.id == id;
-  }
-
-  @override
-  int get hashCode => id.hashCode;
-
-  // Utility getters
   String get displayName => name;
   String get ownerName => user?.name ?? 'Unknown Owner';
+
+  // ADDED - missing getters
   String get ownerEmail => user?.email ?? '';
   String get ownerPhone => user?.phone ?? '';
 
   bool get isActive => status == 'active';
+
+  // ADDED - isInactive getter
   bool get isInactive => status == 'inactive';
 
-  String get ratingDisplay => rating.toStringAsFixed(1);
-  String get statusDisplay {
-    switch (status) {
-      case 'active':
-        return 'Active';
-      case 'inactive':
-        return 'Inactive';
-      default:
-        return 'Unknown';
-    }
-  }
-
-  bool get hasLocation => latitude != null && longitude != null;
-  bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
+  String get ratingDisplay => rating?.toStringAsFixed(1) ?? '0.0';
 
   String get operatingHours {
     if (openTime != null && closeTime != null) {
@@ -200,93 +116,24 @@ class StoreModel {
     return 'Not specified';
   }
 
+  String get statusDisplay {
+    switch (status) {
+      case 'active':
+        return 'Active';
+      case 'inactive':
+        return 'Inactive';
+      case 'closed':
+        return 'Closed';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  // FIXED - Handle null rating for toStringAsFixed
   String get distanceDisplay {
     if (distance != null) {
       return '${distance!.toStringAsFixed(1)} km';
     }
     return 'Unknown distance';
-  }
-
-  int get menuItemCount => menuItems?.length ?? totalProducts;
-}
-
-// Supporting classes for relations
-class UserInfo {
-  final int id;
-  final String name;
-  final String email;
-  final String phone;
-  final String role;
-  final String? avatar;
-
-  UserInfo({
-    required this.id,
-    required this.name,
-    required this.email,
-    required this.phone,
-    required this.role,
-    this.avatar,
-  });
-
-  factory UserInfo.fromJson(Map<String, dynamic> json) {
-    return UserInfo(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      email: json['email'] ?? '',
-      phone: json['phone'] ?? '',
-      role: json['role'] ?? '',
-      avatar: json['avatar'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'email': email,
-      'phone': phone,
-      'role': role,
-      'avatar': avatar,
-    };
-  }
-}
-
-class MenuItemInfo {
-  final int id;
-  final String name;
-  final int price;
-  final String? description;
-  final String? imageUrl;
-  final int quantity;
-
-  MenuItemInfo({
-    required this.id,
-    required this.name,
-    required this.price,
-    this.description,
-    this.imageUrl,
-    required this.quantity,
-  });
-
-  factory MenuItemInfo.fromJson(Map<String, dynamic> json) {
-    return MenuItemInfo(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      price: json['price'] ?? 0,
-      description: json['description'],
-      imageUrl: json['imageUrl'],
-      quantity: json['quantity'] ?? 0,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'price': price,
-      'description': description,
-      'imageUrl': imageUrl,
-      'quantity': quantity,
-    };
   }
 }

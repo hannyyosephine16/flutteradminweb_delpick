@@ -1,94 +1,8 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../Models/DriverModel.dart';
 import '../src/DriverService.dart';
-import 'dart:typed_data';
-
-// Import the DriverModel we created earlier
-class DriverModel {
-  final int id;
-  final int userId;
-  final String vehicleNumber;
-  final double rating;
-  final int reviewsCount;
-  final double? latitude;
-  final double? longitude;
-  final String status;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final UserInfo? user;
-
-  DriverModel({
-    required this.id,
-    required this.userId,
-    required this.vehicleNumber,
-    required this.rating,
-    required this.reviewsCount,
-    this.latitude,
-    this.longitude,
-    required this.status,
-    required this.createdAt,
-    required this.updatedAt,
-    this.user,
-  });
-
-  factory DriverModel.fromJson(Map<String, dynamic> json) {
-    return DriverModel(
-      id: json['id'] ?? 0,
-      userId: json['userId'] ?? 0,
-      vehicleNumber: json['vehicle_number'] ?? '',
-      rating: (json['rating'] ?? 0).toDouble(),
-      reviewsCount: json['reviews_count'] ?? 0,
-      latitude: json['latitude'] != null
-          ? (json['latitude'] as num).toDouble()
-          : null,
-      longitude: json['longitude'] != null
-          ? (json['longitude'] as num).toDouble()
-          : null,
-      status: json['status'] ?? 'inactive',
-      createdAt:
-          DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt:
-          DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
-      user: json['user'] != null ? UserInfo.fromJson(json['user']) : null,
-    );
-  }
-
-  String get displayName => user?.name ?? 'Unknown Driver';
-  String get displayEmail => user?.email ?? '';
-  String get displayPhone => user?.phone ?? '';
-  bool get isActive => status == 'active';
-  bool get isBusy => status == 'busy';
-  String get ratingDisplay => rating.toStringAsFixed(1);
-}
-
-class UserInfo {
-  final int id;
-  final String name;
-  final String email;
-  final String phone;
-  final String role;
-  final String? avatar;
-
-  UserInfo({
-    required this.id,
-    required this.name,
-    required this.email,
-    required this.phone,
-    required this.role,
-    this.avatar,
-  });
-
-  factory UserInfo.fromJson(Map<String, dynamic> json) {
-    return UserInfo(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? '',
-      email: json['email'] ?? '',
-      phone: json['phone'] ?? '',
-      role: json['role'] ?? '',
-      avatar: json['avatar'],
-    );
-  }
-}
 
 class DriverController extends GetxController {
   // Observable variables
@@ -148,14 +62,7 @@ class DriverController extends GetxController {
     super.onClose();
   }
 
-  // Fetch drivers with pagination
-  // Fixed method in DriverController.dart
-
-// Fixed fetchDrivers method in DriverController.dart
-
-// Fixed fetchDrivers method in DriverController.dart
-
-// ✅ COMPLETELY FIXED: Fetch drivers with proper response handling
+  // ✅ FIXED: Fetch drivers with proper null safety handling
   Future<void> fetchDrivers({int page = 1, bool isRefresh = false}) async {
     try {
       if (isRefresh || page == 1) {
@@ -168,21 +75,25 @@ class DriverController extends GetxController {
       hasError.value = false;
       errorMessage.value = '';
 
-      // ✅ This now always returns Map<String, dynamic> from DriverService
+      // ✅ Handle null response from DriverService
       final response = await DriverService.getAllDrivers(
           page: page, limit: itemsPerPage.value);
+
+      // ✅ Add null check for response
+      if (response == null) {
+        throw Exception('No response received from server');
+      }
 
       print('🔍 Controller - Response type: ${response.runtimeType}');
       print('🔍 Controller - Response keys: ${response.keys.toList()}');
 
-      // ✅ Since DriverService now always returns Map<String, dynamic>
-      // We can safely extract the data
+      // ✅ Initialize with safe defaults
       List<dynamic> driversData = [];
       int totalPages = 1;
       int totalItems = 0;
       int currentPageNum = page;
 
-      // Extract drivers data from response
+      // ✅ Safe access to response data
       final dataField = response['data'];
       print('🔍 Data field type: ${dataField.runtimeType}');
 
@@ -208,7 +119,7 @@ class DriverController extends GetxController {
         }
       }
 
-      // Extract pagination info
+      // ✅ Safe extraction of pagination info with null checks
       totalPages = (response['totalPages'] as num?)?.toInt() ?? 1;
       totalItems =
           (response['totalItems'] as num?)?.toInt() ?? driversData.length;
@@ -288,10 +199,17 @@ class DriverController extends GetxController {
     fetchDrivers(page: 1, isRefresh: true);
   }
 
-  // Get driver by ID
+  // ✅ FIXED: Get driver by ID with null safety
   Future<DriverModel?> getDriverById(String id) async {
     try {
       final response = await DriverService.getDriverById(id);
+
+      // ✅ Add null check for response
+      if (response == null) {
+        _showErrorSnackbar('No response received from server');
+        return null;
+      }
+
       return DriverModel.fromJson(response);
     } catch (e) {
       _showErrorSnackbar('Failed to get driver: ${e.toString()}');
@@ -448,13 +366,26 @@ class DriverController extends GetxController {
     }
   }
 
-  // Get driver orders
+  // ✅ FIXED: Get driver orders with null safety
   Future<List<Map<String, dynamic>>> getDriverOrders(
       {int page = 1, int limit = 10}) async {
     try {
       final response =
           await DriverService.getDriverOrders(page: page, limit: limit);
-      return List<Map<String, dynamic>>.from(response['orders'] ?? []);
+
+      // ✅ Add null check for response
+      if (response == null) {
+        _showErrorSnackbar('No response received from server');
+        return [];
+      }
+
+      // ✅ Safe access to orders array
+      final orders = response['orders'];
+      if (orders is List) {
+        return List<Map<String, dynamic>>.from(orders);
+      } else {
+        return [];
+      }
     } catch (e) {
       _showErrorSnackbar('Failed to get driver orders: ${e.toString()}');
       return [];

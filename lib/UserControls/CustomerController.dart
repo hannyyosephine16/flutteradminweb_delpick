@@ -365,14 +365,14 @@ class CustomerController extends GetxController {
   // Statistics
   int get totalCustomersCount => totalItems.value;
 
-  int get activeCustomersCount =>
-      customers.where((c) => c.isActiveCustomer ?? true).length;
+  // int get activeCustomersCount =>
+  //     customers.where((c) => c.isActiveCustomer ?? true).length;
 
   int get newCustomersCount =>
       customers.where((c) => (c.customerStatus ?? '') == 'New Customer').length;
 
-  double get totalSpentByAllCustomers =>
-      customers.fold(0.0, (sum, customer) => sum + (customer.spent ?? 0.0));
+  // double get totalSpentByAllCustomers =>
+  //     customers.fold(0.0, (sum, customer) => sum + (customer.spent ?? 0.0));
 
   // Snackbar helpers
   void _showSuccessSnackbar(String message) {
