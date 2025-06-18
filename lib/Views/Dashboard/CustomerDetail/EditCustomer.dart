@@ -4,10 +4,9 @@ import 'package:delpick_admin/src/CustomerService.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker_web/image_picker_web.dart';
 import '../../../Common/widgets/texts/customtextfield.dart';
-import '../../../src/ApiService.dart';
 
 class EditCustomerScreen extends StatefulWidget {
-  final String customerId; // Add parameter for customer ID
+  final String customerId;
 
   const EditCustomerScreen({
     Key? key,
@@ -19,247 +18,268 @@ class EditCustomerScreen extends StatefulWidget {
 }
 
 class _EditCustomerScreenState extends State<EditCustomerScreen> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
-  final TextEditingController currentPasswordController = TextEditingController();
-  final TextEditingController newPasswordController = TextEditingController();
 
   bool isLoading = false;
-  bool showPassword = false;
+  bool _isFormValid = false;
+  bool _isLoadingData = false;
 
   Uint8List? _imageBytes;
   String? _imageBase64;
+  String? _currentImageUrl; // For displaying existing image
   bool _isHoveringUpload = false;
-  bool _isLoading = false;
+  bool _isProcessingImage = false;
+
+  // Validation error messages
+  Map<String, String?> _validationErrors = {};
+
+  // Original customer data for comparison
+  Map<String, dynamic>? _originalCustomerData;
 
   @override
   void initState() {
     super.initState();
-    // Load customer data when screen initializes
+    // Add listeners to validate form in real-time
+    nameController.addListener(_validateForm);
+    emailController.addListener(_validateForm);
+    phoneController.addListener(_validateForm);
+
+    // Load customer data on initialization
     _loadCustomerData();
   }
 
-  // Updated _loadCustomerData method
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    super.dispose();
+  }
+
+  /// Load customer data from API
   Future<void> _loadCustomerData() async {
     setState(() {
-      _isLoading = true;
+      _isLoadingData = true;
     });
 
     try {
-      // Panggil API untuk mendapatkan data customer
-      final response = await CustomerService.getCustomerById(widget.customerId);
+      print('🔄 Loading customer data for ID: ${widget.customerId}');
 
-      print('Response dari API: $response');
+      final response = await CustomerService.getCustomerById(widget.customerId);
 
       if (response != null && response['data'] != null) {
         final customerData = response['data'];
+        _originalCustomerData = Map<String, dynamic>.from(customerData);
 
-        // Isi controller dengan data customer
+        print('✅ Customer data loaded successfully');
+        print('Customer: ${customerData['name']} (${customerData['email']})');
+
         setState(() {
           nameController.text = customerData['name'] ?? '';
           emailController.text = customerData['email'] ?? '';
           phoneController.text = customerData['phone'] ?? '';
-
-          // Jika customer memiliki avatar, set image base64
-          if (customerData['avatar'] != null) {
-            // Kode untuk menangani avatar
-            // Mungkin perlu penanganan khusus tergantung format data dari API
-          }
+          _currentImageUrl = customerData['avatar'];
         });
+
+        // Validate form after loading data
+        _validateForm();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gagal memuat data customer')),
-        );
+        print('❌ Failed to load customer data');
+        _showErrorSnackBar('Failed to load customer data');
+        Navigator.of(context).pop();
       }
     } catch (e) {
-      print('Error saat memuat data customer: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saat memuat data customer: $e')),
-      );
+      print('❌ Error loading customer data: $e');
+      _showErrorSnackBar(
+          'Error loading customer data: ${e.toString().replaceFirst('Exception: ', '')}');
+      Navigator.of(context).pop();
     } finally {
       setState(() {
-        _isLoading = false;
+        _isLoadingData = false;
       });
     }
   }
 
-  //Pick Image
+  /// Validate form fields in real-time
+  void _validateForm() {
+    setState(() {
+      _validationErrors = CustomerService.validateCustomerData(
+        name: nameController.text,
+        email: emailController.text,
+        phone: phoneController.text,
+        // No password required for update
+      );
+
+      _isFormValid = _validationErrors.isEmpty &&
+          nameController.text.isNotEmpty &&
+          emailController.text.isNotEmpty &&
+          phoneController.text.isNotEmpty &&
+          _hasDataChanged();
+    });
+  }
+
+  /// Check if form data has changed from original
+  bool _hasDataChanged() {
+    if (_originalCustomerData == null) return false;
+
+    final cleanCurrentPhone =
+        CustomerService.cleanPhoneNumber(phoneController.text);
+    final cleanOriginalPhone =
+        CustomerService.cleanPhoneNumber(_originalCustomerData!['phone'] ?? '');
+
+    return nameController.text.trim() !=
+            (_originalCustomerData!['name'] ?? '') ||
+        emailController.text.trim() !=
+            (_originalCustomerData!['email'] ?? '') ||
+        cleanCurrentPhone != cleanOriginalPhone ||
+        _imageBase64 != null; // New image uploaded
+  }
+
+  /// Pick and process image
   Future<void> _pickImage() async {
     setState(() {
-      isLoading = true;
+      _isProcessingImage = true;
     });
 
     try {
-      // Using ImagePickerWeb to get the image bytes
+      print('======= IMAGE PICKING PROCESS STARTED =======');
       final pickedImage = await ImagePickerWeb.getImageAsBytes();
 
-      if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) { // 5MB limit
-        // Detect content type from bytes
+      if (pickedImage != null) {
+        print('Image picked successfully');
+        print(
+            'Image size: ${(pickedImage.lengthInBytes / 1024).toStringAsFixed(2)} KB');
+
+        // Check file size (5MB limit)
+        if (pickedImage.lengthInBytes > 5 * 1024 * 1024) {
+          _showErrorSnackBar(
+            'Image too large. Please select an image smaller than 5MB.',
+          );
+          return;
+        }
+
+        // Detect content type
         String contentType = _detectContentType(pickedImage);
+        print('Detected content type: $contentType');
 
-        // Convert to base64
-        final base64String = base64Encode(pickedImage);
+        // Validate content type
+        if (![
+          'image/jpeg',
+          'image/jpg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'image/bmp'
+        ].contains(contentType)) {
+          _showErrorSnackBar(
+            'Unsupported image format. Please use JPG, PNG, GIF, WebP, or BMP.',
+          );
+          return;
+        }
 
-        // Create the complete data URI with proper content type
-        final imageBase64WithPrefix = 'data:$contentType;base64,' + base64String;
+        // Encode to base64
+        String base64String = base64Encode(pickedImage);
+        print('Base64 encoding completed (${base64String.length} characters)');
 
-        setState(() {
-          _imageBytes = pickedImage;  // Save bytes for display
-          _imageBase64 = imageBase64WithPrefix;  // Base64 with prefix for backend
-        });
+        // Create complete data URL
+        final imageBase64WithPrefix = 'data:$contentType;base64,$base64String';
 
-        // Detailed logs for debugging
-        print('Gambar berhasil dikonversi ke base64');
-        print('Content type: $contentType');
-        print('Ukuran gambar: ${(pickedImage.lengthInBytes / 1024).toStringAsFixed(2)} KB');
-        print('Base64 prefix: ${_imageBase64!.substring(0, _imageBase64!.length > 50 ? 50 : _imageBase64!.length)}...');
+        // Validate the result
+        if (CustomerService.isValidImageFormat(imageBase64WithPrefix)) {
+          setState(() {
+            _imageBytes = pickedImage;
+            _imageBase64 = imageBase64WithPrefix;
+            _currentImageUrl =
+                null; // Clear current image since we have a new one
+          });
 
-        // Success message for user
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gambar berhasil diunggah'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      } else if (pickedImage == null) {
-        print('Tidak ada gambar yang dipilih');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tidak ada gambar yang dipilih'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+          _showSuccessSnackBar('Image uploaded successfully!');
+          print('✅ Image processed successfully');
+          _validateForm(); // Revalidate form since data changed
+        } else {
+          _showErrorSnackBar('Failed to process image. Please try again.');
+          print('❌ Invalid image format after processing');
+        }
       } else {
-        print('Gambar terlalu besar: ${(pickedImage.lengthInBytes / 1024 / 1024).toStringAsFixed(2)} MB');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        print('No image selected');
+        _showInfoSnackBar('No image selected');
       }
     } catch (e) {
-      print('Error saat memilih gambar: $e');
-      String errorMessage = 'Error saat memilih gambar';
+      print('❌ Error during image picking: $e');
+      String errorMessage = 'Error selecting image';
 
-      // More specific error messages based on the type of error
       if (e.toString().contains('permission')) {
-        errorMessage = 'Tidak mendapatkan izin untuk mengakses file';
+        errorMessage = 'Permission denied to access files';
       } else if (e.toString().contains('canceled')) {
-        errorMessage = 'Pemilihan gambar dibatalkan';
-      } else if (e.toString().contains('format') || e.toString().contains('decode')) {
-        errorMessage = 'Format gambar tidak didukung';
+        errorMessage = 'Image selection cancelled';
+      } else if (e.toString().contains('format') ||
+          e.toString().contains('decode')) {
+        errorMessage = 'Unsupported image format';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showErrorSnackBar(errorMessage);
     } finally {
       setState(() {
-        isLoading = false;
+        _isProcessingImage = false;
       });
+      print('======= IMAGE PICKING PROCESS COMPLETED =======\n');
     }
   }
 
-// Helper function to detect content type based on file signatures
+  /// Detect image content type from file signature
   String _detectContentType(Uint8List bytes) {
     if (bytes.length < 4) {
-      print('Byte array terlalu kecil untuk mendeteksi format, defaulting ke image/jpeg');
-      return 'image/jpeg'; // Default if not enough bytes to check
+      return 'image/jpeg'; // Default
     }
 
-    // Check for PNG signature: 89 50 4E 47 (hex) / 137 80 78 71 (decimal)
+    // PNG signature: 89 50 4E 47
     if (bytes[0] == 137 && bytes[1] == 80 && bytes[2] == 78 && bytes[3] == 71) {
-      print('Tanda tangan PNG terdeteksi');
       return 'image/png';
     }
 
-    // Check for JPEG signature: FF D8 FF (hex) / 255 216 255 (decimal)
+    // JPEG signature: FF D8 FF
     if (bytes[0] == 255 && bytes[1] == 216 && bytes[2] == 255) {
-      print('Tanda tangan JPEG terdeteksi');
       return 'image/jpeg';
     }
 
-    // Check for GIF signature: 47 49 46 38 (hex) / 71 73 70 56 (decimal)
+    // GIF signature: 47 49 46 38
     if (bytes[0] == 71 && bytes[1] == 73 && bytes[2] == 70 && bytes[3] == 56) {
-      print('Tanda tangan GIF terdeteksi');
       return 'image/gif';
     }
 
-    // Check for WEBP signature: 52 49 46 46 (hex) / 82 73 70 70 (decimal) at position 0
-    // and 57 45 42 50 (hex) / 87 69 66 80 (decimal) at position 8
+    // WEBP signature: 52 49 46 46 ... 57 45 42 50
     if (bytes.length >= 12 &&
-        bytes[0] == 82 && bytes[1] == 73 && bytes[2] == 70 && bytes[3] == 70 &&
-        bytes[8] == 87 && bytes[9] == 69 && bytes[10] == 66 && bytes[11] == 80) {
-      print('Tanda tangan WEBP terdeteksi');
+        bytes[0] == 82 &&
+        bytes[1] == 73 &&
+        bytes[2] == 70 &&
+        bytes[3] == 70 &&
+        bytes[8] == 87 &&
+        bytes[9] == 69 &&
+        bytes[10] == 66 &&
+        bytes[11] == 80) {
       return 'image/webp';
     }
 
-    // Check for BMP signature: 42 4D (hex) / 66 77 (decimal)
+    // BMP signature: 42 4D
     if (bytes[0] == 66 && bytes[1] == 77) {
-      print('Tanda tangan BMP terdeteksi');
       return 'image/bmp';
     }
 
-    // Default to JPEG if format cannot be determined
-    print('Format gambar tidak terdeteksi, defaulting ke image/jpeg');
-    return 'image/jpeg';
+    return 'image/jpeg'; // Default
   }
 
-  // Function to check if form is valid
-  bool _isFormValid() {
-    final email = emailController.text;
-    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-
-    // Name shouldn't be empty if filled
-    if (nameController.text.isNotEmpty && nameController.text.trim().isEmpty) {
-      return false;
-    }
-
-    // Email validation: must be valid if present
-    if (email.isNotEmpty && !emailRegex.hasMatch(email)) {
-      return false;
-    }
-
-    // Phone shouldn't be empty if filled
-    if (phoneController.text.isNotEmpty && phoneController.text.trim().isEmpty) {
-      return false;
-    }
-
-    // Only require current password if changing password
-    bool passwordValidation = true;
-    if (newPasswordController.text.isNotEmpty) {
-      passwordValidation = currentPasswordController.text.isNotEmpty;
-    }
-
-    return nameController.text.isNotEmpty &&
-        email.isNotEmpty && emailRegex.hasMatch(email) &&
-        phoneController.text.isNotEmpty &&
-        passwordValidation;
-  }
-
-  // Function to update customer
-  Future<void> _editCustomer() async {
-    // Make sure we have at least the basic required fields
-    if (nameController.text.isEmpty ||
-        emailController.text.isEmpty ||
-        phoneController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Name, email, and phone are required fields!')),
-      );
+  /// Update customer using the corrected service
+  Future<void> _updateCustomer() async {
+    if (!_formKey.currentState!.validate() || !_isFormValid) {
+      _showErrorSnackBar('Please fix all validation errors before submitting.');
       return;
     }
 
-    // If updating password, make sure current password is provided
-    if (newPasswordController.text.isNotEmpty && currentPasswordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Current password is required to change password!')),
-      );
+    if (!_hasDataChanged()) {
+      _showInfoSnackBar('No changes detected.');
       return;
     }
 
@@ -268,36 +288,44 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
     });
 
     try {
+      print('🔄 Starting customer update process...');
+
+      // Clean phone number
+      final cleanPhone = CustomerService.cleanPhoneNumber(phoneController.text);
+
+      // Final validation
+      final errors = CustomerService.validateCustomerData(
+        name: nameController.text,
+        email: emailController.text,
+        phone: cleanPhone,
+      );
+
+      if (errors.isNotEmpty) {
+        final errorMessage = errors.values.first!;
+        _showErrorSnackBar(errorMessage);
+        return;
+      }
+
+      // Call the corrected service method
       final response = await CustomerService.updateCustomer(
-          widget.customerId, // Use the ID passed to the widget
-          nameController.text,
-          emailController.text,
-          phoneController.text,
-          currentPasswordController.text,
-          newPasswordController.text,
-          _imageBase64 // Include base64 image if available
+        widget.customerId,
+        nameController.text.trim(),
+        emailController.text.trim(),
+        cleanPhone,
+        null, // currentPassword not required for admin update
+        null, // newPassword not required for admin update
+        _imageBase64, // Can be null if no new image
       );
 
       if (response != null) {
+        print('✅ Customer updated successfully');
         _showSuccessDialog();
-
-        // If we're just updating without changing password, we can clear the fields
-        if (newPasswordController.text.isEmpty) {
-          currentPasswordController.clear();
-        } else {
-          // If we changed the password, clear both password fields
-          currentPasswordController.clear();
-          newPasswordController.clear();
-        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update customer')),
-        );
+        _showErrorSnackBar('Failed to update customer. Please try again.');
       }
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred: $error')),
-      );
+    } catch (e) {
+      print('❌ Error updating customer: $e');
+      _showErrorSnackBar(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       setState(() {
         isLoading = false;
@@ -305,24 +333,75 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
     }
   }
 
+  /// Remove selected image
+  void _removeImage() {
+    setState(() {
+      _imageBytes = null;
+      _imageBase64 = null;
+    });
+    _validateForm(); // Revalidate form
+    _showInfoSnackBar('New image removed');
+  }
+
+  /// Show success dialog
   void _showSuccessDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Success'),
-          content: const Text('Customer successfully updated!'),
-          actions: <Widget>[
+          title: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green, size: 28),
+              SizedBox(width: 12),
+              Text('Success'),
+            ],
+          ),
+          content: Text('Customer has been updated successfully!'),
+          actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Go back to previous screen
               },
-              child: const Text('OK'),
+              child: Text('OK'),
             ),
           ],
         );
       },
+    );
+  }
+
+  /// Show error snackbar
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 4),
+      ),
+    );
+  }
+
+  /// Show success snackbar
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Show info snackbar
+  void _showInfoSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 2),
+      ),
     );
   }
 
@@ -346,348 +425,620 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
           ),
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+      body: _isLoadingData
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading customer data...'),
+                ],
+              ),
+            )
           : SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
-                        border: Border(
-                          bottom: BorderSide(
-                            color: Theme.of(context).primaryColor.withOpacity(0.2),
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.person_add,
-                            color: Theme.of(context).primaryColor,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Edit Customer',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-
-                    // Form content
-                    Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Left section - Form fields
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CustomTextField(
-                                  label: "Enter full name",
-                                  title: "Full Name",
-                                  icon: Icons.person,
-                                  controller: nameController,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .primaryColor
+                                    .withOpacity(0.1),
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Theme.of(context)
+                                        .primaryColor
+                                        .withOpacity(0.2),
+                                    width: 1,
+                                  ),
                                 ),
-                                CustomTextField(
-                                  label: "Enter email address",
-                                  title: "Email",
-                                  icon: Icons.email,
-                                  keyboardType: TextInputType.emailAddress,
-                                  controller: emailController,
-                                ),
-                                CustomTextField(
-                                  label: "Enter phone number",
-                                  title: "Phone Number",
-                                  icon: Icons.phone,
-                                  keyboardType: TextInputType.phone,
-                                  controller: phoneController,
-                                ),
-                                CustomTextField(
-                                  label: "Enter Current password",
-                                  title: "Current Password",
-                                  icon: Icons.lock,
-                                  obscureText: !showPassword,
-                                  icon2: showPassword ? Icons.visibility : Icons.visibility_off,
-                                  // onIcon2Pressed: () {
-                                  //   setState(() {
-                                  //     showPassword = !showPassword;
-                                  //   });
-                                  // },
-                                  controller: currentPasswordController,
-                                ),
-                                CustomTextField(
-                                  label: "Enter New password (leave empty to keep current)",
-                                  title: "New Password",
-                                  icon: Icons.lock,
-                                  obscureText: !showPassword,
-                                  icon2: showPassword ? Icons.visibility : Icons.visibility_off,
-                                  // onIcon2Pressed: () {
-                                  //   setState(() {
-                                  //     showPassword = !showPassword;
-                                  //   });
-                                  // },
-                                  controller: newPasswordController,
-                                ),
-                                const SizedBox(height: 24),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        onPressed: isLoading ? null : (_isFormValid() ? _editCustomer : null),
-                                        icon: isLoading
-                                            ? const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2,
-                                            )
-                                        )
-                                            : const Icon(Icons.check_circle),
-                                        label: Text(isLoading ? 'Updating...' : 'Update Customer'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Theme.of(context).primaryColor,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                      ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.person_add,
+                                    color: Theme.of(context).primaryColor,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Edit Customer',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context).primaryColor,
                                     ),
-                                  ],
-                                ),
-                              ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
 
-                          const SizedBox(width: 40),
-
-                          // Right section - Upload image
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Profile Photo',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Upload a profile picture (Recommended: 192×182)',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Image upload area
-                                MouseRegion(
-                                  onEnter: (_) => setState(() => _isHoveringUpload = true),
-                                  onExit: (_) => setState(() => _isHoveringUpload = false),
-                                  child: GestureDetector(
-                                    onTap: _pickImage,
-                                    child: Container(
-                                      height: 280,
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        color: _isHoveringUpload
-                                            ? Colors.grey.shade100
-                                            : Colors.grey.shade50,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: _isHoveringUpload
-                                              ? Theme.of(context).primaryColor
-                                              : Colors.grey.shade300,
-                                          width: 2,
-                                          style: BorderStyle.solid,
+                            // Form content
+                            Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Left section - Form fields
+                                  Expanded(
+                                    flex: 3,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Name field
+                                        CustomTextField(
+                                          label:
+                                              "Enter full name (3-50 characters)",
+                                          title: "Full Name *",
+                                          icon: Icons.person,
+                                          controller: nameController,
+                                          errorText: _validationErrors['name'],
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.trim().isEmpty) {
+                                              return 'Name is required';
+                                            }
+                                            if (value.trim().length < 3) {
+                                              return 'Name must be at least 3 characters';
+                                            }
+                                            if (value.trim().length > 50) {
+                                              return 'Name must not exceed 50 characters';
+                                            }
+                                            return null;
+                                          },
                                         ),
-                                      ),
-                                      child: _imageBytes != null
-                                          ? Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          // Display selected image
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(10),
-                                            child: Image.memory(
-                                              _imageBytes!,
-                                              fit: BoxFit.cover,
-                                              width: double.infinity,
-                                              height: double.infinity,
+
+                                        // Email field
+                                        CustomTextField(
+                                          label: "Enter email address",
+                                          title: "Email *",
+                                          icon: Icons.email,
+                                          keyboardType:
+                                              TextInputType.emailAddress,
+                                          controller: emailController,
+                                          errorText: _validationErrors['email'],
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.trim().isEmpty) {
+                                              return 'Email is required';
+                                            }
+                                            if (!RegExp(
+                                                    r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+                                                .hasMatch(value)) {
+                                              return 'Invalid email format';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+
+                                        // Phone field
+                                        CustomTextField(
+                                          label:
+                                              "Enter phone number (10-13 digits)",
+                                          title: "Phone Number *",
+                                          icon: Icons.phone,
+                                          keyboardType: TextInputType.phone,
+                                          controller: phoneController,
+                                          errorText: _validationErrors['phone'],
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.trim().isEmpty) {
+                                              return 'Phone is required';
+                                            }
+                                            final cleanPhone = value.replaceAll(
+                                                RegExp(r'[^\d]'), '');
+                                            if (!RegExp(r'^[0-9]{10,13}$')
+                                                .hasMatch(cleanPhone)) {
+                                              return 'Phone must be 10-13 digits only';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+
+                                        const SizedBox(height: 24),
+
+                                        // Submit button
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ElevatedButton.icon(
+                                                onPressed:
+                                                    (_isFormValid && !isLoading)
+                                                        ? _updateCustomer
+                                                        : null,
+                                                icon: isLoading
+                                                    ? SizedBox(
+                                                        width: 20,
+                                                        height: 20,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                          color: Colors.white,
+                                                          strokeWidth: 2,
+                                                        ),
+                                                      )
+                                                    : Icon(Icons.check_circle),
+                                                label: Text(isLoading
+                                                    ? 'Updating...'
+                                                    : 'Update Customer'),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Theme.of(context)
+                                                          .primaryColor,
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets
+                                                      .symmetric(vertical: 16),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                          // Overlay for change button
-                                          Positioned(
-                                            bottom: 0,
-                                            left: 0,
-                                            right: 0,
+                                          ],
+                                        ),
+
+                                        // Form validation status
+                                        if (!_hasDataChanged() &&
+                                            !_isLoadingData)
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.only(top: 12),
                                             child: Container(
-                                              color: Colors.black.withOpacity(0.6),
-                                              padding: const EdgeInsets.symmetric(
-                                                vertical: 12,
-                                                horizontal: 16,
+                                              padding: EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: Colors.blue.shade50,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                    color:
+                                                        Colors.blue.shade200),
                                               ),
                                               child: Row(
-                                                mainAxisAlignment:
-                                                MainAxisAlignment.center,
                                                 children: [
-                                                  const Icon(
-                                                    Icons.edit,
-                                                    color: Colors.white,
-                                                    size: 16,
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  const Text(
-                                                    'Change Photo',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 14,
+                                                  Icon(Icons.info_outline,
+                                                      color:
+                                                          Colors.blue.shade700,
+                                                      size: 18),
+                                                  SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Text(
+                                                      'No changes detected. Modify any field to enable update.',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: Colors
+                                                            .blue.shade700,
+                                                      ),
                                                     ),
-                                                  ),
-                                                  const Spacer(),
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                      Icons.delete,
-                                                      color: Colors.white,
-                                                      size: 18,
-                                                    ),
-                                                    onPressed: () {
-                                                      setState(() {
-                                                        _imageBytes = null;
-                                                        _imageBase64 = null;
-                                                      });
-                                                    },
-                                                    padding: EdgeInsets.zero,
-                                                    constraints:
-                                                    const BoxConstraints(),
                                                   ),
                                                 ],
                                               ),
                                             ),
                                           ),
-                                        ],
-                                      )
-                                          : isLoading
-                                          ? const Center(
-                                        child: CircularProgressIndicator(),
-                                      )
-                                          : Column(
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(16),
-                                            decoration: BoxDecoration(
-                                              color: Theme.of(context).primaryColor.withOpacity(0.1),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: Icon(
-                                              Icons.cloud_upload_rounded,
-                                              size: 36,
-                                              color: Theme.of(context).primaryColor,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          Text(
-                                            'Drag & drop or click to upload',
-                                            style: TextStyle(
-                                              color: Theme.of(context).primaryColor,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'JPG, PNG or GIF (Max 5MB)',
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
 
-                                // Information box
-                                const SizedBox(height: 24),
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.blue.shade200,
+                                        if (!_isFormValid && _hasDataChanged())
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.only(top: 12),
+                                            child: Container(
+                                              padding: EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: Colors.orange.shade50,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                    color:
+                                                        Colors.orange.shade200),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.warning_amber,
+                                                      color: Colors
+                                                          .orange.shade700,
+                                                      size: 18),
+                                                  SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Text(
+                                                      'Please fix validation errors above before submitting.',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: Colors
+                                                            .orange.shade700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.info_outline,
-                                        color: Colors.blue.shade700,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'Adding a clear profile photo helps with customer identification and improves the user experience.',
+
+                                  const SizedBox(width: 40),
+
+                                  // Right section - Upload image
+                                  Expanded(
+                                    flex: 2,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Profile Photo',
                                           style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.blue.shade700,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.black87,
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                          'Upload a new profile picture (Max 5MB)',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+
+                                        // Image upload area
+                                        MouseRegion(
+                                          onEnter: (_) => setState(
+                                              () => _isHoveringUpload = true),
+                                          onExit: (_) => setState(
+                                              () => _isHoveringUpload = false),
+                                          child: GestureDetector(
+                                            onTap: _isProcessingImage
+                                                ? null
+                                                : _pickImage,
+                                            child: Container(
+                                              height: 280,
+                                              width: double.infinity,
+                                              decoration: BoxDecoration(
+                                                color: _isHoveringUpload
+                                                    ? Colors.grey.shade100
+                                                    : Colors.grey.shade50,
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                border: Border.all(
+                                                  color: _isHoveringUpload
+                                                      ? Theme.of(context)
+                                                          .primaryColor
+                                                      : Colors.grey.shade300,
+                                                  width: 2,
+                                                  style: BorderStyle.solid,
+                                                ),
+                                              ),
+                                              child: _imageBytes != null
+                                                  ? _buildNewImagePreview()
+                                                  : _currentImageUrl != null &&
+                                                          _currentImageUrl!
+                                                              .isNotEmpty
+                                                      ? _buildCurrentImagePreview()
+                                                      : _isProcessingImage
+                                                          ? _buildLoadingIndicator()
+                                                          : _buildUploadPrompt(),
+                                            ),
+                                          ),
+                                        ),
+
+                                        // Image info
+                                        if (_imageBase64 != null)
+                                          _buildNewImageInfo(),
+                                        if (_currentImageUrl != null &&
+                                            _imageBase64 == null)
+                                          _buildCurrentImageInfo(),
+
+                                        const SizedBox(height: 24),
+
+                                        // Information box
+                                        _buildInfoBox(),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
+    );
+  }
+
+  /// Build new image preview widget
+  Widget _buildNewImagePreview() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Display selected image
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.memory(
+            _imageBytes!,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
           ),
         ),
+        // Overlay for change button
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            color: Colors.black.withOpacity(0.7),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.edit, color: Colors.white, size: 16),
+                    SizedBox(width: 8),
+                    Text('Change Photo',
+                        style: TextStyle(color: Colors.white, fontSize: 14)),
+                  ],
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete, color: Colors.white, size: 18),
+                  onPressed: _removeImage,
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints(),
+                  tooltip: 'Remove New Photo',
+                ),
+              ],
+            ),
+          ),
+        ),
+        // New badge
+        Positioned(
+          top: 8,
+          left: 8,
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.green,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text('NEW',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Build current image preview widget
+  Widget _buildCurrentImagePreview() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.network(
+            _currentImageUrl!,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.grey.shade200,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image,
+                        size: 48, color: Colors.grey.shade500),
+                    SizedBox(height: 8),
+                    Text('Failed to load image',
+                        style: TextStyle(color: Colors.grey.shade600)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            color: Colors.black.withOpacity(0.7),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Row(
+              children: [
+                Icon(Icons.edit, color: Colors.white, size: 16),
+                SizedBox(width: 8),
+                Text('Change Photo',
+                    style: TextStyle(color: Colors.white, fontSize: 14)),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          top: 8,
+          left: 8,
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text('CURRENT',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Build loading indicator widget
+  Widget _buildLoadingIndicator() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: Theme.of(context).primaryColor),
+          const SizedBox(height: 16),
+          Text(
+            'Processing image...',
+            style: TextStyle(
+              color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build upload prompt widget
+  Widget _buildUploadPrompt() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.cloud_upload_rounded,
+            size: 36,
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Drag & drop or click to upload',
+          style: TextStyle(
+            color: Theme.of(context).primaryColor,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'JPG, PNG, GIF, WebP, BMP (Max 5MB)',
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Build new image info widget
+  Widget _buildNewImageInfo() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12.0),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, color: Colors.green, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'New image selected: ${(_imageBytes!.lengthInBytes / 1024).toStringAsFixed(2)} KB',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build current image info widget
+  Widget _buildCurrentImageInfo() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12.0),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.blue, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Current profile photo (click above to change)',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build information box widget
+  Widget _buildInfoBox() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.blue.shade700, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'You can update the profile photo by uploading a new image. The current photo will be replaced.',
+              style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+            ),
+          ),
+        ],
       ),
     );
   }
