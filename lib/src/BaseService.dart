@@ -77,20 +77,43 @@ abstract class BaseService {
 
   // Response handling
   static Map<String, dynamic> handleResponse(Response response) {
+    print('📡 === RESPONSE HANDLER ===');
+    print('📡 Status: ${response.statusCode}');
+    print('📡 Data Type: ${response.data.runtimeType}');
+
     if (response.statusCode == null || response.data == null) {
+      print('❌ Invalid response - null status or data');
       throw Exception('Invalid response from server');
     }
 
     final responseData = response.data as Map<String, dynamic>;
+    print('📡 Response Keys: ${responseData.keys.toList()}');
 
+    // ✅ FIXED: Handle response format without statusCode
+    // Check if HTTP status is success
+    if (response.statusCode! >= 200 && response.statusCode! < 300) {
+      // If response has message, consider it valid
+      if (responseData.containsKey(ApiConstants.messageKey)) {
+        print('✅ Response validation passed (message-based)');
+        return responseData;
+      }
+    }
+
+    // Fallback to original validation
     if (!ApiConstants.isValidResponse(responseData)) {
+      print('❌ Invalid response format');
+      print('❌ Expected keys: statusCode + message OR just message');
+      print('❌ Actual keys: ${responseData.keys.toList()}');
       throw Exception('Invalid response format from server');
     }
 
     if (!ApiConstants.isSuccessResponse(responseData)) {
-      throw Exception(ApiConstants.getErrorMessage(responseData));
+      final errorMsg = ApiConstants.getErrorMessage(responseData);
+      print('❌ API Error Response: $errorMsg');
+      throw Exception(errorMsg);
     }
 
+    print('✅ Response validation passed');
     return responseData;
   }
 

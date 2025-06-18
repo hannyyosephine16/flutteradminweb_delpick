@@ -550,29 +550,75 @@ class ApiConstants {
 
   // Response validation
   static bool isValidResponse(Map<String, dynamic> response) {
-    return response.containsKey(statusCodeKey) &&
+    // Accept response if it has either:
+    // 1. statusCode + message (new format)
+    // 2. Just message (current backend format)
+    return (response.containsKey(statusCodeKey) &&
+            response.containsKey(messageKey)) ||
         response.containsKey(messageKey);
   }
 
   static bool isSuccessResponse(Map<String, dynamic> response) {
-    final statusCode = response[statusCodeKey];
-    return statusCode != null && statusCode >= 200 && statusCode < 300;
-  }
-
-  static String getErrorMessage(Map<String, dynamic> response) {
-    if (response.containsKey(messageKey)) {
-      return response[messageKey];
-    } else if (response.containsKey(errorsKey)) {
-      final errors = response[errorsKey];
-      if (errors is String) return errors;
-      if (errors is List && errors.isNotEmpty) return errors.first.toString();
+    // If statusCode exists, check it
+    if (response.containsKey(statusCodeKey)) {
+      final statusCode = response[statusCodeKey];
+      return statusCode == statusOk || statusCode == statusCreated;
     }
-    return 'Unknown error occurred';
+
+    // If no statusCode, assume success if message exists
+    return response.containsKey(messageKey);
   }
 
   static dynamic extractData(Map<String, dynamic> response) {
     return response[dataKey];
   }
+
+  static String getErrorMessage(Map<String, dynamic> response) {
+    if (response.containsKey(messageKey)) {
+      return response[messageKey].toString();
+    }
+
+    final statusCode = response[statusCodeKey];
+
+    switch (statusCode) {
+      case statusBadRequest:
+        return validationError;
+      case statusUnauthorized:
+        return unauthorizedError;
+      case statusForbidden:
+        return forbiddenError;
+      case statusNotFound:
+        return notFoundError;
+      case statusConflict:
+        return conflictError;
+      case statusUnprocessableEntity:
+        return validationError;
+      case statusInternalServerError:
+        return serverError;
+      default:
+        return 'An error occurred';
+    }
+  }
+
+  // static bool isSuccessResponse(Map<String, dynamic> response) {
+  //   final statusCode = response[statusCodeKey];
+  //   return statusCode != null && statusCode >= 200 && statusCode < 300;
+  // }
+
+  // static String getErrorMessage(Map<String, dynamic> response) {
+  //   if (response.containsKey(messageKey)) {
+  //     return response[messageKey];
+  //   } else if (response.containsKey(errorsKey)) {
+  //     final errors = response[errorsKey];
+  //     if (errors is String) return errors;
+  //     if (errors is List && errors.isNotEmpty) return errors.first.toString();
+  //   }
+  //   return 'Unknown error occurred';
+  // }
+
+  // static dynamic extractData(Map<String, dynamic> response) {
+  //   return response[dataKey];
+  // }
 
   // Error messages
   static const String networkError = 'Network connection error';

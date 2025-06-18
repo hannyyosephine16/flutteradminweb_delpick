@@ -312,16 +312,61 @@ class CustomerService extends BaseService {
         sortOrder: sortOrder,
       );
 
-      final response = await BaseService.get(
+      print('🔄 CustomerService.getAllCustomers with params: $queryParams');
+
+      // ✅ DIRECT DIO CALL to bypass BaseService validation
+      final response = await BaseService.dio.get(
         ApiConstants.customers,
         queryParameters: queryParams,
       );
 
-      return response;
+      print('📥 Direct response status: ${response.statusCode}');
+      print('📥 Direct response data: ${response.data}');
+
+      // ✅ MANUAL VALIDATION for current backend format
+      if (response.statusCode! >= 200 && response.statusCode! < 300) {
+        final responseData = response.data as Map<String, dynamic>;
+
+        if (responseData.containsKey('message') &&
+            responseData.containsKey('data')) {
+          print('✅ Manual validation passed');
+          return responseData;
+        }
+      }
+
+      throw Exception('Invalid response format');
     } catch (e) {
+      print('❌ CustomerService.getAllCustomers error: $e');
       throw Exception('Failed to load customers: ${e.toString()}');
     }
   }
+  // static Future<Map<String, dynamic>> getAllCustomers({
+  //   int page = 1,
+  //   int limit = 10,
+  //   String? search,
+  //   String sortBy = 'created_at',
+  //   String sortOrder = 'DESC',
+  // })
+  // async {
+  //   try {
+  //     final queryParams = BaseService.buildQueryParams(
+  //       page: page,
+  //       limit: limit,
+  //       search: search,
+  //       sortBy: sortBy,
+  //       sortOrder: sortOrder,
+  //     );
+  //
+  //     final response = await BaseService.get(
+  //       ApiConstants.customers,
+  //       queryParameters: queryParams,
+  //     );
+  //
+  //     return response;
+  //   } catch (e) {
+  //     throw Exception('Failed to load customers: ${e.toString()}');
+  //   }
+  // }
 
   /// Get customer by ID
   static Future<Map<String, dynamic>?> getCustomerById(String id) async {
