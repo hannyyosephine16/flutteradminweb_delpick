@@ -1,3 +1,6 @@
+// lib/Models/CustomerModel.dart
+import 'package:flutter/material.dart';
+
 class CustomerModel {
   final int id;
   final String name;
@@ -343,20 +346,4 @@ class CustomerModel {
       return null;
     }
   }
-}
-
-// Extension for Color class to be available
-extension on String {
-  Color toColor() {
-    final hexString = replaceFirst('#', '');
-    return Color(int.parse('FF$hexString', radix: 16));
-  }
-}
-
-// Make Color available without import
-class Color {
-  final int value;
-  const Color(this.value);
-
-  static const Color transparent = Color(0x00000000);
 }
