@@ -1,5 +1,5 @@
+// lib/Views/Dashboard/CustomerDetail/addcustomer.dart
 import 'dart:convert';
-import 'dart:math';
 import 'dart:typed_data';
 import 'package:delpick_admin/src/CustomerService.dart';
 import 'package:flutter/material.dart';
@@ -29,13 +29,11 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
   bool _isHoveringUpload = false;
   bool _isProcessingImage = false;
 
-  // Validation error messages
   Map<String, String?> _validationErrors = {};
 
   @override
   void initState() {
     super.initState();
-    // Add listeners to validate form in real-time
     nameController.addListener(_validateForm);
     emailController.addListener(_validateForm);
     phoneController.addListener(_validateForm);
@@ -51,7 +49,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     super.dispose();
   }
 
-  /// Validate form fields in real-time
   void _validateForm() {
     setState(() {
       _validationErrors = CustomerService.validateCustomerData(
@@ -69,7 +66,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     });
   }
 
-  /// Pick and process image
   Future<void> _pickImage() async {
     setState(() {
       _isProcessingImage = true;
@@ -84,7 +80,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
         print(
             'Image size: ${(pickedImage.lengthInBytes / 1024).toStringAsFixed(2)} KB');
 
-        // Check file size (5MB limit)
         if (pickedImage.lengthInBytes > 5 * 1024 * 1024) {
           _showErrorSnackBar(
             'Image too large. Please select an image smaller than 5MB.',
@@ -92,11 +87,9 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
           return;
         }
 
-        // Detect content type
         String contentType = _detectContentType(pickedImage);
         print('Detected content type: $contentType');
 
-        // Validate content type
         if (![
           'image/jpeg',
           'image/jpg',
@@ -111,14 +104,11 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
           return;
         }
 
-        // Encode to base64
         String base64String = base64Encode(pickedImage);
         print('Base64 encoding completed (${base64String.length} characters)');
 
-        // Create complete data URL
         final imageBase64WithPrefix = 'data:$contentType;base64,$base64String';
 
-        // Validate the result
         if (CustomerService.isValidImageFormat(imageBase64WithPrefix)) {
           setState(() {
             _imageBytes = pickedImage;
@@ -157,28 +147,23 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     }
   }
 
-  /// Detect image content type from file signature
   String _detectContentType(Uint8List bytes) {
     if (bytes.length < 4) {
-      return 'image/jpeg'; // Default
+      return 'image/jpeg';
     }
 
-    // PNG signature: 89 50 4E 47
     if (bytes[0] == 137 && bytes[1] == 80 && bytes[2] == 78 && bytes[3] == 71) {
       return 'image/png';
     }
 
-    // JPEG signature: FF D8 FF
     if (bytes[0] == 255 && bytes[1] == 216 && bytes[2] == 255) {
       return 'image/jpeg';
     }
 
-    // GIF signature: 47 49 46 38
     if (bytes[0] == 71 && bytes[1] == 73 && bytes[2] == 70 && bytes[3] == 56) {
       return 'image/gif';
     }
 
-    // WEBP signature: 52 49 46 46 ... 57 45 42 50
     if (bytes.length >= 12 &&
         bytes[0] == 82 &&
         bytes[1] == 73 &&
@@ -191,17 +176,15 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
       return 'image/webp';
     }
 
-    // BMP signature: 42 4D
     if (bytes[0] == 66 && bytes[1] == 77) {
       return 'image/bmp';
     }
 
-    return 'image/jpeg'; // Default
+    return 'image/jpeg';
   }
 
-  /// Save customer using the corrected service
   Future<void> _saveCustomer() async {
-    if (!_formKey.currentState!.validate() || !_isFormValid) {
+    if (!_isFormValid) {
       _showErrorSnackBar('Please fix all validation errors before submitting.');
       return;
     }
@@ -213,10 +196,8 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     try {
       print('🔄 Starting customer creation process...');
 
-      // Clean phone number
       final cleanPhone = CustomerService.cleanPhoneNumber(phoneController.text);
 
-      // Final validation
       final errors = CustomerService.validateCustomerData(
         name: nameController.text,
         email: emailController.text,
@@ -230,13 +211,12 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
         return;
       }
 
-      // Call the corrected service method
       final response = await CustomerService.createCustomer(
         nameController.text.trim(),
         emailController.text.trim(),
         cleanPhone,
         passwordController.text,
-        _imageBase64, // Can be null
+        _imageBase64,
       );
 
       if (response != null) {
@@ -256,7 +236,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     }
   }
 
-  /// Reset form after successful creation
   void _resetForm() {
     nameController.clear();
     emailController.clear();
@@ -270,7 +249,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     });
   }
 
-  /// Remove selected image
   void _removeImage() {
     setState(() {
       _imageBytes = null;
@@ -279,7 +257,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     _showInfoSnackBar('Image removed');
   }
 
-  /// Show success dialog
   void _showSuccessDialog() {
     showDialog(
       context: context,
@@ -307,7 +284,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     );
   }
 
-  /// Show error snackbar
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -318,7 +294,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     );
   }
 
-  /// Show success snackbar
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -329,7 +304,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     );
   }
 
-  /// Show info snackbar
   void _showInfoSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -380,7 +354,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(20),
@@ -415,42 +388,23 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                           ],
                         ),
                       ),
-
-                      // Form content
                       Padding(
                         padding: const EdgeInsets.all(24.0),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Left section - Form fields
                             Expanded(
                               flex: 3,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Name field
                                   CustomTextField(
                                     label: "Enter full name (3-50 characters)",
                                     title: "Full Name *",
                                     icon: Icons.person,
                                     controller: nameController,
                                     errorText: _validationErrors['name'],
-                                    validator: (value) {
-                                      if (value == null ||
-                                          value.trim().isEmpty) {
-                                        return 'Name is required';
-                                      }
-                                      if (value.trim().length < 3) {
-                                        return 'Name must be at least 3 characters';
-                                      }
-                                      if (value.trim().length > 50) {
-                                        return 'Name must not exceed 50 characters';
-                                      }
-                                      return null;
-                                    },
                                   ),
-
-                                  // Email field
                                   CustomTextField(
                                     label: "Enter email address",
                                     title: "Email *",
@@ -458,21 +412,7 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                     keyboardType: TextInputType.emailAddress,
                                     controller: emailController,
                                     errorText: _validationErrors['email'],
-                                    validator: (value) {
-                                      if (value == null ||
-                                          value.trim().isEmpty) {
-                                        return 'Email is required';
-                                      }
-                                      if (!RegExp(
-                                              r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
-                                          .hasMatch(value)) {
-                                        return 'Invalid email format';
-                                      }
-                                      return null;
-                                    },
                                   ),
-
-                                  // Phone field
                                   CustomTextField(
                                     label: "Enter phone number (10-13 digits)",
                                     title: "Phone Number *",
@@ -480,22 +420,7 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                     keyboardType: TextInputType.phone,
                                     controller: phoneController,
                                     errorText: _validationErrors['phone'],
-                                    validator: (value) {
-                                      if (value == null ||
-                                          value.trim().isEmpty) {
-                                        return 'Phone is required';
-                                      }
-                                      final cleanPhone = value.replaceAll(
-                                          RegExp(r'[^\d]'), '');
-                                      if (!RegExp(r'^[0-9]{10,13}$')
-                                          .hasMatch(cleanPhone)) {
-                                        return 'Phone must be 10-13 digits only';
-                                      }
-                                      return null;
-                                    },
                                   ),
-
-                                  // Password field
                                   CustomTextField(
                                     label: "Enter password (6-50 characters)",
                                     title: "Password *",
@@ -504,31 +429,10 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                     icon2: showPassword
                                         ? Icons.visibility
                                         : Icons.visibility_off,
-                                    // Uncomment if CustomTextField supports onIcon2Pressed
-                                    // onIcon2Pressed: () {
-                                    //   setState(() {
-                                    //     showPassword = !showPassword;
-                                    //   });
-                                    // },
                                     controller: passwordController,
                                     errorText: _validationErrors['password'],
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty) {
-                                        return 'Password is required';
-                                      }
-                                      if (value.length < 6) {
-                                        return 'Password must be at least 6 characters';
-                                      }
-                                      if (value.length > 50) {
-                                        return 'Password must not exceed 50 characters';
-                                      }
-                                      return null;
-                                    },
                                   ),
-
                                   const SizedBox(height: 24),
-
-                                  // Submit button
                                   Row(
                                     children: [
                                       Expanded(
@@ -566,8 +470,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                       ),
                                     ],
                                   ),
-
-                                  // Form validation status
                                   if (!_isFormValid &&
                                       (nameController.text.isNotEmpty ||
                                           emailController.text.isNotEmpty ||
@@ -606,10 +508,7 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                 ],
                               ),
                             ),
-
                             const SizedBox(width: 40),
-
-                            // Right section - Upload image
                             Expanded(
                               flex: 2,
                               child: Column(
@@ -632,8 +531,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 16),
-
-                                  // Image upload area
                                   MouseRegion(
                                     onEnter: (_) => setState(
                                         () => _isHoveringUpload = true),
@@ -668,13 +565,8 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
                                       ),
                                     ),
                                   ),
-
-                                  // Image info
                                   if (_imageBase64 != null) _buildImageInfo(),
-
                                   const SizedBox(height: 24),
-
-                                  // Information box
                                   _buildInfoBox(),
                                 ],
                               ),
@@ -693,12 +585,10 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     );
   }
 
-  /// Build image preview widget
   Widget _buildImagePreview() {
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Display selected image
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
           child: Image.memory(
@@ -708,7 +598,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
             height: double.infinity,
           ),
         ),
-        // Overlay for change button
         Positioned(
           bottom: 0,
           left: 0,
@@ -747,7 +636,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     );
   }
 
-  /// Build loading indicator widget
   Widget _buildLoadingIndicator() {
     return Center(
       child: Column(
@@ -769,7 +657,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     );
   }
 
-  /// Build upload prompt widget
   Widget _buildUploadPrompt() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -806,7 +693,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     );
   }
 
-  /// Build image info widget
   Widget _buildImageInfo() {
     return Padding(
       padding: const EdgeInsets.only(top: 12.0),
@@ -828,7 +714,6 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
     );
   }
 
-  /// Build information box widget
   Widget _buildInfoBox() {
     return Container(
       padding: const EdgeInsets.all(12),
