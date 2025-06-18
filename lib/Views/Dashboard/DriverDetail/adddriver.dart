@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker_web/image_picker_web.dart';
-import '../../../src/DriverService.dart'; // Updated import
+import '../../../src/DriverService.dart';
 import '../../../Common/widgets/texts/customtextfield.dart';
 
 class AddNewDriverScreen extends StatefulWidget {
@@ -16,8 +16,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController licenseController =
-      TextEditingController(); // ✅ ADDED
+  final TextEditingController licenseController = TextEditingController();
   final TextEditingController vehicleController = TextEditingController();
   bool isLoading = false;
   bool showPassword = false;
@@ -25,6 +24,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
   String? _imageBase64;
   String? _imageName;
   bool _isHoveringUpload = false;
+
   Future<void> _pickImage() async {
     setState(() {
       isLoading = true;
@@ -33,17 +33,12 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
       final pickedImage = await ImagePickerWeb.getImageAsBytes();
 
       if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) {
-        // 5MB
-        // Konversi ke base64 dan tambahkan prefix yang sesuai
         final base64String = base64Encode(pickedImage);
-        // Tentukan format gambar (umumnya JPEG)
-        // Catatan: Untuk mendeteksi format sebenarnya, perlu logic tambahan
         final imageBase64WithPrefix = 'data:image/jpeg;base64,' + base64String;
 
         setState(() {
-          _imageBytes = pickedImage; // Simpan bytes untuk ditampilkan
-          _imageBase64 =
-              imageBase64WithPrefix; // Base64 dengan prefix yang sesuai untuk backend
+          _imageBytes = pickedImage;
+          _imageBase64 = imageBase64WithPrefix;
         });
 
         print('Gambar berhasil dikonversi ke base64 dengan prefix');
@@ -71,12 +66,11 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
   }
 
   Future<void> _saveDriver() async {
-// ✅ UPDATED: Validation logic untuk semua field termasuk license
     if (nameController.text.isEmpty ||
         emailController.text.isEmpty ||
         phoneController.text.isEmpty ||
         passwordController.text.isEmpty ||
-        licenseController.text.isEmpty || // ✅ ADDED
+        licenseController.text.isEmpty ||
         vehicleController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all required fields')),
@@ -87,10 +81,8 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
       isLoading = true;
     });
     try {
-      // Debug: periksa apakah gambar dalam format yang benar
       if (_imageBase64 != null) {
-        print(
-            'Format base64 gambar: ${_imageBase64!.substring(0, 30)}...'); // Tampilkan awal string saja
+        print('Format base64 gambar: ${_imageBase64!.substring(0, 30)}...');
         if (!_imageBase64!.startsWith('data:image/')) {
           print(
               'Warning: Format base64 gambar tidak dimulai dengan "data:image/"');
@@ -99,34 +91,30 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
         print('Tidak ada gambar yang dipilih');
       }
 
-      // ✅ FIXED: Memanggil DriverService.createDriver dengan 7 parameter yang benar
       final response = await DriverService.createDriver(
-        nameController.text, // name
-        emailController.text, // email
-        passwordController.text, // password
-        phoneController.text, // phone
-        licenseController.text, // licenseNumber ✅ ADDED
-        vehicleController.text, // vehiclePlate
-        _imageBase64, // avatar (nullable String?) ✅ FIXED
+        name: nameController.text,
+        email: emailController.text,
+        password: passwordController.text,
+        phone: phoneController.text,
+        licenseNumber: licenseController.text,
+        vehiclePlate: vehicleController.text,
+        avatar: _imageBase64,
       );
 
       print('Response dari server: $response');
 
       if (response != null) {
-        // Jika berhasil menambah driver, tampilkan popup
         _showSuccessDialog();
-        // Reset form
         nameController.clear();
         emailController.clear();
         phoneController.clear();
         passwordController.clear();
-        licenseController.clear(); // ✅ ADDED
+        licenseController.clear();
         vehicleController.clear();
         setState(() {
           _imageBytes = null;
           _imageBase64 = null;
         });
-        // Navigate back after successful creation
         Future.delayed(const Duration(seconds: 1), () {
           Navigator.of(context).pop(true);
         });
@@ -136,7 +124,6 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
         );
       }
     } catch (e) {
-      // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to add driver: $e'),
@@ -153,7 +140,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
   void _showSuccessDialog() {
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dismissing the dialog
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Success'),
@@ -161,7 +148,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
+                Navigator.of(context).pop();
               },
               child: const Text('OK'),
             ),
@@ -209,7 +196,6 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-// Header
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -242,13 +228,11 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                         ],
                       ),
                     ),
-                    // Form content
                     Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Left section - Form fields
                           Expanded(
                             flex: 3,
                             child: Column(
@@ -283,13 +267,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                   icon2: showPassword
                                       ? Icons.visibility
                                       : Icons.visibility_off,
-                                  // onIcon2Press: () {
-                                  //   setState(() {
-                                  //     showPassword = !showPassword;
-                                  //   });
-                                  // },
                                 ),
-                                // ✅ ADDED: License Number field
                                 CustomTextField(
                                   label: "Enter license number",
                                   title: "License Number",
@@ -340,10 +318,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                               ],
                             ),
                           ),
-
                           const SizedBox(width: 40),
-
-                          // Right section - Upload image
                           Expanded(
                             flex: 2,
                             child: Column(
@@ -366,8 +341,6 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-
-                                // Image upload area
                                 MouseRegion(
                                   onEnter: (_) =>
                                       setState(() => _isHoveringUpload = true),
@@ -392,11 +365,9 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                         ),
                                       ),
                                       child: _imageBytes != null
-                                          //   child : _imageBase64 != null
                                           ? Stack(
                                               alignment: Alignment.center,
                                               children: [
-                                                // Display selected image
                                                 ClipRRect(
                                                   borderRadius:
                                                       BorderRadius.circular(10),
@@ -407,7 +378,6 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                                     height: double.infinity,
                                                   ),
                                                 ),
-                                                // Overlay for change button
                                                 Positioned(
                                                   bottom: 0,
                                                   left: 0,
@@ -516,17 +486,9 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                     ),
                                   ),
                                 ),
-
                                 if (_imageBase64 != null)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 12.0),
-                                    // child: Text(
-                                    //   'File: $_imageBase64',
-                                    //   style: TextStyle(
-                                    //     fontSize: 13,
-                                    //     color: Colors.grey.shade600,
-                                    //   ),
-                                    // ),
                                     child: Text(
                                       'Image selected: ${(_imageBytes!.lengthInBytes / 1024).toStringAsFixed(2)} KB',
                                       style: TextStyle(
@@ -535,10 +497,7 @@ class _AddNewDriverScreenState extends State<AddNewDriverScreen> {
                                       ),
                                     ),
                                   ),
-
                                 const SizedBox(height: 24),
-
-                                // Information box
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
