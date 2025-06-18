@@ -21,9 +21,6 @@ class CustomerSectionState extends State<CustomerSection> {
   @override
   void initState() {
     super.initState();
-    print('🔧 CustomerSection initState');
-
-    // ✅ IMPROVED: Load customers with delay to ensure controller is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.loadCustomers(refresh: true);
     });
@@ -37,8 +34,6 @@ class CustomerSectionState extends State<CustomerSection> {
 
   void _navigateToEditCustomer(CustomerModel customer) {
     try {
-      print('📝 Navigating to edit customer with ID: ${customer.id}');
-
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -47,11 +42,9 @@ class CustomerSectionState extends State<CustomerSection> {
           ),
         ),
       ).then((_) {
-        print('🔄 Returned from edit screen, refreshing data');
         controller.refreshCustomers();
       });
     } catch (e) {
-      print('❌ Error navigating to edit: $e');
       Get.snackbar(
         'Error',
         'Navigation error: $e',
@@ -73,32 +66,16 @@ class CustomerSectionState extends State<CustomerSection> {
         backgroundColor: Colors.white,
         elevation: 1,
         actions: [
-          // ✅ DEBUG TOOLS
-          IconButton(
-            icon: const Icon(Icons.bug_report, color: Colors.orange),
-            onPressed: () async {
-              print('🐛 === MANUAL DEBUG TRIGGERED ===');
-              await controller.debugCustomerData();
-            },
-            tooltip: 'Debug API',
-          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.blue),
-            onPressed: () async {
-              print('🔄 === MANUAL REFRESH TRIGGERED ===');
-              await controller.refreshCustomers();
-            },
+            onPressed: () => controller.refreshCustomers(),
             tooltip: 'Refresh Data',
           ),
           IconButton(
             icon: const Icon(Icons.healing, color: Colors.green),
-            onPressed: () async {
-              print('🔬 === CONNECTION TEST TRIGGERED ===');
-              await controller.testConnection();
-            },
+            onPressed: () => controller.testConnection(),
             tooltip: 'Test Connection',
           ),
-          // ✅ ADD CUSTOMER BUTTON
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 8.0),
             child: ElevatedButton.icon(
@@ -148,16 +125,10 @@ class CustomerSectionState extends State<CustomerSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ✅ HEADER WITH STATUS INFO
                   _buildHeader(),
                   const SizedBox(height: 16),
-
-                  // ✅ MAIN CONTENT
                   Expanded(
                     child: Obx(() {
-                      print(
-                          '🔄 UI Rebuild - Loading: ${controller.isLoading.value}, Error: ${controller.hasError.value}, Customers: ${controller.customers.length}');
-
                       if (controller.isLoading.value) {
                         return _buildLoadingState();
                       }
@@ -173,8 +144,6 @@ class CustomerSectionState extends State<CustomerSection> {
                       return isSmallScreen ? _buildListView() : _buildTable();
                     }),
                   ),
-
-                  // ✅ FOOTER WITH PAGINATION AND STATS
                   _buildFooter(),
                 ],
               ),
@@ -185,7 +154,6 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // ✅ IMPROVED HEADER WITH SEARCH AND STATUS
   Widget _buildHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,7 +174,6 @@ class CustomerSectionState extends State<CustomerSection> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // ✅ DYNAMIC STATUS MESSAGE
                   Obx(() => Text(
                         _getStatusMessage(),
                         style: TextStyle(
@@ -218,12 +185,9 @@ class CustomerSectionState extends State<CustomerSection> {
                 ],
               ),
             ),
-            // ✅ SEARCH TOGGLE
             _isSearchActive ? _buildSearchField() : _buildSearchButton(),
           ],
         ),
-
-        // ✅ CUSTOMER STATS BAR
         const SizedBox(height: 12),
         _buildStatsBar(),
       ],
@@ -284,7 +248,6 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // ✅ STATS BAR
   Widget _buildStatsBar() {
     return Obx(() {
       if (controller.customers.isEmpty && !controller.isLoading.value) {
@@ -339,7 +302,6 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // ✅ LOADING STATE
   Widget _buildLoadingState() {
     return const Center(
       child: Column(
@@ -361,7 +323,6 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // ✅ IMPROVED ERROR STATE
   Widget _buildErrorState() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -393,8 +354,6 @@ class CustomerSectionState extends State<CustomerSection> {
                 textAlign: TextAlign.center,
               )),
           const SizedBox(height: 24),
-
-          // ✅ ERROR ACTION BUTTONS
           Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -406,15 +365,6 @@ class CustomerSectionState extends State<CustomerSection> {
                 label: const Text('Retry'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1A3B89),
-                  foregroundColor: Colors.white,
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => controller.debugCustomerData(),
-                icon: const Icon(Icons.bug_report, size: 18),
-                label: const Text('Debug'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -434,7 +384,6 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // ✅ IMPROVED EMPTY STATE
   Widget _buildEmptyState() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -469,8 +418,6 @@ class CustomerSectionState extends State<CustomerSection> {
             ),
           ),
           const SizedBox(height: 24),
-
-          // ✅ EMPTY STATE ACTIONS
           Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -516,11 +463,9 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // ✅ IMPROVED TABLE VIEW
   Widget _buildTable() {
     return Obx(() {
       final customers = controller.customers;
-      print('🔄 Building table with ${customers.length} customers');
 
       return Container(
         decoration: BoxDecoration(
@@ -529,7 +474,6 @@ class CustomerSectionState extends State<CustomerSection> {
         ),
         child: Column(
           children: [
-            // ✅ TABLE HEADER
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -556,8 +500,6 @@ class CustomerSectionState extends State<CustomerSection> {
                 ),
               ),
             ),
-
-            // ✅ TABLE BODY
             Expanded(
               child: customers.isEmpty
                   ? Container(
@@ -662,7 +604,6 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // ✅ IMPROVED LIST VIEW for mobile
   Widget _buildListView() {
     return Obx(() {
       final customers = controller.customers;
@@ -767,7 +708,6 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // ✅ FOOTER WITH PAGINATION
   Widget _buildFooter() {
     return Obx(() {
       if (controller.isLoading.value || controller.totalPages.value <= 1) {
@@ -779,7 +719,6 @@ class CustomerSectionState extends State<CustomerSection> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // ✅ PAGE INFO
             Text(
               'Page ${controller.currentPage.value} of ${controller.totalPages.value}',
               style: TextStyle(
@@ -787,8 +726,6 @@ class CustomerSectionState extends State<CustomerSection> {
                 color: Colors.grey.shade600,
               ),
             ),
-
-            // ✅ PAGINATION CONTROLS
             _buildPaginationControls(),
           ],
         ),
@@ -862,7 +799,6 @@ class CustomerSectionState extends State<CustomerSection> {
     });
   }
 
-  // ✅ DELETE CONFIRMATION DIALOG
   void _showDeleteConfirmation(CustomerModel customer) {
     showDialog(
       context: context,
@@ -912,7 +848,6 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
-  // ✅ HELPER METHODS
   String _getStatusMessage() {
     if (controller.isLoading.value) {
       return 'Loading customers...';
