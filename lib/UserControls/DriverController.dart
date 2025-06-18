@@ -33,7 +33,7 @@ class DriverController extends GetxController {
   final phoneController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
-  final licenseNumberController = TextEditingController(); // ✅ ADDED
+  final licenseNumberController = TextEditingController();
   final vehicleNumberController = TextEditingController();
 
   // Form state
@@ -59,12 +59,11 @@ class DriverController extends GetxController {
     phoneController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
-    licenseNumberController.dispose(); // ✅ ADDED
+    licenseNumberController.dispose();
     vehicleNumberController.dispose();
     super.onClose();
   }
 
-  // ✅ FIXED: Fetch drivers with proper null safety handling
   Future<void> fetchDrivers({int page = 1, bool isRefresh = false}) async {
     try {
       if (isRefresh || page == 1) {
@@ -77,14 +76,12 @@ class DriverController extends GetxController {
       hasError.value = false;
       errorMessage.value = '';
 
-      // ✅ Handle null response from DriverService
       final response = await DriverService.getAllDrivers(
         page: page,
         limit: itemsPerPage.value,
         search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
       );
 
-      // ✅ Add null check for response
       if (response == null) {
         throw Exception('No response received from server');
       }
@@ -92,22 +89,18 @@ class DriverController extends GetxController {
       print('🔍 Controller - Response type: ${response.runtimeType}');
       print('🔍 Controller - Response keys: ${response.keys.toList()}');
 
-      // ✅ Initialize with safe defaults
       List<dynamic> driversData = [];
       int totalPages = 1;
       int totalItems = 0;
       int currentPageNum = page;
 
-      // ✅ Safe access to response data
       final dataField = response['data'];
       print('🔍 Data field type: ${dataField.runtimeType}');
 
       if (dataField is List) {
-        // Case 1: { data: [driver1, driver2, ...] } - Most common
         print('✅ Found drivers array in data field');
         driversData = List<dynamic>.from(dataField);
       } else if (dataField is Map<String, dynamic>) {
-        // Case 2: { data: { drivers: [...], ... } } - Nested structure
         print('📋 Data field keys: ${dataField.keys.toList()}');
         final driversField = dataField['drivers'];
         if (driversField is List) {
@@ -116,7 +109,6 @@ class DriverController extends GetxController {
         }
       } else {
         print('⚠️ Unexpected data field type: ${dataField.runtimeType}');
-        // Fallback: check if drivers are at root level
         final rootDrivers = response['drivers'];
         if (rootDrivers is List) {
           print('✅ Found drivers array at root level');
@@ -124,7 +116,6 @@ class DriverController extends GetxController {
         }
       }
 
-      // ✅ Safe extraction of pagination info with null checks
       totalPages = (response['totalPages'] as num?)?.toInt() ?? 1;
       totalItems =
           (response['totalItems'] as num?)?.toInt() ?? driversData.length;
@@ -134,7 +125,6 @@ class DriverController extends GetxController {
       print(
           '📊 Pagination: Page $currentPageNum of $totalPages (Total: $totalItems)');
 
-      // Convert to DriverModel objects
       final List<DriverModel> driversList = [];
       for (int i = 0; i < driversData.length; i++) {
         try {
@@ -150,18 +140,15 @@ class DriverController extends GetxController {
         } catch (e, stackTrace) {
           print('❌ Error parsing driver item $i: $e');
           print('   Item: ${driversData[i]}');
-          // Continue with other drivers even if one fails
         }
       }
 
-      // Update drivers list
       if (page == 1) {
         drivers.assignAll(driversList);
       } else {
         drivers.addAll(driversList);
       }
 
-      // Update pagination info
       currentPage.value = currentPageNum;
       this.totalPages.value = totalPages;
       this.totalItems.value = totalItems;
@@ -180,49 +167,36 @@ class DriverController extends GetxController {
     }
   }
 
-  // Load more drivers (pagination)
   Future<void> loadMoreDrivers() async {
     if (currentPage.value < totalPages.value && !isLoadingMore.value) {
       await fetchDrivers(page: currentPage.value + 1);
     }
   }
 
-  // Refresh drivers list
   Future<void> refreshDrivers() async {
     await fetchDrivers(page: 1, isRefresh: true);
   }
 
-  // Search drivers
   void searchDrivers(String query) {
     searchQuery.value = query;
     fetchDrivers(page: 1, isRefresh: true);
   }
 
-  // Filter drivers by status
   void filterDriversByStatus(String status) {
     selectedStatusFilter.value = status;
     fetchDrivers(page: 1, isRefresh: true);
   }
 
-  // ✅ FIXED: Get driver by ID with null safety
   Future<DriverModel?> getDriverById(String id) async {
     try {
-      final response = await DriverService.getDriverById(id);
-
-      // ✅ Add null check for response
-      if (response == null) {
-        _showErrorSnackbar('No response received from server');
-        return null;
-      }
-
-      return DriverModel.fromJson(response);
+      final driver = await DriverService.getDriverById(id);
+      return driver;
     } catch (e) {
       _showErrorSnackbar('Failed to get driver: ${e.toString()}');
       return null;
     }
   }
 
-  // ✅ FIXED: Create new driver with proper parameters
   Future<bool> createDriver() async {
     if (!formKey.currentState!.validate()) {
       return false;
@@ -231,17 +205,16 @@ class DriverController extends GetxController {
     try {
       isFormLoading.value = true;
 
-      // ✅ FIXED: All 7 parameters in correct order
       await DriverService.createDriver(
-        nameController.text, // name
-        emailController.text, // email
-        passwordController.text, // password
-        phoneController.text, // phone
-        licenseNumberController.text, // licenseNumber (ADDED)
-        vehicleNumberController.text, // vehiclePlate
-        selectedImageBase64.value.isNotEmpty
+        name: nameController.text,
+        email: emailController.text,
+        password: passwordController.text,
+        phone: phoneController.text,
+        licenseNumber: licenseNumberController.text,
+        vehiclePlate: vehicleNumberController.text,
+        avatar: selectedImageBase64.value.isNotEmpty
             ? selectedImageBase64.value
-            : null, // avatar
+            : null,
       );
 
       _showSuccessSnackbar('Driver created successfully');
@@ -256,7 +229,6 @@ class DriverController extends GetxController {
     }
   }
 
-  // Update driver
   Future<bool> updateDriver() async {
     if (!formKey.currentState!.validate()) {
       return false;
@@ -265,24 +237,18 @@ class DriverController extends GetxController {
     try {
       isFormLoading.value = true;
 
-      final Map<String, dynamic> updateData = {
-        'name': nameController.text,
-        'email': emailController.text,
-        'phone': phoneController.text,
-        'license_number': licenseNumberController.text, // ✅ ADDED
-        'vehicle_plate': vehicleNumberController.text,
-        'status': selectedStatus.value,
-      };
-
-      if (passwordController.text.isNotEmpty) {
-        updateData['password'] = passwordController.text;
-      }
-
-      if (selectedImageBase64.value.isNotEmpty) {
-        updateData['avatar'] = selectedImageBase64.value;
-      }
-
-      await DriverService.updateDriver(editingDriverId.value, updateData);
+      await DriverService.updateDriver(
+        id: editingDriverId.value,
+        name: nameController.text,
+        email: emailController.text,
+        phone: phoneController.text,
+        licenseNumber: licenseNumberController.text,
+        vehiclePlate: vehicleNumberController.text,
+        status: selectedStatus.value,
+        avatar: selectedImageBase64.value.isNotEmpty
+            ? selectedImageBase64.value
+            : null,
+      );
 
       _showSuccessSnackbar('Driver updated successfully');
       clearForm();
@@ -296,7 +262,6 @@ class DriverController extends GetxController {
     }
   }
 
-  // Delete driver
   Future<bool> deleteDriver(String id) async {
     try {
       await DriverService.deleteDriver(id);
@@ -309,7 +274,6 @@ class DriverController extends GetxController {
     }
   }
 
-  // Delete multiple drivers
   Future<bool> deleteMultipleDrivers() async {
     if (selectedDrivers.isEmpty) {
       _showErrorSnackbar('No drivers selected');
@@ -332,11 +296,13 @@ class DriverController extends GetxController {
     }
   }
 
-  // Update driver location
   Future<void> updateDriverLocation(
       String driverId, double latitude, double longitude) async {
     try {
-      await DriverService.updateDriverLocation(latitude, longitude);
+      await DriverService.updateDriverLocation(
+        latitude: latitude,
+        longitude: longitude,
+      );
       driverLocations[driverId] = {
         'latitude': latitude,
         'longitude': longitude
@@ -347,7 +313,6 @@ class DriverController extends GetxController {
     }
   }
 
-  // Get driver location
   Future<Map<String, dynamic>?> getDriverLocation(String driverId) async {
     try {
       return await DriverService.getDriverLocation(driverId);
@@ -357,12 +322,13 @@ class DriverController extends GetxController {
     }
   }
 
-  // Update driver status
   Future<void> updateDriverStatus(String driverId, String status) async {
     try {
-      await DriverService.updateDriverStatus(status);
+      await DriverService.updateDriverStatus(
+        id: driverId,
+        status: status,
+      );
 
-      // Update local driver status
       final driverIndex =
           drivers.indexWhere((d) => d.id.toString() == driverId);
       if (driverIndex != -1) {
@@ -375,20 +341,17 @@ class DriverController extends GetxController {
     }
   }
 
-  // ✅ FIXED: Get driver orders with null safety
   Future<List<Map<String, dynamic>>> getDriverOrders(
       {int page = 1, int limit = 10}) async {
     try {
       final response =
           await DriverService.getDriverOrders(page: page, limit: limit);
 
-      // ✅ Add null check for response
       if (response == null) {
         _showErrorSnackbar('No response received from server');
         return [];
       }
 
-      // ✅ Safe access to orders array
       final orders = response['orders'];
       if (orders is List) {
         return List<Map<String, dynamic>>.from(orders);
@@ -401,14 +364,13 @@ class DriverController extends GetxController {
     }
   }
 
-  // Form management
   void setEditMode(DriverModel driver) {
     isEditMode.value = true;
     editingDriverId.value = driver.id.toString();
     nameController.text = driver.displayName;
     emailController.text = driver.displayEmail;
     phoneController.text = driver.displayPhone;
-    licenseNumberController.text = driver.licenseNumber; // ✅ ADDED
+    licenseNumberController.text = driver.licenseNumber;
     vehicleNumberController.text = driver.vehiclePlate;
     selectedStatus.value = driver.status;
     passwordController.clear();
@@ -422,7 +384,7 @@ class DriverController extends GetxController {
     nameController.clear();
     emailController.clear();
     phoneController.clear();
-    licenseNumberController.clear(); // ✅ ADDED
+    licenseNumberController.clear();
     vehicleNumberController.clear();
     passwordController.clear();
     confirmPasswordController.clear();
@@ -438,7 +400,6 @@ class DriverController extends GetxController {
     selectedStatus.value = status;
   }
 
-  // Selection management
   void toggleDriverSelection(DriverModel driver) {
     if (selectedDrivers.contains(driver)) {
       selectedDrivers.remove(driver);
@@ -467,7 +428,6 @@ class DriverController extends GetxController {
         drivers.isNotEmpty && selectedDrivers.length == drivers.length;
   }
 
-  // Utility methods
   bool isDriverSelected(DriverModel driver) {
     return selectedDrivers.contains(driver);
   }
@@ -476,13 +436,11 @@ class DriverController extends GetxController {
 
   List<DriverModel> get filteredDrivers {
     var filtered = drivers.where((driver) {
-      // Status filter
       if (selectedStatusFilter.value != 'all' &&
           driver.status != selectedStatusFilter.value) {
         return false;
       }
 
-      // Search filter
       if (searchQuery.value.isNotEmpty) {
         final query = searchQuery.value.toLowerCase();
         return driver.displayName.toLowerCase().contains(query) ||
@@ -497,7 +455,6 @@ class DriverController extends GetxController {
     return filtered;
   }
 
-  // Statistics
   int get totalDriversCount => totalItems.value;
   int get activeDriversCount => drivers.where((d) => d.isActive).length;
   int get busyDriversCount => drivers.where((d) => d.isBusy).length;
@@ -511,13 +468,10 @@ class DriverController extends GetxController {
 
   String get averageRatingDisplay => averageRating.toStringAsFixed(1);
 
-  // Status options for dropdown
   List<String> get statusOptions => ['active', 'inactive', 'busy'];
 
-  // Filter options
   List<String> get filterOptions => ['all', 'active', 'inactive', 'busy'];
 
-  // Snackbar helpers
   void _showSuccessSnackbar(String message) {
     Get.snackbar(
       'Success',
@@ -538,7 +492,6 @@ class DriverController extends GetxController {
     );
   }
 
-  // Validation methods
   String? validateName(String? value) {
     if (value == null || value.isEmpty) {
       return 'Name is required';
@@ -569,7 +522,6 @@ class DriverController extends GetxController {
     return null;
   }
 
-  // ✅ ADDED: License number validation
   String? validateLicenseNumber(String? value) {
     if (value == null || value.isEmpty) {
       return 'License number is required';
@@ -592,7 +544,7 @@ class DriverController extends GetxController {
 
   String? validatePassword(String? value) {
     if (isEditMode.value && (value == null || value.isEmpty)) {
-      return null; // Password is optional when editing
+      return null;
     }
     if (value == null || value.isEmpty) {
       return 'Password is required';
@@ -605,7 +557,7 @@ class DriverController extends GetxController {
 
   String? validateConfirmPassword(String? value) {
     if (isEditMode.value && passwordController.text.isEmpty) {
-      return null; // Skip validation if password is not being updated
+      return null;
     }
     if (value == null || value.isEmpty) {
       return 'Please confirm password';
