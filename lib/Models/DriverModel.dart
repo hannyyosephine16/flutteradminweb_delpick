@@ -73,8 +73,6 @@ class DriverModel {
   bool get isBusy => status == 'busy';
   bool get isInactive => status == 'inactive';
   String get ratingDisplay => rating.toStringAsFixed(1);
-
-  // ADDED - vehicleNumber getter
   String get vehicleNumber => vehiclePlate;
 
   String get statusDisplay {
@@ -89,4 +87,6 @@ class DriverModel {
         return 'Unknown';
     }
   }
+
+  bool get hasLocation => latitude != null && longitude != null;
 }

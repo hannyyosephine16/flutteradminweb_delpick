@@ -4,13 +4,12 @@ class CustomerModel {
   final String email;
   final String phone;
   final String role;
-  final String? address;
   final String? avatar;
   final String? fcmToken;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  // Admin computed fields
+  // Admin computed fields (not from backend model directly)
   final int? totalOrders;
   final double? totalSpent;
 
@@ -20,7 +19,6 @@ class CustomerModel {
     required this.email,
     required this.phone,
     required this.role,
-    this.address,
     this.avatar,
     this.fcmToken,
     required this.createdAt,
@@ -36,7 +34,6 @@ class CustomerModel {
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
       role: json['role'] ?? 'customer',
-      address: json['address'],
       avatar: json['avatar'],
       fcmToken: json['fcm_token'],
       createdAt: DateTime.parse(
@@ -55,7 +52,6 @@ class CustomerModel {
       'email': email,
       'phone': phone,
       'role': role,
-      'address': address,
       'avatar': avatar,
       'fcm_token': fcmToken,
       'created_at': createdAt.toIso8601String(),
@@ -76,7 +72,7 @@ class CustomerModel {
   String get spentDisplay => 'Rp ${spent.toStringAsFixed(0)}';
   String get ordersDisplay => '$orders orders';
 
-  // Customer status based on activity - ADDED
+  // Customer status based on activity
   String get customerStatus {
     if (orders == 0) return 'New Customer';
     if (orders >= 10) return 'Loyal Customer';

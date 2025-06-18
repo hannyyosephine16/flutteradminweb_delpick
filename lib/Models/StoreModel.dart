@@ -1,4 +1,3 @@
-import 'DriverModel.dart';
 import 'UserInfo.dart';
 
 class StoreModel {
@@ -68,7 +67,9 @@ class StoreModel {
           json['created_at'] ?? DateTime.now().toIso8601String()),
       updatedAt: DateTime.parse(
           json['updated_at'] ?? DateTime.now().toIso8601String()),
-      user: json['user'] != null ? UserInfo.fromJson(json['user']) : null,
+      user: json['user'] != null || json['owner'] != null
+          ? UserInfo.fromJson(json['user'] ?? json['owner'])
+          : null,
     );
   }
 
@@ -97,16 +98,11 @@ class StoreModel {
 
   String get displayName => name;
   String get ownerName => user?.name ?? 'Unknown Owner';
-
-  // ADDED - missing getters
   String get ownerEmail => user?.email ?? '';
   String get ownerPhone => user?.phone ?? '';
-
   bool get isActive => status == 'active';
-
-  // ADDED - isInactive getter
   bool get isInactive => status == 'inactive';
-
+  bool get isClosed => status == 'closed';
   String get ratingDisplay => rating?.toStringAsFixed(1) ?? '0.0';
 
   String get operatingHours {
@@ -129,11 +125,16 @@ class StoreModel {
     }
   }
 
-  // FIXED - Handle null rating for toStringAsFixed
   String get distanceDisplay {
     if (distance != null) {
       return '${distance!.toStringAsFixed(1)} km';
     }
     return 'Unknown distance';
   }
+
+  String get productsDisplay => '${totalProducts ?? 0} products';
+  String get reviewsDisplay => '${reviewCount ?? 0} reviews';
+  bool get hasRating => rating != null && rating! > 0;
+  bool get hasReviews => reviewCount != null && reviewCount! > 0;
+  bool get hasProducts => totalProducts != null && totalProducts! > 0;
 }

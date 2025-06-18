@@ -73,6 +73,10 @@ class MenuItemModel {
     if (quantity! <= 10) return 'Low Stock';
     return 'In Stock';
   }
+
+  bool get isInStock => isAvailable && (quantity == null || quantity! > 0);
+  bool get hasStock => quantity != null;
+  String get quantityDisplay => quantity?.toString() ?? 'Unlimited';
 }
 
 class StoreInfo {

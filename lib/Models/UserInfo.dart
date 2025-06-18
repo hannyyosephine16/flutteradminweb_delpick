@@ -5,6 +5,9 @@ class UserInfo {
   final String phone;
   final String role;
   final String? avatar;
+  final String? fcmToken;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   UserInfo({
     required this.id,
@@ -13,6 +16,9 @@ class UserInfo {
     required this.phone,
     required this.role,
     this.avatar,
+    this.fcmToken,
+    this.createdAt,
+    this.updatedAt,
   });
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
@@ -23,6 +29,13 @@ class UserInfo {
       phone: json['phone'] ?? '',
       role: json['role'] ?? '',
       avatar: json['avatar'],
+      fcmToken: json['fcm_token'],
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : null,
     );
   }
 
@@ -34,6 +47,16 @@ class UserInfo {
       'phone': phone,
       'role': role,
       'avatar': avatar,
+      'fcm_token': fcmToken,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
+
+  bool get isAdmin => role == 'admin';
+  bool get isCustomer => role == 'customer';
+  bool get isStore => role == 'store';
+  bool get isDriver => role == 'driver';
+  bool get hasAvatar => avatar != null && avatar!.isNotEmpty;
+  String get displayAvatar => avatar ?? '';
 }

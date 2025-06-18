@@ -114,11 +114,15 @@ class OrderModel {
 
   String get totalDisplay => 'Rp ${totalAmount.toStringAsFixed(0)}';
   String get deliveryFeeDisplay => 'Rp ${deliveryFee.toStringAsFixed(0)}';
+  String get grandTotalDisplay =>
+      'Rp ${(totalAmount + deliveryFee).toStringAsFixed(0)}';
   String get customerName => customer?.name ?? 'Unknown Customer';
   String get storeName => store?.name ?? 'Unknown Store';
   String get driverName => driver?.name ?? 'No Driver Assigned';
   bool get hasDriver => driverId != null;
   String get orderDateDisplay => createdAt.toString().split(' ')[0];
+  bool get hasDestination =>
+      destinationLatitude != null && destinationLongitude != null;
 
   String get orderStatusDisplay {
     switch (orderStatus) {
@@ -140,6 +144,31 @@ class OrderModel {
         return 'Unknown';
     }
   }
+
+  String get deliveryStatusDisplay {
+    switch (deliveryStatus) {
+      case 'pending':
+        return 'Pending';
+      case 'picked_up':
+        return 'Picked Up';
+      case 'on_way':
+        return 'On Way';
+      case 'delivered':
+        return 'Delivered';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  bool get isCompleted => orderStatus == 'delivered';
+  bool get isCancelled => orderStatus == 'cancelled';
+  bool get isPending => orderStatus == 'pending';
+  bool get isInProgress => [
+        'confirmed',
+        'preparing',
+        'ready_for_pickup',
+        'on_delivery'
+      ].contains(orderStatus);
 }
 
 // Supporting classes
@@ -154,6 +183,8 @@ class OrderItemInfo {
   final int quantity;
   final double price;
   final String? notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   OrderItemInfo({
     required this.id,
@@ -166,6 +197,8 @@ class OrderItemInfo {
     required this.quantity,
     required this.price,
     this.notes,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
   factory OrderItemInfo.fromJson(Map<String, dynamic> json) {
@@ -180,6 +213,10 @@ class OrderItemInfo {
       quantity: json['quantity'] ?? 0,
       price: (json['price'] ?? 0).toDouble(),
       notes: json['notes'],
+      createdAt: DateTime.parse(
+          json['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(
+          json['updated_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 
@@ -195,10 +232,13 @@ class OrderItemInfo {
       'quantity': quantity,
       'price': price,
       'notes': notes,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
 
   String get totalPrice => 'Rp ${(price * quantity).toStringAsFixed(0)}';
+  double get totalAmount => price * quantity;
 }
 
 class StoreInfo {
@@ -207,6 +247,8 @@ class StoreInfo {
   final String? address;
   final String? phone;
   final String? imageUrl;
+  final double? latitude;
+  final double? longitude;
 
   StoreInfo({
     required this.id,
@@ -214,6 +256,8 @@ class StoreInfo {
     this.address,
     this.phone,
     this.imageUrl,
+    this.latitude,
+    this.longitude,
   });
 
   factory StoreInfo.fromJson(Map<String, dynamic> json) {
@@ -223,6 +267,8 @@ class StoreInfo {
       address: json['address'],
       phone: json['phone'],
       imageUrl: json['image_url'],
+      latitude: json['latitude']?.toDouble(),
+      longitude: json['longitude']?.toDouble(),
     );
   }
 
@@ -233,8 +279,12 @@ class StoreInfo {
       'address': address,
       'phone': phone,
       'image_url': imageUrl,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
+
+  bool get hasLocation => latitude != null && longitude != null;
 }
 
 class CustomerInfo {
@@ -274,12 +324,16 @@ class DriverInfo {
   final String name;
   final String? phone;
   final String? vehicleNumber;
+  final double? latitude;
+  final double? longitude;
 
   DriverInfo({
     required this.id,
     required this.name,
     this.phone,
     this.vehicleNumber,
+    this.latitude,
+    this.longitude,
   });
 
   factory DriverInfo.fromJson(Map<String, dynamic> json) {
@@ -290,6 +344,8 @@ class DriverInfo {
       name: userData?['name'] ?? json['name'] ?? '',
       phone: userData?['phone'] ?? json['phone'],
       vehicleNumber: json['vehicle_plate'] ?? json['vehicle_number'],
+      latitude: json['latitude']?.toDouble(),
+      longitude: json['longitude']?.toDouble(),
     );
   }
 
@@ -299,6 +355,10 @@ class DriverInfo {
       'name': name,
       'phone': phone,
       'vehicle_number': vehicleNumber,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
+
+  bool get hasLocation => latitude != null && longitude != null;
 }
