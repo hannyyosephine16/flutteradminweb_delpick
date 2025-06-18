@@ -1,306 +1,154 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'BaseService.dart';
 import 'api_constant.dart';
-import 'ApiService.dart';
 
-class StoreService {
-  static final FlutterSecureStorage _storage = FlutterSecureStorage();
-
-  static Dio _createDioClient() {
-    final dio = Dio();
-    dio.options.baseUrl = ApiConstants.baseUrl;
-    dio.options.connectTimeout = Duration(seconds: 30);
-    dio.options.receiveTimeout = Duration(seconds: 30);
-
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await _getToken();
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        options.headers['Content-Type'] = 'application/json';
-        handler.next(options);
-      },
-      onError: (error, handler) {
-        print('❌ StoreService Error: ${error.message}');
-        handler.next(error);
-      },
-    ));
-
-    return dio;
-  }
-
-  // ✅ Get all Stores with proper response handling
-  static Future<Map<String, dynamic>> getAllStores(
-      {int page = 1, int limit = 10}) async {
-    final token = await _getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
+class StoreService extends BaseService {
+  // ✅ Get all stores with pagination
+  static Future<Map<String, dynamic>> getAllStores({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String? sortBy,
+    String? sortOrder,
+  }) async {
     try {
-      final response = await dio.get(
+      final queryParams = BaseService.buildQueryParams(
+        page: page,
+        limit: limit,
+        search: search,
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+      );
+
+      final response = await BaseService.get(
         ApiConstants.stores,
-        queryParameters:
-            ApiConstants.buildQueryParams(page: page, limit: limit),
+        queryParameters: queryParams,
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-
-        print(
-            '🔍 StoreService - Raw response type: ${responseData.runtimeType}');
-        print('🔍 StoreService - Raw response: $responseData');
-
-        if (responseData is Map<String, dynamic>) {
-          // Backend response format: { statusCode: 200, message: "...", data: stores[] }
-          if (responseData.containsKey('statusCode') &&
-              responseData['statusCode'] == 200) {
-            return responseData;
-          } else {
-            // Return the full response to preserve all information
-            return responseData;
-          }
-        } else if (responseData is List) {
-          // If backend returns direct array, wrap it properly
-          return {
-            'statusCode': 200,
-            'message': 'Success',
-            'data': responseData,
-            'totalItems': responseData.length,
-            'totalPages': 1,
-            'currentPage': page,
-          };
-        } else {
-          throw Exception(
-              'Unexpected response format: ${responseData.runtimeType}');
-        }
-      } else {
-        throw Exception('Failed to load Stores: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e, 'load stores');
+      return response;
+    } catch (e) {
+      throw Exception('Failed to load stores: $e');
     }
-    throw Exception('Unexpected error occurred');
   }
 
-  // ✅ Get Store by ID
+  // ✅ Get store by ID
   static Future<Map<String, dynamic>> getStoreById(String id) async {
-    final token = await _getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
     try {
-      final response = await dio.get(
-        ApiConstants.buildUrlWithParams(ApiConstants.storeById, {'id': id}),
-      );
+      final endpoint =
+          BaseService.buildUrlWithParams(ApiConstants.storeById, {'id': id});
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('API Error: ${responseData['message']}');
-      } else {
-        throw Exception('Failed to get Store: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e, 'get store');
+      final response = await BaseService.get(endpoint);
+      return BaseService.extractData(response);
+    } catch (e) {
+      throw Exception('Failed to get store: $e');
     }
-    throw Exception('Unexpected error occurred');
   }
 
-  // ✅ Create new store
-  static Future<Map<String, dynamic>> createStore(
-    String name,
-    String email,
-    String password,
-    String phone,
-    String storeName,
-    String address,
-    String description,
-    String openTime,
-    String closeTime,
-    double latitude,
-    double longitude,
+  // ✅ Create new store (Admin only)
+  static Future<Map<String, dynamic>> createStore({
+    required String name,
+    required String email,
+    required String password,
+    required String phone,
+    required String address,
+    String? description,
     String? imageBase64,
-  ) async {
-    final token = await _getToken();
-    if (token == null) {
-      throw Exception('Token tidak ditemukan, harap login terlebih dahulu');
-    }
-
-    final dio = _createDioClient();
-
+    required String openTime,
+    required String closeTime,
+    required double latitude,
+    required double longitude,
+  }) async {
     try {
-      final Map<String, dynamic> data = {
+      final data = {
         'name': name,
         'email': email,
         'password': password,
         'phone': phone,
-        'storeName': storeName,
         'address': address,
-        'description': description,
-        'openTime': openTime,
-        'closeTime': closeTime,
+        'description': description ?? '',
+        'open_time': openTime,
+        'close_time': closeTime,
         'latitude': latitude,
         'longitude': longitude,
       };
 
+      // Add image if provided (base64)
       if (imageBase64 != null && imageBase64.isNotEmpty) {
         data['image'] = imageBase64;
       }
 
-      final response = await dio.post(
+      final response = await BaseService.post(
         ApiConstants.stores,
         data: data,
       );
 
-      if (response.statusCode == 201) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 201) {
-          return responseData['data'];
-        }
-        throw Exception('API Error: ${responseData['message']}');
-      } else {
-        throw Exception('Failed to create store: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e, 'create store');
+      return BaseService.extractData(response);
+    } catch (e) {
+      throw Exception('Failed to create store: $e');
     }
-    throw Exception('Unexpected error occurred');
   }
 
-  // ✅ Update existing Store
+  // ✅ Update store (Admin only)
   static Future<Map<String, dynamic>> updateStore(
-    String id,
-    Map<String, dynamic> storeData,
-  ) async {
-    final token = await _getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
+    String id, {
+    String? name,
+    String? email,
+    String? phone,
+    String? address,
+    String? description,
+    String? imageBase64,
+    String? openTime,
+    String? closeTime,
+    double? latitude,
+    double? longitude,
+    String? status,
+  }) async {
     try {
-      final response = await dio.put(
-        ApiConstants.buildUrlWithParams(ApiConstants.storeById, {'id': id}),
-        data: storeData,
+      final data = <String, dynamic>{};
+
+      // Only add non-null values
+      if (name != null) data['name'] = name;
+      if (email != null) data['email'] = email;
+      if (phone != null) data['phone'] = phone;
+      if (address != null) data['address'] = address;
+      if (description != null) data['description'] = description;
+      if (openTime != null) data['open_time'] = openTime;
+      if (closeTime != null) data['close_time'] = closeTime;
+      if (latitude != null) data['latitude'] = latitude;
+      if (longitude != null) data['longitude'] = longitude;
+      if (status != null) data['status'] = status;
+
+      // Add image if provided (base64)
+      if (imageBase64 != null && imageBase64.isNotEmpty) {
+        data['image'] = imageBase64;
+      }
+
+      final endpoint =
+          BaseService.buildUrlWithParams(ApiConstants.storeById, {'id': id});
+
+      final response = await BaseService.put(
+        endpoint,
+        data: data,
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('API Error: ${responseData['message']}');
-      } else {
-        throw Exception('Failed to update Store: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e, 'update store');
+      return BaseService.extractData(response);
+    } catch (e) {
+      throw Exception('Failed to update store: $e');
     }
-    throw Exception('Unexpected error occurred');
   }
 
-  // ✅ Delete Store
+  // ✅ Delete store (Admin only)
   static Future<Map<String, dynamic>> deleteStore(String id) async {
-    final token = await _getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
     try {
-      final response = await dio.delete(
-        ApiConstants.buildUrlWithParams(ApiConstants.storeById, {'id': id}),
-      );
+      final endpoint =
+          BaseService.buildUrlWithParams(ApiConstants.storeById, {'id': id});
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('API Error: ${responseData['message']}');
-      } else {
-        throw Exception('Failed to delete Store: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e, 'delete store');
+      final response = await BaseService.delete(endpoint);
+      return response;
+    } catch (e) {
+      throw Exception('Failed to delete store: $e');
     }
-    throw Exception('Unexpected error occurred');
-  }
-
-  // ✅ Update Store profile (by owner)
-  static Future<Map<String, dynamic>> updateStoreProfile(
-      Map<String, dynamic> storeData) async {
-    final token = await _getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
-    try {
-      final response = await dio.put(
-        '${ApiConstants.stores}/update',
-        data: storeData,
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('API Error: ${responseData['message']}');
-      } else {
-        throw Exception(
-            'Failed to update store profile: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e, 'update store profile');
-    }
-    throw Exception('Unexpected error occurred');
-  }
-
-  // ✅ Update Store status (by admin/owner)
-  static Future<Map<String, dynamic>> updateStoreStatus(
-      String id, String status) async {
-    final token = await _getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
-    try {
-      final response = await dio.patch(
-        '${ApiConstants.stores}/$id/status',
-        data: {'status': status},
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('API Error: ${responseData['message']}');
-      } else {
-        throw Exception(
-            'Failed to update store status: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e, 'update store status');
-    }
-    throw Exception('Unexpected error occurred');
   }
 
   // ✅ Get store menu items
@@ -309,160 +157,283 @@ class StoreService {
     int page = 1,
     int limit = 10,
   }) async {
-    final token = await _getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
     try {
-      final response = await dio.get(
-        ApiConstants.buildUrlWithParams(
-            ApiConstants.menuByStore, {'store_id': storeId}),
-        queryParameters:
-            ApiConstants.buildQueryParams(page: page, limit: limit),
+      final endpoint = BaseService.buildUrlWithParams(
+          ApiConstants.menuByStore, {'store_id': storeId});
+
+      final queryParams =
+          BaseService.buildQueryParams(page: page, limit: limit);
+
+      final response = await BaseService.get(
+        endpoint,
+        queryParameters: queryParams,
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        // Handle direct array response from backend
-        if (responseData is List) {
-          return {
-            'menu_items': responseData,
-            'totalItems': responseData.length,
-            'totalPages': 1,
-            'currentPage': page,
-          };
-        }
-        return responseData;
-      } else {
-        throw Exception(
-            'Failed to get store menu items: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e, 'get store menu items');
+      return response;
+    } catch (e) {
+      throw Exception('Failed to get store menu items: $e');
     }
-    throw Exception('Unexpected error occurred');
   }
 
   // ✅ Get store orders
-  static Future<Map<String, dynamic>> getStoreOrders(
-      {int page = 1, int limit = 10}) async {
-    final token = await _getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
+  static Future<Map<String, dynamic>> getStoreOrders({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String? sortBy,
+    String? sortOrder,
+  }) async {
     try {
-      final response = await dio.get(
-        ApiConstants.storeOrders,
-        queryParameters:
-            ApiConstants.buildQueryParams(page: page, limit: limit),
+      final queryParams = BaseService.buildQueryParams(
+        page: page,
+        limit: limit,
+        search: search,
+        sortBy: sortBy,
+        sortOrder: sortOrder,
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        return responseData;
-      } else {
-        throw Exception(
-            'Failed to get store orders: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e, 'get store orders');
-    }
-    throw Exception('Unexpected error occurred');
-  }
+      final response = await BaseService.get(
+        ApiConstants.storeOrders,
+        queryParameters: queryParams,
+      );
 
-  // ===== UTILITY METHODS =====
-
-  static Future<String?> _getToken() async {
-    return await _storage.read(key: ApiConstants.tokenKey);
-  }
-
-  static void _handleDioException(DioException e, String operation) {
-    String errorMessage;
-
-    switch (e.type) {
-      case DioExceptionType.connectionError:
-        errorMessage =
-            'Connection failed. Please check your internet connection.';
-        break;
-      case DioExceptionType.connectionTimeout:
-        errorMessage = 'Connection timeout. Server may be slow or unreachable.';
-        break;
-      case DioExceptionType.receiveTimeout:
-        errorMessage = 'Server response timeout. Request took too long.';
-        break;
-      case DioExceptionType.badResponse:
-        if (e.response?.statusCode == 401) {
-          errorMessage = 'Unauthorized: Please login again';
-        } else if (e.response?.statusCode == 403) {
-          errorMessage = 'Forbidden: Admin access required';
-        } else if (e.response?.statusCode == 404) {
-          errorMessage = 'Resource not found';
-        } else if (e.response?.statusCode == 400) {
-          final responseData = e.response?.data;
-          if (responseData is Map && responseData.containsKey('message')) {
-            errorMessage = responseData['message'];
-          } else {
-            errorMessage = 'Invalid request data';
-          }
-        } else {
-          final responseData = e.response?.data;
-          if (responseData is Map && responseData.containsKey('message')) {
-            errorMessage = responseData['message'];
-          } else {
-            errorMessage = 'Server error: ${e.response?.statusCode}';
-          }
-        }
-        break;
-      default:
-        errorMessage = 'Network error: ${e.message}';
-    }
-
-    throw Exception('Failed to $operation: $errorMessage');
-  }
-
-  /// Test connection to backend
-  static Future<bool> testConnection() async {
-    try {
-      final dio = _createDioClient();
-      final response = await dio.get(ApiConstants.healthCheck);
-      return response.statusCode == 200;
+      return response;
     } catch (e) {
-      print('Connection test failed: $e');
-      return false;
+      throw Exception('Failed to get store orders: $e');
     }
   }
 
-  /// Validate store data before sending
-  static bool validateStoreData(Map<String, dynamic> data) {
-    final requiredFields = ['name', 'email', 'address', 'phone'];
-
-    for (String field in requiredFields) {
-      if (!data.containsKey(field) ||
-          data[field] == null ||
-          data[field].toString().trim().isEmpty) {
-        return false;
+  // ✅ Update store status
+  static Future<Map<String, dynamic>> updateStoreStatus(
+    String id,
+    String status,
+  ) async {
+    try {
+      // Validate status
+      if (!ApiConstants.storeStatuses.contains(status)) {
+        throw Exception('Invalid store status: $status');
       }
+
+      final endpoint = '${ApiConstants.stores}/$id/status';
+
+      final response = await BaseService.patch(
+        endpoint,
+        data: {'status': status},
+      );
+
+      return BaseService.extractData(response);
+    } catch (e) {
+      throw Exception('Failed to update store status: $e');
+    }
+  }
+
+  // ✅ Get stores with filters
+  static Future<Map<String, dynamic>> getStoresWithFilters({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String? status,
+    String? sortBy = 'created_at',
+    String? sortOrder = 'DESC',
+  }) async {
+    try {
+      final queryParams = BaseService.buildQueryParams(
+        page: page,
+        limit: limit,
+        search: search,
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+        additionalParams: status != null ? {'status': status} : null,
+      );
+
+      final response = await BaseService.get(
+        ApiConstants.stores,
+        queryParameters: queryParams,
+      );
+
+      return response;
+    } catch (e) {
+      throw Exception('Failed to load stores with filters: $e');
+    }
+  }
+
+  // ✅ Search stores by name
+  static Future<Map<String, dynamic>> searchStores(
+    String query, {
+    int page = 1,
+    int limit = 10,
+  }) async {
+    try {
+      final queryParams = BaseService.buildQueryParams(
+        page: page,
+        limit: limit,
+        search: query,
+      );
+
+      final response = await BaseService.get(
+        ApiConstants.stores,
+        queryParameters: queryParams,
+      );
+
+      return response;
+    } catch (e) {
+      throw Exception('Failed to search stores: $e');
+    }
+  }
+
+  // ✅ Get stores by status
+  static Future<Map<String, dynamic>> getStoresByStatus(
+    String status, {
+    int page = 1,
+    int limit = 10,
+  }) async {
+    try {
+      final queryParams = BaseService.buildQueryParams(
+        page: page,
+        limit: limit,
+        additionalParams: {'status': status},
+      );
+
+      final response = await BaseService.get(
+        ApiConstants.stores,
+        queryParameters: queryParams,
+      );
+
+      return response;
+    } catch (e) {
+      throw Exception('Failed to get stores by status: $e');
+    }
+  }
+
+  // ✅ Get active stores only
+  static Future<Map<String, dynamic>> getActiveStores({
+    int page = 1,
+    int limit = 10,
+  }) async {
+    return getStoresByStatus('active', page: page, limit: limit);
+  }
+
+  // ✅ Get inactive stores only
+  static Future<Map<String, dynamic>> getInactiveStores({
+    int page = 1,
+    int limit = 10,
+  }) async {
+    return getStoresByStatus('inactive', page: page, limit: limit);
+  }
+
+  // ✅ Get closed stores only
+  static Future<Map<String, dynamic>> getClosedStores({
+    int page = 1,
+    int limit = 10,
+  }) async {
+    return getStoresByStatus('closed', page: page, limit: limit);
+  }
+
+  // ✅ Validate store data before creating/updating
+  static String? validateStoreData({
+    String? name,
+    String? email,
+    String? phone,
+    String? address,
+    String? openTime,
+    String? closeTime,
+    double? latitude,
+    double? longitude,
+  }) {
+    // Name validation
+    if (name != null && name.trim().length < 3) {
+      return 'Store name must be at least 3 characters';
     }
 
     // Email validation
-    final emailRegex =
-        RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-    if (!emailRegex.hasMatch(data['email'])) {
-      return false;
+    if (email != null && !_isValidEmail(email)) {
+      return 'Invalid email format';
     }
 
-    return true;
+    // Phone validation
+    if (phone != null && !_isValidPhone(phone)) {
+      return 'Invalid phone number format';
+    }
+
+    // Address validation
+    if (address != null && address.trim().length < 10) {
+      return 'Address must be at least 10 characters';
+    }
+
+    // Time validation
+    if (openTime != null && !_isValidTime(openTime)) {
+      return 'Invalid open time format (use HH:mm)';
+    }
+
+    if (closeTime != null && !_isValidTime(closeTime)) {
+      return 'Invalid close time format (use HH:mm)';
+    }
+
+    // Location validation
+    if (latitude != null && (latitude < -90 || latitude > 90)) {
+      return 'Latitude must be between -90 and 90';
+    }
+
+    if (longitude != null && (longitude < -180 || longitude > 180)) {
+      return 'Longitude must be between -180 and 180';
+    }
+
+    return null; // No validation errors
+  }
+
+  // ✅ Helper methods for validation
+  static bool _isValidEmail(String email) {
+    return RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+        .hasMatch(email);
+  }
+
+  static bool _isValidPhone(String phone) {
+    return RegExp(r'^[0-9+\-\s()]{10,15}$').hasMatch(phone);
+  }
+
+  static bool _isValidTime(String time) {
+    return RegExp(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$').hasMatch(time);
+  }
+
+  // ✅ Get store statistics
+  static Future<Map<String, dynamic>> getStoreStatistics() async {
+    try {
+      // Get all stores to calculate statistics
+      final response = await BaseService.get(
+        ApiConstants.stores,
+        queryParameters: {'limit': 1000}, // Get all stores
+      );
+
+      final data = BaseService.extractData(response);
+      final stores = data is List ? data : data['stores'] ?? [];
+
+      // Calculate statistics
+      final total = stores.length;
+      final active = stores.where((s) => s['status'] == 'active').length;
+      final inactive = stores.where((s) => s['status'] == 'inactive').length;
+      final closed = stores.where((s) => s['status'] == 'closed').length;
+
+      return {
+        'total': total,
+        'active': active,
+        'inactive': inactive,
+        'closed': closed,
+        'activePercentage': total > 0 ? (active / total * 100).round() : 0,
+        'inactivePercentage': total > 0 ? (inactive / total * 100).round() : 0,
+        'closedPercentage': total > 0 ? (closed / total * 100).round() : 0,
+      };
+    } catch (e) {
+      throw Exception('Failed to get store statistics: $e');
+    }
+  }
+
+  // ✅ Test connection to stores endpoint
+  static Future<bool> testStoresEndpoint() async {
+    try {
+      await BaseService.get(ApiConstants.stores, queryParameters: {'limit': 1});
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 }

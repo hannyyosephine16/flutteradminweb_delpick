@@ -1,154 +1,91 @@
-import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'BaseService.dart';
 import 'api_constant.dart';
+import '../Models/DriverModel.dart';
 
-class DriverService {
-  static final FlutterSecureStorage _storage = FlutterSecureStorage();
-
-  /// Configure Dio with CORS handling
-  static Dio _createDioClient() {
-    final dio = Dio();
-    dio.options.baseUrl = ApiConstants.baseUrl;
-    dio.options.connectTimeout = Duration(seconds: 15);
-    dio.options.receiveTimeout = Duration(seconds: 30);
-
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) {
-        options.headers.addAll({
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        });
-        handler.next(options);
-      },
-      onResponse: (response, handler) {
-        print('📥 Response: ${response.statusCode} ${response.statusMessage}');
-        handler.next(response);
-      },
-      onError: (error, handler) {
-        print('❌ Error: ${error.type} - ${error.message}');
-        handler.next(error);
-      },
-    ));
-
-    dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-      requestHeader: true,
-      responseHeader: false,
-      error: true,
-      logPrint: (object) => print('🔧 DIO: $object'),
-    ));
-
-    return dio;
-  }
-
+class DriverService extends BaseService {
   // ===== ADMIN OPERATIONS =====
 
-  /// Get all drivers - Admin only
-  static Future<Map<String, dynamic>?> getAllDrivers({
+  /// Get all drivers with pagination and filtering (Admin only)
+  static Future<Map<String, dynamic>> getAllDrivers({
     int page = 1,
     int limit = 10,
     String? search,
     String sortBy = 'created_at',
-    String sortOrder = 'ASC',
+    String sortOrder = 'DESC',
   }) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Authentication required. Please login as admin.');
-    }
-
-    final dio = _createDioClient();
-
     try {
-      Map<String, dynamic> queryParams = {
-        'page': page,
-        'limit': limit,
-        'sortBy': sortBy,
-        'sortOrder': sortOrder,
-      };
+      final queryParams = BaseService.buildQueryParams(
+        page: page,
+        limit: limit,
+        search: search,
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+      );
 
-      if (search != null && search.isNotEmpty) {
-        queryParams['search'] = search;
-      }
-
-      final response = await dio.get(
+      final response = await BaseService.get(
         ApiConstants.drivers,
         queryParameters: queryParams,
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData;
-        }
-        throw Exception('Invalid response format: ${responseData['message']}');
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      return response;
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Failed to load drivers: ${e.toString()}');
     }
-    return null;
   }
 
-  /// Get driver by ID - Admin only
-  static Future<Map<String, dynamic>?> getDriverById(String id) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Authentication required. Please login as admin.');
-    }
-
-    final dio = _createDioClient();
-
+  /// Get all drivers as List<DriverModel> (Admin only)
+  static Future<List<DriverModel>> getAllDriversAsList({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String sortBy = 'created_at',
+    String sortOrder = 'DESC',
+  }) async {
     try {
-      final response = await dio.get(
-        ApiConstants.buildUrlWithParams(ApiConstants.driverById, {'id': id}),
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
+      final response = await getAllDrivers(
+        page: page,
+        limit: limit,
+        search: search,
+        sortBy: sortBy,
+        sortOrder: sortOrder,
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('Invalid response format: ${responseData['message']}');
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      return extractDriverList(response);
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Failed to load drivers list: ${e.toString()}');
     }
-    return null;
   }
 
-  /// Create driver - Admin only
-  static Future<Map<String, dynamic>?> createDriver(
-    String name,
-    String email,
-    String password,
-    String phone,
-    String licenseNumber,
-    String vehiclePlate,
-    String? avatar,
-  ) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Authentication required. Please login as admin.');
+  /// Get driver by ID (Admin only)
+  static Future<DriverModel> getDriverById(String id) async {
+    try {
+      final endpoint = BaseService.buildUrlWithParams(
+        ApiConstants.driverById,
+        {'id': id},
+      );
+
+      final response = await BaseService.get(endpoint);
+      final data = BaseService.extractData(response);
+
+      return DriverModel.fromJson(data);
+    } catch (e) {
+      throw Exception('Failed to get driver: ${e.toString()}');
     }
+  }
 
-    final dio = _createDioClient();
-
+  /// Create new driver (Admin only)
+  static Future<DriverModel> createDriver({
+    required String name,
+    required String email,
+    required String password,
+    required String phone,
+    required String licenseNumber,
+    required String vehiclePlate,
+    String? avatar,
+  }) async {
     try {
       final data = {
         'name': name,
@@ -157,351 +94,557 @@ class DriverService {
         'phone': phone,
         'license_number': licenseNumber,
         'vehicle_plate': vehiclePlate,
-        if (avatar != null) 'avatar': avatar,
+        if (avatar != null && avatar.isNotEmpty) 'avatar': avatar,
       };
 
-      final response = await dio.post(
+      final response = await BaseService.post(
         ApiConstants.drivers,
         data: data,
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
       );
 
-      if (response.statusCode == 201) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 201) {
-          return responseData['data'];
-        }
-        throw Exception('Invalid response format: ${responseData['message']}');
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      final responseData = BaseService.extractData(response);
+      return DriverModel.fromJson(responseData);
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Failed to create driver: ${e.toString()}');
     }
-    return null;
   }
 
-  /// Update driver - Admin only
-  static Future<Map<String, dynamic>?> updateDriver(
-    String id,
-    Map<String, dynamic> driverData,
-  ) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Authentication required. Please login as admin.');
-    }
-
-    final dio = _createDioClient();
-
+  /// Update driver (Admin only)
+  static Future<DriverModel> updateDriver({
+    required String id,
+    String? name,
+    String? email,
+    String? phone,
+    String? licenseNumber,
+    String? vehiclePlate,
+    String? status,
+    String? avatar,
+  }) async {
     try {
-      final response = await dio.put(
-        ApiConstants.buildUrlWithParams(ApiConstants.driverById, {'id': id}),
-        data: driverData,
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
+      final endpoint = BaseService.buildUrlWithParams(
+        ApiConstants.driverById,
+        {'id': id},
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('Invalid response format: ${responseData['message']}');
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (email != null) data['email'] = email;
+      if (phone != null) data['phone'] = phone;
+      if (licenseNumber != null) data['license_number'] = licenseNumber;
+      if (vehiclePlate != null) data['vehicle_plate'] = vehiclePlate;
+      if (status != null) data['status'] = status;
+      if (avatar != null && avatar.isNotEmpty) data['avatar'] = avatar;
+
+      final response = await BaseService.put(endpoint, data: data);
+      final responseData = BaseService.extractData(response);
+
+      return DriverModel.fromJson(responseData);
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Failed to update driver: ${e.toString()}');
     }
-    return null;
   }
 
-  /// Delete driver - Admin only
-  static Future<Map<String, dynamic>?> deleteDriver(String id) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Authentication required. Please login as admin.');
-    }
-
-    final dio = _createDioClient();
-
+  /// Delete driver (Admin only)
+  static Future<bool> deleteDriver(String id) async {
     try {
-      final response = await dio.delete(
-        ApiConstants.buildUrlWithParams(ApiConstants.driverById, {'id': id}),
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
+      final endpoint = BaseService.buildUrlWithParams(
+        ApiConstants.driverById,
+        {'id': id},
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('Invalid response format: ${responseData['message']}');
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      await BaseService.delete(endpoint);
+      return true;
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Failed to delete driver: ${e.toString()}');
     }
-    return null;
+  }
+
+  /// Update driver status (Admin only)
+  static Future<DriverModel> updateDriverStatus({
+    required String id,
+    required String status,
+  }) async {
+    try {
+      final endpoint = BaseService.buildUrlWithParams(
+        ApiConstants.driverStatus,
+        {'id': id},
+      );
+
+      final response = await BaseService.patch(
+        endpoint,
+        data: {'status': status},
+      );
+
+      final responseData = BaseService.extractData(response);
+      return DriverModel.fromJson(responseData);
+    } catch (e) {
+      throw Exception('Failed to update driver status: ${e.toString()}');
+    }
   }
 
   // ===== DRIVER SELF-MANAGEMENT OPERATIONS =====
 
-  /// Update driver location - Driver only
-  static Future<Map<String, dynamic>?> updateDriverLocation(
-    double latitude,
-    double longitude,
-  ) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Authentication required. Please login as driver.');
-    }
-
-    final dio = _createDioClient();
-
+  /// Update driver location (Driver only)
+  static Future<Map<String, dynamic>> updateDriverLocation({
+    required double latitude,
+    required double longitude,
+  }) async {
     try {
-      final response = await dio.put(
-        '${ApiConstants.drivers}/location',
+      // Based on backend route: PATCH /drivers/{id}/location
+      // For self-update, we need to get current user's driver ID
+      final userData = await BaseService.getUserData();
+      if (userData == null) {
+        throw Exception('User not logged in');
+      }
+
+      // Assuming driver ID is available in user data or we use a different endpoint
+      final response = await BaseService.patch(
+        '/drivers/location', // Backend might have a self-update endpoint
         data: {
           'latitude': latitude,
           'longitude': longitude,
         },
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('Invalid response format: ${responseData['message']}');
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      return BaseService.extractData(response);
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Failed to update location: ${e.toString()}');
     }
-    return null;
   }
 
-  /// Update driver status - Driver only
-  static Future<Map<String, dynamic>?> updateDriverStatus(String status) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Authentication required. Please login as driver.');
-    }
-
-    final dio = _createDioClient();
-
+  /// Update driver status (Driver only)
+  static Future<Map<String, dynamic>> updateOwnStatus(String status) async {
     try {
-      final response = await dio.put(
-        '${ApiConstants.drivers}/status',
+      final response = await BaseService.patch(
+        '/drivers/status', // Self-update endpoint
         data: {'status': status},
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('Invalid response format: ${responseData['message']}');
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      return BaseService.extractData(response);
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Failed to update status: ${e.toString()}');
     }
-    return null;
   }
 
-  /// Update driver profile - Driver only
-  static Future<Map<String, dynamic>?> updateDriverProfile(
-    Map<String, dynamic> profileData,
-  ) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Authentication required. Please login as driver.');
-    }
-
-    final dio = _createDioClient();
-
+  /// Update driver profile (Driver only)
+  static Future<DriverModel> updateOwnProfile({
+    String? name,
+    String? email,
+    String? phone,
+    String? licenseNumber,
+    String? vehiclePlate,
+    String? avatar,
+  }) async {
     try {
-      final response = await dio.put(
-        '${ApiConstants.drivers}/update',
-        data: profileData,
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (email != null) data['email'] = email;
+      if (phone != null) data['phone'] = phone;
+      if (licenseNumber != null) data['license_number'] = licenseNumber;
+      if (vehiclePlate != null) data['vehicle_plate'] = vehiclePlate;
+      if (avatar != null && avatar.isNotEmpty) data['avatar'] = avatar;
+
+      final response = await BaseService.put(
+        '/drivers/me', // Self-update endpoint
+        data: data,
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('Invalid response format: ${responseData['message']}');
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      final responseData = BaseService.extractData(response);
+      return DriverModel.fromJson(responseData);
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Failed to update profile: ${e.toString()}');
     }
-    return null;
   }
 
-  /// Get driver orders - Driver only
-  static Future<Map<String, dynamic>?> getDriverOrders({
+  /// Get driver orders (Driver only)
+  static Future<Map<String, dynamic>> getDriverOrders({
     int page = 1,
     int limit = 10,
   }) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Authentication required. Please login as driver.');
-    }
-
-    final dio = _createDioClient();
-
     try {
-      final response = await dio.get(
-        '${ApiConstants.drivers}/orders',
-        queryParameters: {
-          'page': page,
-          'limit': limit,
-        },
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
+      final queryParams = BaseService.buildQueryParams(
+        page: page,
+        limit: limit,
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('Invalid response format: ${responseData['message']}');
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      final response = await BaseService.get(
+        '/drivers/orders', // Self-orders endpoint
+        queryParameters: queryParams,
+      );
+
+      return response;
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Failed to get driver orders: ${e.toString()}');
     }
-    return null;
   }
 
-  /// Get driver location for tracking
-  static Future<Map<String, dynamic>?> getDriverLocation(
-      String driverId) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Authentication required. Please login.');
-    }
-
-    final dio = _createDioClient();
-
+  /// Get driver location by ID (for tracking)
+  static Future<Map<String, dynamic>> getDriverLocation(String driverId) async {
     try {
-      final response = await dio.get(
-        ApiConstants.buildUrlWithParams(
-            ApiConstants.driverLocation, {'id': driverId}),
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
+      final endpoint = BaseService.buildUrlWithParams(
+        ApiConstants.driverLocation,
+        {'id': driverId},
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('Invalid response format: ${responseData['message']}');
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      final response = await BaseService.get(endpoint);
+      return BaseService.extractData(response);
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Failed to get driver location: ${e.toString()}');
     }
-    return null;
+  }
+
+  // ===== DRIVER REQUEST OPERATIONS =====
+
+  /// Get driver requests (Driver only)
+  static Future<Map<String, dynamic>> getDriverRequests({
+    int page = 1,
+    int limit = 10,
+  }) async {
+    try {
+      final queryParams = BaseService.buildQueryParams(
+        page: page,
+        limit: limit,
+      );
+
+      final response = await BaseService.get(
+        ApiConstants.driverRequests,
+        queryParameters: queryParams,
+      );
+
+      return response;
+    } catch (e) {
+      throw Exception('Failed to get driver requests: ${e.toString()}');
+    }
+  }
+
+  /// Get driver request detail (Driver only)
+  static Future<Map<String, dynamic>> getDriverRequestDetail(
+      String requestId) async {
+    try {
+      final endpoint = BaseService.buildUrlWithParams(
+        ApiConstants.driverRequestById,
+        {'id': requestId},
+      );
+
+      final response = await BaseService.get(endpoint);
+      return BaseService.extractData(response);
+    } catch (e) {
+      throw Exception('Failed to get request detail: ${e.toString()}');
+    }
+  }
+
+  /// Respond to driver request (Driver only)
+  static Future<Map<String, dynamic>> respondToDriverRequest({
+    required String requestId,
+    required String action, // 'accept' or 'reject'
+    DateTime? estimatedPickupTime,
+    DateTime? estimatedDeliveryTime,
+  }) async {
+    try {
+      final endpoint = BaseService.buildUrlWithParams(
+        ApiConstants.respondDriverRequest,
+        {'id': requestId},
+      );
+
+      final data = {
+        'action': action,
+        if (estimatedPickupTime != null)
+          'estimatedPickupTime': estimatedPickupTime.toIso8601String(),
+        if (estimatedDeliveryTime != null)
+          'estimatedDeliveryTime': estimatedDeliveryTime.toIso8601String(),
+      };
+
+      final response = await BaseService.post(endpoint, data: data);
+      return BaseService.extractData(response);
+    } catch (e) {
+      throw Exception('Failed to respond to request: ${e.toString()}');
+    }
   }
 
   // ===== UTILITY METHODS =====
 
-  static Future<void> saveToken(String token) async {
-    await _storage.write(key: ApiConstants.tokenKey, value: token);
-  }
-
-  static Future<String?> getToken() async {
-    return await _storage.read(key: ApiConstants.tokenKey);
-  }
-
+  /// Test connection to backend
   static Future<bool> testConnection() async {
+    return await BaseService.testConnection();
+  }
+
+  /// Validate driver data before submission
+  static Map<String, String?> validateDriverData({
+    required String name,
+    required String email,
+    required String phone,
+    required String licenseNumber,
+    required String vehiclePlate,
+    String? password,
+  }) {
+    Map<String, String?> errors = {};
+
+    // Name validation
+    if (name.trim().isEmpty) {
+      errors['name'] = 'Name is required';
+    } else if (name.trim().length < 2) {
+      errors['name'] = 'Name must be at least 2 characters';
+    }
+
+    // Email validation
+    if (email.trim().isEmpty) {
+      errors['email'] = 'Email is required';
+    } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
+      errors['email'] = 'Invalid email format';
+    }
+
+    // Phone validation
+    if (phone.trim().isEmpty) {
+      errors['phone'] = 'Phone is required';
+    } else if (!RegExp(r'^\+?[0-9]{10,15}$')
+        .hasMatch(phone.replaceAll(' ', ''))) {
+      errors['phone'] = 'Invalid phone format';
+    }
+
+    // License number validation
+    if (licenseNumber.trim().isEmpty) {
+      errors['licenseNumber'] = 'License number is required';
+    }
+
+    // Vehicle plate validation
+    if (vehiclePlate.trim().isEmpty) {
+      errors['vehiclePlate'] = 'Vehicle plate is required';
+    }
+
+    // Password validation (for create operations)
+    if (password != null) {
+      if (password.isEmpty) {
+        errors['password'] = 'Password is required';
+      } else if (password.length < 6) {
+        errors['password'] = 'Password must be at least 6 characters';
+      }
+    }
+
+    return errors;
+  }
+
+  /// Validate driver status
+  static bool isValidDriverStatus(String status) {
+    return ApiConstants.driverStatuses.contains(status);
+  }
+
+  /// Format driver data for display
+  static Map<String, dynamic> formatDriverData(Map<String, dynamic> driver) {
+    return {
+      'id': driver['id']?.toString() ?? '',
+      'name': driver['name'] ?? 'Unknown',
+      'email': driver['email'] ?? '',
+      'phone': driver['phone'] ?? '',
+      'license_number': driver['license_number'] ?? '',
+      'vehicle_plate': driver['vehicle_plate'] ?? '',
+      'status': driver['status'] ?? 'inactive',
+      'rating': driver['rating'] ?? 0.0,
+      'reviews_count': driver['reviews_count'] ?? 0,
+      'latitude': driver['latitude'],
+      'longitude': driver['longitude'],
+      'avatar': driver['avatar'],
+      'created_at': driver['created_at'],
+      'updated_at': driver['updated_at'],
+      'user': driver['user'], // User data if included
+    };
+  }
+
+  /// Extract driver list from API response
+  static List<DriverModel> extractDriverList(Map<String, dynamic> response) {
     try {
-      final dio = _createDioClient();
-      final response = await dio.get(ApiConstants.healthCheck);
-      return response.statusCode == 200;
+      final data = BaseService.extractData(response);
+
+      // Backend response: { statusCode: 200, message: "...", data: [...] }
+      // So data should be a List directly
+      if (data is List) {
+        final driverJsonList = List<Map<String, dynamic>>.from(data);
+        return driverJsonList
+            .map((json) => DriverModel.fromJson(json))
+            .toList();
+      }
+
+      // Fallback: if data is Map containing array
+      if (data is Map<String, dynamic>) {
+        List<dynamic>? driverList;
+
+        // Try different possible keys
+        if (data.containsKey('drivers')) {
+          driverList = data['drivers'] as List<dynamic>?;
+        } else if (data.containsKey('data')) {
+          driverList = data['data'] as List<dynamic>?;
+        } else if (data.containsKey('items')) {
+          driverList = data['items'] as List<dynamic>?;
+        }
+
+        if (driverList != null) {
+          final driverJsonList = List<Map<String, dynamic>>.from(driverList);
+          return driverJsonList
+              .map((json) => DriverModel.fromJson(json))
+              .toList();
+        }
+      }
+
+      // If no valid data found, return empty list
+      return [];
     } catch (e) {
-      print('Connection test failed: $e');
-      return false;
+      throw Exception('Failed to parse driver list: ${e.toString()}');
     }
   }
 
-  static void _handleDioException(DioException e) {
-    String errorMessage;
-    switch (e.type) {
-      case DioExceptionType.connectionError:
-        errorMessage =
-            'Connection failed. Check network or CORS configuration.';
-        break;
-      case DioExceptionType.connectionTimeout:
-        errorMessage = 'Connection timeout. Server may be slow or unreachable.';
-        break;
-      case DioExceptionType.receiveTimeout:
-        errorMessage = 'Server response timeout. Request took too long.';
-        break;
-      case DioExceptionType.badResponse:
-        if (e.response?.statusCode == 401) {
-          errorMessage = 'Authentication failed. Please login again.';
-        } else if (e.response?.statusCode == 403) {
-          errorMessage = 'Access denied. Required permissions missing.';
-        } else if (e.response?.statusCode == 404) {
-          errorMessage = 'Resource not found.';
-        } else {
-          final responseData = e.response?.data;
-          if (responseData is Map && responseData.containsKey('message')) {
-            errorMessage = responseData['message'];
-          } else {
-            errorMessage = 'Server error: ${e.response?.statusCode}';
-          }
-        }
-        break;
+  /// Get pagination info from response
+  static Map<String, dynamic> extractPaginationInfo(
+      Map<String, dynamic> response) {
+    return BaseService.extractPaginationData(response);
+  }
+
+  /// Calculate distance between two points using Haversine formula
+  static double calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadius = 6371; // km
+    final double dLat = _degreesToRadians(lat2 - lat1);
+    final double dLon = _degreesToRadians(lon2 - lon1);
+
+    final double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_degreesToRadians(lat1)) *
+            math.cos(_degreesToRadians(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+
+    final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+
+    return earthRadius * c;
+  }
+
+  static double _degreesToRadians(double degrees) {
+    return degrees * (math.pi / 180);
+  }
+
+  /// Convert driver status to display text
+  static String getStatusDisplayText(String status) {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return 'Active';
+      case 'inactive':
+        return 'Inactive';
+      case 'busy':
+        return 'Busy';
       default:
-        errorMessage = 'Network error: ${e.message}';
+        return 'Unknown';
     }
-    throw Exception(errorMessage);
+  }
+
+  /// Get available driver statuses
+  static List<String> getAvailableStatuses() {
+    return List.from(ApiConstants.driverStatuses);
+  }
+
+  /// Create driver from form data
+  static Future<DriverModel> createDriverFromForm(
+      Map<String, dynamic> formData) async {
+    // Validate data first
+    final errors = validateDriverData(
+      name: formData['name'] ?? '',
+      email: formData['email'] ?? '',
+      phone: formData['phone'] ?? '',
+      licenseNumber: formData['license_number'] ?? '',
+      vehiclePlate: formData['vehicle_plate'] ?? '',
+      password: formData['password'],
+    );
+
+    if (errors.isNotEmpty) {
+      final errorMessages =
+          errors.values.where((msg) => msg != null).join(', ');
+      throw Exception('Validation failed: $errorMessages');
+    }
+
+    return await createDriver(
+      name: formData['name'],
+      email: formData['email'],
+      password: formData['password'],
+      phone: formData['phone'],
+      licenseNumber: formData['license_number'],
+      vehiclePlate: formData['vehicle_plate'],
+      avatar: formData['avatar'],
+    );
+  }
+
+  /// Update driver from form data
+  static Future<DriverModel> updateDriverFromForm(
+      String id, Map<String, dynamic> formData) async {
+    return await updateDriver(
+      id: id,
+      name: formData['name'],
+      email: formData['email'],
+      phone: formData['phone'],
+      licenseNumber: formData['license_number'],
+      vehiclePlate: formData['vehicle_plate'],
+      status: formData['status'],
+      avatar: formData['avatar'],
+    );
+  }
+
+  /// Check if driver is available
+  static bool isDriverAvailable(DriverModel driver) {
+    return driver.status == 'active' && driver.hasLocation;
+  }
+
+  /// Get driver statistics
+  static Map<String, dynamic> getDriverStats(List<DriverModel> drivers) {
+    final activeDrivers = drivers.where((d) => d.isActive).length;
+    final busyDrivers = drivers.where((d) => d.isBusy).length;
+    final inactiveDrivers = drivers.where((d) => d.isInactive).length;
+    final averageRating = drivers.isEmpty
+        ? 0.0
+        : drivers.map((d) => d.rating).reduce((a, b) => a + b) / drivers.length;
+
+    return {
+      'total': drivers.length,
+      'active': activeDrivers,
+      'busy': busyDrivers,
+      'inactive': inactiveDrivers,
+      'averageRating': averageRating,
+    };
+  }
+
+  // ===== EXAMPLE USAGE =====
+
+  /// Example of how to use the DriverService
+  static Future<void> exampleUsage() async {
+    try {
+      // Initialize BaseService first
+      BaseService.initialize();
+
+      // Get all drivers
+      final response = await getAllDrivers(page: 1, limit: 10);
+      print('Response: $response');
+
+      // Extract drivers as List<DriverModel>
+      final drivers = extractDriverList(response);
+      print('Found ${drivers.length} drivers');
+
+      // Get pagination info
+      final pagination = extractPaginationInfo(response);
+      print('Pagination: $pagination');
+
+      // Create a new driver
+      final newDriver = await createDriver(
+        name: 'John Doe',
+        email: 'john@example.com',
+        password: 'password123',
+        phone: '08123456789',
+        licenseNumber: 'DL123456',
+        vehiclePlate: 'B1234ABC',
+      );
+      print('Created driver: ${newDriver.displayName}');
+
+      // Update driver status
+      final updatedDriver = await updateDriverStatus(
+        id: newDriver.id.toString(),
+        status: 'active',
+      );
+      print('Updated driver status: ${updatedDriver.statusDisplay}');
+    } catch (e) {
+      print('Error in example usage: $e');
+    }
   }
 }

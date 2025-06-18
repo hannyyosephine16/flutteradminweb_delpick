@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_constant.dart';
+import 'dart:math' as math;
 
 class TrackingService {
   static final FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -21,13 +22,22 @@ class TrackingService {
         options.headers['Content-Type'] = 'application/json';
         handler.next(options);
       },
+      onError: (error, handler) {
+        print('❌ TrackingService Error: ${error.message}');
+        handler.next(error);
+      },
     ));
 
     return dio;
   }
 
-  // ✅ FIXED: Get tracking data for an order
+  // ✅ Get tracking data for order (untuk customer dan driver)
   static Future<Map<String, dynamic>> getTrackingData(String orderId) async {
+    final token = await _getToken();
+    if (token == null) {
+      throw Exception('Token tidak ditemukan, harap login terlebih dahulu');
+    }
+
     final dio = _createDioClient();
 
     try {
@@ -38,27 +48,40 @@ class TrackingService {
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
+
+        // Handle backend response format
+        if (responseData is Map<String, dynamic>) {
+          if (responseData.containsKey('statusCode') &&
+              responseData['statusCode'] == 200) {
+            return responseData;
+          } else {
+            return responseData;
+          }
+        } else {
+          throw Exception(
+              'Format response tidak valid: ${responseData.runtimeType}');
         }
-        throw Exception('Invalid response: ${responseData['message']}');
       } else {
         throw Exception(
-            'Failed to get tracking data: ${response.statusMessage}');
+            'Gagal mengambil data tracking: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      _handleDioException(e, 'get tracking data');
+      _handleDioException(e, 'mengambil data tracking');
     }
-    throw Exception('Unexpected error occurred');
+    throw Exception('Terjadi kesalahan yang tidak terduga');
   }
 
-  // ✅ FIXED: Start delivery (by driver) - Changed to POST
+  // ✅ Start delivery (untuk driver)
   static Future<Map<String, dynamic>> startDelivery(String orderId) async {
+    final token = await _getToken();
+    if (token == null) {
+      throw Exception('Token tidak ditemukan, harap login terlebih dahulu');
+    }
+
     final dio = _createDioClient();
 
     try {
       final response = await dio.post(
-        // Changed from PUT to POST
         ApiConstants.buildUrlWithParams(
             ApiConstants.trackingStart, {'id': orderId}),
       );
@@ -66,25 +89,29 @@ class TrackingService {
       if (response.statusCode == 200) {
         final responseData = response.data;
         if (responseData['statusCode'] == 200) {
-          return responseData['data'];
+          return responseData;
         }
-        throw Exception('Invalid response: ${responseData['message']}');
+        throw Exception('API Error: ${responseData['message']}');
       } else {
-        throw Exception('Failed to start delivery: ${response.statusMessage}');
+        throw Exception('Gagal memulai pengantaran: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      _handleDioException(e, 'start delivery');
+      _handleDioException(e, 'memulai pengantaran');
     }
-    throw Exception('Unexpected error occurred');
+    throw Exception('Terjadi kesalahan yang tidak terduga');
   }
 
-  // ✅ FIXED: Complete delivery (by driver) - Changed to POST
+  // ✅ Complete delivery (untuk driver)
   static Future<Map<String, dynamic>> completeDelivery(String orderId) async {
+    final token = await _getToken();
+    if (token == null) {
+      throw Exception('Token tidak ditemukan, harap login terlebih dahulu');
+    }
+
     final dio = _createDioClient();
 
     try {
       final response = await dio.post(
-        // Changed from PUT to POST
         ApiConstants.buildUrlWithParams(
             ApiConstants.trackingComplete, {'id': orderId}),
       );
@@ -92,25 +119,27 @@ class TrackingService {
       if (response.statusCode == 200) {
         final responseData = response.data;
         if (responseData['statusCode'] == 200) {
-          return responseData['data'];
+          return responseData;
         }
-        throw Exception('Invalid response: ${responseData['message']}');
+        throw Exception('API Error: ${responseData['message']}');
       } else {
         throw Exception(
-            'Failed to complete delivery: ${response.statusMessage}');
+            'Gagal menyelesaikan pengantaran: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      _handleDioException(e, 'complete delivery');
+      _handleDioException(e, 'menyelesaikan pengantaran');
     }
-    throw Exception('Unexpected error occurred');
+    throw Exception('Terjadi kesalahan yang tidak terduga');
   }
 
-  // ✅ NEW: Update driver location during delivery
+  // ✅ Update driver location (untuk driver)
   static Future<Map<String, dynamic>> updateDriverLocation(
-    String orderId,
-    double latitude,
-    double longitude,
-  ) async {
+      String orderId, double latitude, double longitude) async {
+    final token = await _getToken();
+    if (token == null) {
+      throw Exception('Token tidak ditemukan, harap login terlebih dahulu');
+    }
+
     final dio = _createDioClient();
 
     try {
@@ -126,21 +155,26 @@ class TrackingService {
       if (response.statusCode == 200) {
         final responseData = response.data;
         if (responseData['statusCode'] == 200) {
-          return responseData['data'];
+          return responseData;
         }
-        throw Exception('Invalid response: ${responseData['message']}');
+        throw Exception('API Error: ${responseData['message']}');
       } else {
         throw Exception(
-            'Failed to update driver location: ${response.statusMessage}');
+            'Gagal mengupdate lokasi driver: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      _handleDioException(e, 'update driver location');
+      _handleDioException(e, 'mengupdate lokasi driver');
     }
-    throw Exception('Unexpected error occurred');
+    throw Exception('Terjadi kesalahan yang tidak terduga');
   }
 
-  // ✅ NEW: Get tracking history for order
+  // ✅ Get tracking history (untuk customer dan driver)
   static Future<Map<String, dynamic>> getTrackingHistory(String orderId) async {
+    final token = await _getToken();
+    if (token == null) {
+      throw Exception('Token tidak ditemukan, harap login terlebih dahulu');
+    }
+
     final dio = _createDioClient();
 
     try {
@@ -152,71 +186,232 @@ class TrackingService {
       if (response.statusCode == 200) {
         final responseData = response.data;
         if (responseData['statusCode'] == 200) {
-          return responseData['data'];
+          return responseData;
         }
-        throw Exception('Invalid response: ${responseData['message']}');
+        return responseData;
       } else {
         throw Exception(
-            'Failed to get tracking history: ${response.statusMessage}');
+            'Gagal mengambil riwayat tracking: ${response.statusMessage}');
       }
     } on DioException catch (e) {
-      _handleDioException(e, 'get tracking history');
+      _handleDioException(e, 'mengambil riwayat tracking');
     }
-    throw Exception('Unexpected error occurred');
+    throw Exception('Terjadi kesalahan yang tidak terduga');
   }
 
-  // ✅ Helper method: Get real-time tracking (same as getTrackingData)
-  static Future<Map<String, dynamic>> getRealTimeTracking(
-      String orderId) async {
-    return await getTrackingData(orderId);
-  }
-
-  // ✅ Helper method: Check if order is being delivered
-  static Future<bool> isOrderBeingDelivered(String orderId) async {
-    try {
-      final trackingData = await getTrackingData(orderId);
-      final orderStatus = trackingData['order_status'];
-      return orderStatus == 'on_delivery';
-    } catch (e) {
-      return false;
+  // ✅ Update driver location secara real-time (tanpa order ID)
+  static Future<Map<String, dynamic>> updateDriverLocationRealtime(
+      double latitude, double longitude) async {
+    final token = await _getToken();
+    if (token == null) {
+      throw Exception('Token tidak ditemukan, harap login terlebih dahulu');
     }
-  }
 
-  // ✅ Helper method: Get delivery progress
-  static Future<Map<String, dynamic>?> getDeliveryProgress(
-      String orderId) async {
+    final dio = _createDioClient();
+
     try {
-      final trackingData = await getTrackingData(orderId);
+      // Berdasarkan backend, endpoint ini ada di drivers routes
+      final response = await dio.patch(
+        '${ApiConstants.drivers}/location',
+        data: {
+          'latitude': latitude,
+          'longitude': longitude,
+        },
+      );
 
-      if (trackingData['order_status'] == 'on_delivery') {
-        return {
-          'order_id': orderId,
-          'order_status': trackingData['order_status'],
-          'delivery_status': trackingData['delivery_status'],
-          'driver_location': trackingData['driver_location'],
-          'estimated_delivery_time': trackingData['estimated_delivery_time'],
-          'driver': trackingData['driver'],
-        };
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        if (responseData['statusCode'] == 200) {
+          return responseData;
+        }
+        throw Exception('API Error: ${responseData['message']}');
+      } else {
+        throw Exception(
+            'Gagal mengupdate lokasi driver: ${response.statusMessage}');
       }
-      return null;
-    } catch (e) {
-      return null;
+    } on DioException catch (e) {
+      _handleDioException(e, 'mengupdate lokasi driver real-time');
     }
+    throw Exception('Terjadi kesalahan yang tidak terduga');
   }
 
-  // ✅ Helper method: Get estimated delivery time
-  static Future<DateTime?> getEstimatedDeliveryTime(String orderId) async {
-    try {
-      final trackingData = await getTrackingData(orderId);
-      final estimatedTime = trackingData['estimated_delivery_time'];
-
-      if (estimatedTime != null) {
-        return DateTime.parse(estimatedTime);
-      }
-      return null;
-    } catch (e) {
-      return null;
+  // ✅ Get all active orders dengan tracking (untuk admin)
+  static Future<Map<String, dynamic>> getAllActiveOrdersWithTracking({
+    int page = 1,
+    int limit = 10,
+  }) async {
+    final token = await _getToken();
+    if (token == null) {
+      throw Exception('Token tidak ditemukan, harap login terlebih dahulu');
     }
+
+    final dio = _createDioClient();
+
+    try {
+      final response = await dio.get(
+        ApiConstants.orders,
+        queryParameters: ApiConstants.buildQueryParams(
+          page: page,
+          limit: limit,
+          additionalParams: {
+            'order_status':
+                'on_delivery', // Filter order yang sedang dalam pengantaran
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        if (responseData is Map<String, dynamic>) {
+          if (responseData.containsKey('statusCode') &&
+              responseData['statusCode'] == 200) {
+            return responseData;
+          } else {
+            return responseData;
+          }
+        } else if (responseData is List) {
+          return {
+            'statusCode': 200,
+            'message': 'Success',
+            'data': responseData,
+            'totalItems': responseData.length,
+            'totalPages': 1,
+            'currentPage': page,
+          };
+        } else {
+          throw Exception(
+              'Format response tidak valid: ${responseData.runtimeType}');
+        }
+      } else {
+        throw Exception(
+            'Gagal mengambil data order aktif: ${response.statusMessage}');
+      }
+    } on DioException catch (e) {
+      _handleDioException(e, 'mengambil data order aktif');
+    }
+    throw Exception('Terjadi kesalahan yang tidak terduga');
+  }
+
+  // ✅ Get driver active orders (untuk driver)
+  static Future<Map<String, dynamic>> getDriverActiveOrders() async {
+    final token = await _getToken();
+    if (token == null) {
+      throw Exception('Token tidak ditemukan, harap login terlebih dahulu');
+    }
+
+    final dio = _createDioClient();
+
+    try {
+      // Menggunakan endpoint driver requests untuk mendapatkan order yang assigned ke driver
+      final response = await dio.get(ApiConstants.driverRequests);
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        if (responseData['statusCode'] == 200) {
+          return responseData;
+        }
+        return responseData;
+      } else {
+        throw Exception(
+            'Gagal mengambil order aktif driver: ${response.statusMessage}');
+      }
+    } on DioException catch (e) {
+      _handleDioException(e, 'mengambil order aktif driver');
+    }
+    throw Exception('Terjadi kesalahan yang tidak terduga');
+  }
+
+  // ✅ Calculate estimated delivery time
+  static Map<String, dynamic> calculateEstimatedTime({
+    required double driverLat,
+    required double driverLng,
+    required double storeLat,
+    required double storeLng,
+    required double customerLat,
+    required double customerLng,
+  }) {
+    // Implementasi sederhana kalkulasi jarak menggunakan Haversine formula
+    final distanceToStore =
+        _calculateDistance(driverLat, driverLng, storeLat, storeLng);
+    final distanceToCustomer =
+        _calculateDistance(storeLat, storeLng, customerLat, customerLng);
+
+    // Asumsi kecepatan rata-rata 30 km/jam
+    const averageSpeed = 30.0; // km/h
+    const preparationTime = 10; // minutes
+
+    final timeToStore = (distanceToStore / averageSpeed) * 60; // dalam menit
+    final timeToCustomer =
+        (distanceToCustomer / averageSpeed) * 60; // dalam menit
+
+    final totalPickupTime = timeToStore + preparationTime;
+    final totalDeliveryTime = totalPickupTime + timeToCustomer;
+
+    final now = DateTime.now();
+    final estimatedPickupTime =
+        now.add(Duration(minutes: totalPickupTime.round()));
+    final estimatedDeliveryTime =
+        now.add(Duration(minutes: totalDeliveryTime.round()));
+
+    return {
+      'distance_to_store': distanceToStore,
+      'distance_to_customer': distanceToCustomer,
+      'estimated_pickup_time': estimatedPickupTime.toIso8601String(),
+      'estimated_delivery_time': estimatedDeliveryTime.toIso8601String(),
+      'pickup_duration_minutes': totalPickupTime.round(),
+      'delivery_duration_minutes': timeToCustomer.round(),
+    };
+  }
+
+  // ✅ Haversine formula untuk menghitung jarak
+  static double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadius = 6371; // km
+
+    final dLat = _degreesToRadians(lat2 - lat1);
+    final dLon = _degreesToRadians(lon2 - lon1);
+
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_degreesToRadians(lat1)) *
+            math.cos(_degreesToRadians(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+
+    return earthRadius * c;
+  }
+
+  static double _degreesToRadians(double degrees) {
+    return degrees * (math.pi / 180);
+  }
+
+  // ✅ Helper method untuk format tracking update
+  static Map<String, dynamic> formatTrackingUpdate({
+    required String status,
+    required String message,
+    double? latitude,
+    double? longitude,
+    Map<String, dynamic>? additionalData,
+  }) {
+    final Map<String, dynamic> trackingUpdate = {
+      'timestamp': DateTime.now().toIso8601String(),
+      'status': status,
+      'message': message,
+    };
+
+    if (latitude != null && longitude != null) {
+      trackingUpdate['location'] = {
+        'latitude': latitude,
+        'longitude': longitude,
+      };
+    }
+
+    if (additionalData != null) {
+      trackingUpdate.addAll(additionalData);
+    }
+
+    return trackingUpdate;
   }
 
   // ===== UTILITY METHODS =====
@@ -230,28 +425,29 @@ class TrackingService {
 
     switch (e.type) {
       case DioExceptionType.connectionError:
-        errorMessage =
-            'Connection failed. Please check your internet connection.';
+        errorMessage = 'Koneksi gagal. Periksa koneksi internet Anda.';
         break;
       case DioExceptionType.connectionTimeout:
-        errorMessage = 'Connection timeout. Server may be slow or unreachable.';
+        errorMessage =
+            'Koneksi timeout. Server mungkin lambat atau tidak dapat dijangkau.';
         break;
       case DioExceptionType.receiveTimeout:
-        errorMessage = 'Server response timeout. Request took too long.';
+        errorMessage =
+            'Server response timeout. Request membutuhkan waktu terlalu lama.';
         break;
       case DioExceptionType.badResponse:
         if (e.response?.statusCode == 401) {
-          errorMessage = 'Authentication failed. Please login again.';
+          errorMessage = 'Unauthorized: Harap login ulang';
         } else if (e.response?.statusCode == 403) {
-          errorMessage = 'Access denied. Required permissions missing.';
+          errorMessage = 'Forbidden: Akses tidak diizinkan';
         } else if (e.response?.statusCode == 404) {
-          errorMessage = 'Order not found or no tracking data available.';
+          errorMessage = 'Resource tidak ditemukan';
         } else if (e.response?.statusCode == 400) {
           final responseData = e.response?.data;
           if (responseData is Map && responseData.containsKey('message')) {
             errorMessage = responseData['message'];
           } else {
-            errorMessage = 'Invalid request data.';
+            errorMessage = 'Data request tidak valid';
           }
         } else {
           final responseData = e.response?.data;
@@ -266,19 +462,72 @@ class TrackingService {
         errorMessage = 'Network error: ${e.message}';
     }
 
-    throw Exception('Failed to $operation: $errorMessage');
+    throw Exception('Gagal $operation: $errorMessage');
   }
 
-  // ===== CONNECTION TEST =====
-
+  /// Test connection to backend
   static Future<bool> testConnection() async {
     try {
       final dio = _createDioClient();
-      final response = await dio.get(ApiConstants.healthCheck);
+      final response = await dio.get(
+          ApiConstants.health); // ✅ Fixed: gunakan 'health' bukan 'healthCheck'
       return response.statusCode == 200;
     } catch (e) {
-      print('Tracking service connection test failed: $e');
+      print('Connection test failed: $e');
       return false;
+    }
+  }
+
+  /// Validate tracking data
+  static bool validateTrackingData(Map<String, dynamic> data) {
+    final requiredFields = ['order_id'];
+
+    for (String field in requiredFields) {
+      if (!data.containsKey(field) ||
+          data[field] == null ||
+          data[field].toString().trim().isEmpty) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /// Get tracking status display name
+  static String getTrackingStatusDisplay(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Menunggu';
+      case 'picked_up':
+        return 'Telah Diambil';
+      case 'on_way':
+        return 'Dalam Perjalanan';
+      case 'delivered':
+        return 'Telah Sampai';
+      default:
+        return 'Status Tidak Diketahui';
+    }
+  }
+
+  /// Get order status display name
+  static String getOrderStatusDisplay(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Menunggu Konfirmasi';
+      case 'confirmed':
+        return 'Dikonfirmasi';
+      case 'preparing':
+        return 'Sedang Diproses';
+      case 'ready_for_pickup':
+        return 'Siap Diambil';
+      case 'on_delivery':
+        return 'Sedang Diantar';
+      case 'delivered':
+        return 'Telah Sampai';
+      case 'cancelled':
+        return 'Dibatalkan';
+      default:
+        return 'Status Tidak Diketahui';
     }
   }
 }

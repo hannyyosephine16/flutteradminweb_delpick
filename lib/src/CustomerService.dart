@@ -1,117 +1,19 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'BaseService.dart';
 import 'api_constant.dart';
 
-class CustomerService {
-  static final FlutterSecureStorage _storage = FlutterSecureStorage();
-
-  /// Configure Dio with CORS handling
-  static Dio _createDioClient() {
-    final dio = Dio();
-    dio.options.baseUrl = ApiConstants.baseUrl;
-    dio.options.connectTimeout = Duration(seconds: 15);
-    dio.options.receiveTimeout = Duration(seconds: 30);
-
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await getToken();
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        options.headers.addAll({
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        });
-
-        print('📤 Request: ${options.method} ${options.uri}');
-        handler.next(options);
-      },
-      onResponse: (response, handler) {
-        print('📥 Response: ${response.statusCode} ${response.statusMessage}');
-        handler.next(response);
-      },
-      onError: (error, handler) {
-        print('❌ Error: ${error.type} - ${error.message}');
-        handler.next(error);
-      },
-    ));
-
-    dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-      requestHeader: true,
-      responseHeader: false,
-      error: true,
-      logPrint: (object) => print('🔧 DIO: $object'),
-    ));
-
-    return dio;
-  }
-
-  /// Test backend connection with better error handling
-  static Future<Map<String, String>> diagnoseConnection() async {
-    final results = <String, String>{};
-
-    try {
-      final dio = _createDioClient();
-      final response = await dio.get(ApiConstants.healthCheck);
-      results['connectivity'] = 'Success - Backend reachable';
-      results['status'] = '${response.statusCode}';
-    } catch (e) {
-      if (e is DioException) {
-        switch (e.type) {
-          case DioExceptionType.connectionError:
-            if (e.message?.contains('CORS') == true) {
-              results['connectivity'] =
-                  'CORS Error - Backend needs CORS configuration';
-              results['solution'] =
-                  'Update backend app.js to allow localhost:55111';
-            } else {
-              results['connectivity'] =
-                  'Connection Error - Backend may be down';
-              results['solution'] =
-                  'Check if backend is running at ${ApiConstants.baseUrl}';
-            }
-            break;
-          case DioExceptionType.connectionTimeout:
-            results['connectivity'] =
-                'Timeout - Backend too slow or unreachable';
-            break;
-          case DioExceptionType.badResponse:
-            results['connectivity'] =
-                'Backend Error - ${e.response?.statusCode}';
-            break;
-          default:
-            results['connectivity'] = 'Unknown Error - ${e.message}';
-        }
-      } else {
-        results['connectivity'] = 'Unexpected Error - $e';
-      }
-    }
-
-    return results;
-  }
-
-  /// Get all customers with enhanced error handling
-  static Future<Map<String, dynamic>?> getAllCustomers({
+class CustomerService extends BaseService {
+  /// Get all customers with pagination and filtering
+  static Future<Map<String, dynamic>> getAllCustomers({
     int page = 1,
     int limit = 10,
     String? search,
     String sortBy = 'created_at',
-    String sortOrder = 'ASC',
+    String sortOrder = 'DESC',
   }) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Authentication required. Please login as admin.');
-    }
-
-    final dio = _createDioClient();
-
     try {
-      // Build query parameters
-      Map<String, dynamic> queryParams = ApiConstants.buildQueryParams(
+      final queryParams = BaseService.buildQueryParams(
         page: page,
         limit: limit,
         search: search,
@@ -119,310 +21,271 @@ class CustomerService {
         sortOrder: sortOrder,
       );
 
-      print('📞 Calling: ${ApiConstants.customers}');
-
-      final response = await dio.get(
+      final response = await BaseService.get(
         ApiConstants.customers,
         queryParameters: queryParams,
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-
-        if (responseData is Map<String, dynamic> &&
-            responseData.containsKey('data') &&
-            responseData['data'] != null) {
-          // Check backend response format: { statusCode: 200, message: "...", data: {...} }
-          if (responseData['statusCode'] == 200) {
-            final data = responseData['data'] as Map<String, dynamic>;
-            print('✅ Successfully fetched customers');
-            return responseData;
-          } else {
-            throw Exception('API Error: ${responseData['message']}');
-          }
-        } else {
-          throw Exception('Invalid response format: missing data field');
-        }
-      } else {
-        throw Exception(
-            'HTTP Error: ${response.statusCode} - ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      return response;
     } catch (e) {
-      throw Exception('Unexpected error: $e');
+      throw Exception('Failed to load customers: ${e.toString()}');
     }
-    return null;
   }
 
   /// Get customer by ID
-  static Future<Map<String, dynamic>?> getCustomerById(String id) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
+  static Future<Map<String, dynamic>> getCustomerById(String id) async {
     try {
-      final response = await dio.get(
-        ApiConstants.buildUrlWithParams(ApiConstants.customerById, {'id': id}),
+      final endpoint = BaseService.buildUrlWithParams(
+        ApiConstants.customerById,
+        {'id': id},
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('API Error: ${responseData['message']}');
-      } else {
-        throw Exception(
-            'HTTP ${response.statusCode}: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
+      final response = await BaseService.get(endpoint);
+      return BaseService.extractData(response);
+    } catch (e) {
+      throw Exception('Failed to get customer: ${e.toString()}');
     }
-    return null;
   }
 
-  /// Create customer
-  static Future<Map<String, dynamic>?> createCustomer(
-    String username,
-    String email,
-    String phone,
-    String newPassword,
+  /// Create new customer (Admin only)
+  static Future<Map<String, dynamic>> createCustomer({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
     String? imageBase64,
-  ) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
+  }) async {
     try {
-      final requestData = {
-        'name': username,
-        'email': email,
-        'phone': phone,
-        'password': newPassword,
-      };
-
-      if (imageBase64 != null && imageBase64.isNotEmpty) {
-        requestData['image'] = imageBase64;
-      }
-
-      final response = await dio.post(
-        ApiConstants.customers,
-        data: requestData,
-      );
-
-      if (response.statusCode == 201) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 201) {
-          return responseData['data'];
-        }
-        throw Exception('API Error: ${responseData['message']}');
-      } else {
-        throw Exception('Failed to create customer: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
-    }
-    return null;
-  }
-
-  /// Update customer
-  static Future<Map<String, dynamic>?> updateCustomer(
-    String id,
-    String name,
-    String email,
-    String phone,
-    String currentPassword,
-    String newPassword,
-    String? imageBase64,
-  ) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
-    try {
-      final Map<String, dynamic> requestData = {
+      final data = {
         'name': name,
         'email': email,
         'phone': phone,
+        'password': password,
+        if (imageBase64 != null && imageBase64.isNotEmpty) 'image': imageBase64,
       };
 
-      if (newPassword.isNotEmpty) {
-        requestData['password'] = newPassword;
-      }
-
-      if (imageBase64 != null && imageBase64.isNotEmpty) {
-        requestData['image'] = imageBase64;
-      }
-
-      final response = await dio.put(
-        ApiConstants.buildUrlWithParams(ApiConstants.customerById, {'id': id}),
-        data: requestData,
+      final response = await BaseService.post(
+        ApiConstants.customers,
+        data: data,
       );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return responseData['data'];
-        }
-        throw Exception('API Error: ${responseData['message']}');
-      } else {
-        throw Exception('Failed to update customer: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
-    }
-    return null;
-  }
-
-  /// Delete customer
-  static Future<bool> deleteCustomer(String id) async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('Token not found. Please login.');
-    }
-
-    final dio = _createDioClient();
-
-    try {
-      final response = await dio.delete(
-        ApiConstants.buildUrlWithParams(ApiConstants.customerById, {'id': id}),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData['statusCode'] == 200) {
-          return true;
-        }
-        throw Exception('API Error: ${responseData['message']}');
-      } else {
-        throw Exception('Failed to delete customer: ${response.statusMessage}');
-      }
-    } on DioException catch (e) {
-      _handleDioException(e);
-    }
-    return false;
-  }
-
-  // ===== UTILITY METHODS =====
-
-  /// Token management
-  static Future<void> saveToken(String token) async {
-    await _storage.write(key: ApiConstants.tokenKey, value: token);
-  }
-
-  static Future<String?> getToken() async {
-    return await _storage.read(key: ApiConstants.tokenKey);
-  }
-
-  /// Quick connection test
-  static Future<bool> testConnection() async {
-    try {
-      final dio = _createDioClient();
-      final response = await dio.get(ApiConstants.healthCheck);
-      return response.statusCode == 200;
+      return BaseService.extractData(response);
     } catch (e) {
-      print('Connection test failed: $e');
-      return false;
+      throw Exception('Failed to create customer: ${e.toString()}');
     }
   }
 
-  /// Handle Dio exceptions with specific error messages
-  static void _handleDioException(DioException e) {
-    String errorMessage;
+  /// Update customer (Admin only)
+  static Future<Map<String, dynamic>> updateCustomer({
+    required String id,
+    required String name,
+    required String email,
+    required String phone,
+    String? imageBase64,
+  }) async {
+    try {
+      final endpoint = BaseService.buildUrlWithParams(
+        ApiConstants.customerById,
+        {'id': id},
+      );
 
-    switch (e.type) {
-      case DioExceptionType.connectionError:
-        errorMessage = 'Connection failed. This is likely a CORS issue. '
-            'Please ensure the backend at ${ApiConstants.baseUrl} allows requests from localhost:55111';
-        break;
-      case DioExceptionType.connectionTimeout:
-        errorMessage =
-            'Connection timeout. Backend server may be slow or unreachable.';
-        break;
-      case DioExceptionType.receiveTimeout:
-        errorMessage = 'Server response timeout. Request took too long.';
-        break;
-      case DioExceptionType.badResponse:
-        if (e.response?.statusCode == 401) {
-          errorMessage = 'Authentication failed. Please login again.';
-        } else if (e.response?.statusCode == 403) {
-          errorMessage = 'Access denied. Admin role required.';
-        } else if (e.response?.statusCode == 404) {
-          errorMessage = 'API endpoint not found. Check backend URL.';
-        } else if (e.response?.statusCode == 400) {
-          final errorData = e.response?.data;
-          if (errorData is Map && errorData.containsKey('message')) {
-            errorMessage = errorData['message'];
-          } else {
-            errorMessage = 'Invalid request data.';
-          }
-        } else {
-          final errorData = e.response?.data;
-          if (errorData is Map && errorData.containsKey('message')) {
-            errorMessage = errorData['message'];
-          } else {
-            errorMessage =
-                'Server error: ${e.response?.statusCode} - ${e.response?.data}';
-          }
-        }
-        break;
-      default:
-        errorMessage = 'Network error: ${e.message}';
-    }
+      final data = {
+        'name': name,
+        'email': email,
+        'phone': phone,
+        if (imageBase64 != null && imageBase64.isNotEmpty) 'image': imageBase64,
+      };
 
-    throw Exception(errorMessage);
-  }
-
-  /// Format error message for user display
-  static String formatErrorMessage(String error) {
-    if (error.contains('CORS')) {
-      return 'Connection issue: Please contact administrator to enable CORS for this domain.';
-    } else if (error.contains('Authentication')) {
-      return 'Please login again to continue.';
-    } else if (error.contains('Access denied')) {
-      return 'You do not have permission to perform this action.';
-    } else if (error.contains('Connection failed')) {
-      return 'Unable to connect to server. Please check your internet connection.';
-    } else {
-      return error;
+      final response = await BaseService.put(endpoint, data: data);
+      return BaseService.extractData(response);
+    } catch (e) {
+      throw Exception('Failed to update customer: ${e.toString()}');
     }
   }
 
-  /// Debug helper for API connection
-  static Future<void> debugApiConnection() async {
-    print('🔍 ========== API DEBUG ==========');
+  /// Delete customer (Admin only)
+  static Future<bool> deleteCustomer(String id) async {
+    try {
+      final endpoint = BaseService.buildUrlWithParams(
+        ApiConstants.customerById,
+        {'id': id},
+      );
 
-    final token = await getToken();
-    print('🔑 Token exists: ${token != null}');
+      await BaseService.delete(endpoint);
+      return true;
+    } catch (e) {
+      throw Exception('Failed to delete customer: ${e.toString()}');
+    }
+  }
 
-    if (token != null) {
-      print('🔑 Token preview: ${token.substring(0, 20)}...');
+  /// Test connection to backend
+  static Future<bool> testConnection() async {
+    return await BaseService.testConnection();
+  }
 
+  /// Diagnose connection issues
+  static Future<Map<String, String>> diagnoseConnection() async {
+    final results = <String, String>{};
+
+    try {
+      // Test base connectivity
+      final isConnected = await BaseService.testConnection();
+      results['connectivity'] = isConnected
+          ? 'Success - Backend reachable'
+          : 'Failed - Backend unreachable';
+
+      // Test authentication endpoint
       try {
-        final dio = _createDioClient();
-        final response = await dio.get('${ApiConstants.customers}?limit=1');
-
-        print('✅ API connection successful');
-        print('📊 Status: ${response.statusCode}');
-        print('📄 Response type: ${response.data.runtimeType}');
-        if (response.data is Map) {
-          print('📄 Response keys: ${response.data?.keys}');
-        }
+        await BaseService.get('/health');
+        results['health_endpoint'] = 'Success - Health endpoint accessible';
       } catch (e) {
-        print('❌ API connection failed: $e');
+        results['health_endpoint'] = 'Failed - Health endpoint error: $e';
+      }
+
+      // Test customer endpoint (requires auth)
+      final token = await BaseService.getToken();
+      if (token != null) {
+        try {
+          await BaseService.get('${ApiConstants.customers}?limit=1');
+          results['customer_endpoint'] =
+              'Success - Customer endpoint accessible';
+        } catch (e) {
+          if (e.toString().contains('401')) {
+            results['customer_endpoint'] = 'Failed - Authentication required';
+          } else {
+            results['customer_endpoint'] =
+                'Failed - Customer endpoint error: $e';
+          }
+        }
+      } else {
+        results['customer_endpoint'] = 'Skipped - No authentication token';
+      }
+    } catch (e) {
+      results['connectivity'] = 'Failed - Connection error: $e';
+    }
+
+    return results;
+  }
+
+  /// Get customer statistics (if available)
+  static Future<Map<String, dynamic>?> getCustomerStats() async {
+    try {
+      final response = await BaseService.get('${ApiConstants.customers}/stats');
+      return BaseService.extractData(response);
+    } catch (e) {
+      // Stats endpoint might not exist, return null
+      return null;
+    }
+  }
+
+  /// Search customers by name or email
+  static Future<Map<String, dynamic>> searchCustomers(
+    String query, {
+    int page = 1,
+    int limit = 10,
+  }) async {
+    try {
+      final queryParams = BaseService.buildQueryParams(
+        page: page,
+        limit: limit,
+        search: query,
+      );
+
+      final response = await BaseService.get(
+        ApiConstants.customers,
+        queryParameters: queryParams,
+      );
+
+      return response;
+    } catch (e) {
+      throw Exception('Failed to search customers: ${e.toString()}');
+    }
+  }
+
+  /// Validate customer data before submission
+  static Map<String, String?> validateCustomerData({
+    required String name,
+    required String email,
+    required String phone,
+    String? password,
+  }) {
+    Map<String, String?> errors = {};
+
+    // Name validation
+    if (name.trim().isEmpty) {
+      errors['name'] = 'Name is required';
+    } else if (name.trim().length < 2) {
+      errors['name'] = 'Name must be at least 2 characters';
+    }
+
+    // Email validation
+    if (email.trim().isEmpty) {
+      errors['email'] = 'Email is required';
+    } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
+      errors['email'] = 'Invalid email format';
+    }
+
+    // Phone validation - FIXED: Added missing closing quote and proper regex
+    if (phone.trim().isEmpty) {
+      errors['phone'] = 'Phone is required';
+    } else if (!RegExp(r'^\+?[0-9]{10,15}$')
+        .hasMatch(phone.replaceAll(' ', ''))) {
+      errors['phone'] = 'Invalid phone format';
+    }
+
+    // Password validation (for create operations)
+    if (password != null) {
+      if (password.isEmpty) {
+        errors['password'] = 'Password is required';
+      } else if (password.length < 6) {
+        errors['password'] = 'Password must be at least 6 characters';
       }
     }
 
-    print('🔍 ========== DEBUG END ==========');
+    return errors;
+  }
+
+  /// Format customer data for display
+  static Map<String, dynamic> formatCustomerData(
+      Map<String, dynamic> customer) {
+    return {
+      'id': customer['id']?.toString() ?? '',
+      'name': customer['name'] ?? 'Unknown',
+      'email': customer['email'] ?? '',
+      'phone': customer['phone'] ?? '',
+      'role': customer['role'] ?? 'customer',
+      'avatar': customer['avatar'],
+      'created_at': customer['created_at'],
+      'updated_at': customer['updated_at'],
+    };
+  }
+
+  /// Extract customer list from API response
+  static List<Map<String, dynamic>> extractCustomerList(
+      Map<String, dynamic> response) {
+    final data = BaseService.extractData(response);
+
+    if (data is Map<String, dynamic>) {
+      // If data contains customers array
+      if (data.containsKey('customers')) {
+        return List<Map<String, dynamic>>.from(data['customers'] ?? []);
+      }
+      // If data contains data array
+      else if (data.containsKey('data')) {
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+    }
+    // If data is direct array
+    else if (data is List) {
+      return List<Map<String, dynamic>>.from(data);
+    }
+
+    return [];
+  }
+
+  /// Get pagination info from response
+  static Map<String, dynamic> extractPaginationInfo(
+      Map<String, dynamic> response) {
+    return BaseService.extractPaginationData(response);
   }
 }
