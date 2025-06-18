@@ -1,449 +1,579 @@
-// FIXED: CustomerController.dart - Updated to match backend response format
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import '../src/CustomerService.dart';
 import '../Models/CustomerModel.dart';
+import '../src/CustomerService.dart';
 
-class CustomerController extends GetxController {
-  // Observable variables
-  final customers = <CustomerModel>[].obs;
-  final isLoading = false.obs;
-  final isLoadingMore = false.obs;
-  final hasError = false.obs;
-  final errorMessage = ''.obs;
+class CustomerController extends ChangeNotifier {
+  // ===== STATE MANAGEMENT =====
 
-  // Pagination
-  final currentPage = 1.obs;
-  final totalPages = 0.obs;
-  final totalItems = 0.obs;
-  final itemsPerPage = 10.obs;
+  // Loading states
+  bool _isLoading = false;
+  bool _isCreating = false;
+  bool _isUpdating = false;
+  bool _isDeleting = false;
+  bool _isSearching = false;
 
-  // Search and filter
-  final searchQuery = ''.obs;
-  final selectedFilter = 'all'.obs;
+  // Data states
+  List<CustomerModel> _customers = [];
+  CustomerModel? _currentCustomer;
+  String _searchQuery = '';
+  String _errorMessage = '';
+  String _successMessage = '';
 
-  // Selection
-  final selectedCustomers = <CustomerModel>[].obs;
-  final isAllSelected = false.obs;
+  // Pagination states
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalItems = 0;
+  int _itemsPerPage = 10;
+  String _sortBy = 'created_at';
+  String _sortOrder = 'DESC';
 
-  // Form data for add/edit
-  final formKey = GlobalKey<FormState>();
-  final nameController = TextEditingController();
-  final emailController = TextEditingController();
-  final phoneController = TextEditingController();
-  final passwordController = TextEditingController();
-  final confirmPasswordController = TextEditingController();
+  // Connection state
+  bool _isConnected = true;
+  Map<String, String> _connectionDiagnosis = {};
 
-  // Form state
-  final isFormLoading = false.obs;
-  final isEditMode = false.obs;
-  final editingCustomerId = ''.obs;
-  final selectedImageBase64 = ''.obs;
+  // ===== GETTERS =====
 
-  @override
-  void onInit() {
-    super.onInit();
-    fetchCustomers();
-  }
+  bool get isLoading => _isLoading;
+  bool get isCreating => _isCreating;
+  bool get isUpdating => _isUpdating;
+  bool get isDeleting => _isDeleting;
+  bool get isSearching => _isSearching;
+  bool get hasError => _errorMessage.isNotEmpty;
+  bool get hasSuccess => _successMessage.isNotEmpty;
+  bool get isConnected => _isConnected;
 
-  @override
-  void onClose() {
-    nameController.dispose();
-    emailController.dispose();
-    phoneController.dispose();
-    passwordController.dispose();
-    confirmPasswordController.dispose();
-    super.onClose();
-  }
+  List<CustomerModel> get customers => _customers;
+  CustomerModel? get currentCustomer => _currentCustomer;
+  String get searchQuery => _searchQuery;
+  String get errorMessage => _errorMessage;
+  String get successMessage => _successMessage;
+  Map<String, String> get connectionDiagnosis => _connectionDiagnosis;
 
-  // FIXED: Fetch customers with correct response parsing
-  Future<void> fetchCustomers({int page = 1, bool isRefresh = false}) async {
+  // Pagination getters
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  int get totalItems => _totalItems;
+  int get itemsPerPage => _itemsPerPage;
+  String get sortBy => _sortBy;
+  String get sortOrder => _sortOrder;
+  bool get hasNextPage => _currentPage < _totalPages;
+  bool get hasPreviousPage => _currentPage > 1;
+  bool get hasCustomers => _customers.isNotEmpty;
+
+  // Computed getters
+  String get paginationInfo =>
+      'Showing ${(_currentPage - 1) * _itemsPerPage + 1}-${(_currentPage - 1) * _itemsPerPage + _customers.length} of $_totalItems customers';
+
+  String get pageInfo => 'Page $_currentPage of $_totalPages';
+
+  // ===== CORE METHODS =====
+
+  /// Load all customers with pagination and filtering
+  Future<void> loadCustomers({
+    int? page,
+    int? limit,
+    String? search,
+    String? sortBy,
+    String? sortOrder,
+    bool showLoading = true,
+  }) async {
     try {
-      if (isRefresh || page == 1) {
-        isLoading.value = true;
-        customers.clear();
-      } else {
-        isLoadingMore.value = true;
+      if (showLoading) {
+        _setLoading(true);
       }
+      _clearMessages();
 
-      hasError.value = false;
-      errorMessage.value = '';
+      // Update parameters if provided
+      if (page != null) _currentPage = page;
+      if (limit != null) _itemsPerPage = limit;
+      if (search != null) _searchQuery = search;
+      if (sortBy != null) _sortBy = sortBy;
+      if (sortOrder != null) _sortOrder = sortOrder;
 
-      print(
-          '🔄 Fetching customers - Page: $page, Limit: ${itemsPerPage.value}');
-
+      // Call service
       final response = await CustomerService.getAllCustomers(
-        page: page,
-        limit: itemsPerPage.value,
-        search: searchQuery.value.isNotEmpty ? searchQuery.value : null,
+        page: _currentPage,
+        limit: _itemsPerPage,
+        search: _searchQuery.isNotEmpty ? _searchQuery : null,
+        sortBy: _sortBy,
+        sortOrder: _sortOrder,
       );
 
-      if (response != null) {
-        List<dynamic> customersData = [];
+      // Extract customers data
+      final customersData = CustomerService.extractCustomerList(response);
+      _customers =
+          customersData.map((json) => CustomerModel.fromJson(json)).toList();
 
-        // ✅ FIXED: Handle backend response format with snake_case keys
-        if (response.containsKey('data') && response['data'] != null) {
-          final data = response['data'] as Map<String, dynamic>?;
-          if (data != null && data.containsKey('customers')) {
-            customersData = data['customers'] as List<dynamic>? ?? [];
+      // Extract pagination info
+      final paginationInfo = CustomerService.extractPaginationInfo(response);
+      _totalItems = paginationInfo['totalItems'] ?? 0;
+      _totalPages = paginationInfo['totalPages'] ?? 1;
+      _currentPage = paginationInfo['currentPage'] ?? 1;
 
-            // ✅ FIXED: Use snake_case keys to match backend
-            currentPage.value =
-                data['current_page'] as int? ?? page; // Was: currentPage
-            totalPages.value =
-                data['total_pages'] as int? ?? 1; // Was: totalPages
-            totalItems.value = data['total_items'] as int? ??
-                customersData.length; // Was: totalItems
-          }
-        } else if (response['customers'] != null) {
-          // Alternative format: direct customers array in response
-          customersData = response['customers'] as List<dynamic>? ?? [];
-          currentPage.value = response['current_page'] as int? ?? page;
-          totalPages.value = response['total_pages'] as int? ?? 1;
-          totalItems.value =
-              response['total_items'] as int? ?? customersData.length;
-        }
-
-        // Convert to CustomerModel list
-        final customersList = customersData
-            .map((json) => CustomerModel.fromJson(json as Map<String, dynamic>))
-            .toList();
-
-        if (page == 1) {
-          customers.assignAll(customersList);
-        } else {
-          customers.addAll(customersList);
-        }
-
-        print('✅ Loaded ${customersList.length} customers');
-        print(
-            '📊 Pagination - Page: ${currentPage.value}, Total Pages: ${totalPages.value}, Total Items: ${totalItems.value}');
-      } else {
-        throw Exception('No response from server');
-      }
+      _isConnected = true;
+      print('✅ Loaded ${_customers.length} customers successfully');
     } catch (e) {
-      hasError.value = true;
-      errorMessage.value = e.toString();
-      _showErrorSnackbar('Failed to load customers: ${e.toString()}');
-      print('❌ Error fetching customers: $e');
+      _handleError('Failed to load customers', e);
+      _isConnected = false;
     } finally {
-      isLoading.value = false;
-      isLoadingMore.value = false;
-    }
-  }
-
-  // Load more customers (pagination)
-  Future<void> loadMoreCustomers() async {
-    if (currentPage.value < totalPages.value && !isLoadingMore.value) {
-      await fetchCustomers(page: currentPage.value + 1);
-    }
-  }
-
-  // Refresh customers list
-  Future<void> refreshCustomers() async {
-    await fetchCustomers(page: 1, isRefresh: true);
-  }
-
-  // Search customers
-  void searchCustomers(String query) {
-    searchQuery.value = query;
-    fetchCustomers(page: 1, isRefresh: true);
-  }
-
-  // Filter customers
-  void filterCustomers(String filter) {
-    selectedFilter.value = filter;
-    fetchCustomers(page: 1, isRefresh: true);
-  }
-
-  // FIXED: Get customer by ID with proper response handling
-  Future<CustomerModel?> getCustomerById(String id) async {
-    try {
-      final response = await CustomerService.getCustomerById(id);
-      if (response != null) {
-        // Handle different response formats
-        Map<String, dynamic>? customerData;
-
-        // Backend format: { statusCode: 200, message: "...", data: {...} }
-        if (response.containsKey('data') && response['data'] != null) {
-          customerData = response['data'] as Map<String, dynamic>?;
-        } else if (response.containsKey('name') ||
-            response.containsKey('email')) {
-          // Direct customer data
-          customerData = response;
-        }
-
-        if (customerData != null) {
-          return CustomerModel.fromJson(customerData);
-        }
+      if (showLoading) {
+        _setLoading(false);
       }
-      return null;
-    } catch (e) {
-      _showErrorSnackbar('Failed to get customer: ${e.toString()}');
-      return null;
     }
   }
 
-  // Create new customer
-  Future<bool> createCustomer() async {
-    if (!formKey.currentState!.validate()) {
-      return false;
-    }
-
+  /// Load customer by ID
+  Future<void> loadCustomerById(String id) async {
     try {
-      isFormLoading.value = true;
+      _setLoading(true);
+      _clearMessages();
 
-      final response = await CustomerService.createCustomer(
-        nameController.text,
-        emailController.text,
-        phoneController.text,
-        passwordController.text,
-        selectedImageBase64.value.isNotEmpty ? selectedImageBase64.value : null,
+      final customerData = await CustomerService.getCustomerById(id);
+      _currentCustomer = CustomerModel.fromJson(customerData);
+
+      print('✅ Loaded customer: ${_currentCustomer?.name}');
+    } catch (e) {
+      _handleError('Failed to load customer details', e);
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Create new customer
+  Future<bool> createCustomer({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+    String? imageBase64,
+  }) async {
+    try {
+      _isCreating = true;
+      _clearMessages();
+      notifyListeners();
+
+      // Validate data
+      final validationErrors = CustomerService.validateCustomerData(
+        name: name,
+        email: email,
+        phone: phone,
+        password: password,
       );
 
-      if (response != null) {
-        _showSuccessSnackbar('Customer created successfully');
-        clearForm();
-        refreshCustomers();
-        return true;
-      } else {
-        throw Exception('No response from server');
+      if (validationErrors.isNotEmpty) {
+        final errorMessages =
+            validationErrors.values.where((error) => error != null).join(', ');
+        throw Exception('Validation failed: $errorMessages');
       }
-    } catch (e) {
-      _showErrorSnackbar('Failed to create customer: ${e.toString()}');
-      return false;
-    } finally {
-      isFormLoading.value = false;
-    }
-  }
 
-  // Update customer
-  Future<bool> updateCustomer() async {
-    if (!formKey.currentState!.validate()) {
-      return false;
-    }
-
-    try {
-      isFormLoading.value = true;
-
-      final response = await CustomerService.updateCustomer(
-        editingCustomerId.value,
-        nameController.text,
-        emailController.text,
-        phoneController.text,
-        '', // current password (not implemented in form)
-        passwordController.text,
-        selectedImageBase64.value.isNotEmpty ? selectedImageBase64.value : null,
+      // Call service
+      final customerData = await CustomerService.createCustomer(
+        name: name,
+        email: email,
+        phone: phone,
+        password: password,
+        imageBase64: imageBase64,
       );
 
-      if (response != null) {
-        _showSuccessSnackbar('Customer updated successfully');
-        clearForm();
-        refreshCustomers();
-        return true;
-      } else {
-        throw Exception('No response from server');
-      }
+      // Add to local list
+      final newCustomer = CustomerModel.fromJson(customerData);
+      _customers.insert(0, newCustomer);
+      _totalItems++;
+
+      _setSuccessMessage('Customer "${name}" created successfully');
+      print('✅ Created customer: $name');
+
+      return true;
     } catch (e) {
-      _showErrorSnackbar('Failed to update customer: ${e.toString()}');
+      _handleError('Failed to create customer', e);
       return false;
     } finally {
-      isFormLoading.value = false;
+      _isCreating = false;
+      notifyListeners();
     }
   }
 
-  // Delete customer
-  Future<bool> deleteCustomer(String id) async {
+  /// Update existing customer
+  Future<bool> updateCustomer({
+    required String id,
+    required String name,
+    required String email,
+    required String phone,
+    String? imageBase64,
+  }) async {
     try {
+      _isUpdating = true;
+      _clearMessages();
+      notifyListeners();
+
+      // Validate data
+      final validationErrors = CustomerService.validateCustomerData(
+        name: name,
+        email: email,
+        phone: phone,
+      );
+
+      if (validationErrors.isNotEmpty) {
+        final errorMessages =
+            validationErrors.values.where((error) => error != null).join(', ');
+        throw Exception('Validation failed: $errorMessages');
+      }
+
+      // Call service
+      final customerData = await CustomerService.updateCustomer(
+        id: id,
+        name: name,
+        email: email,
+        phone: phone,
+        imageBase64: imageBase64,
+      );
+
+      // Update local list
+      final updatedCustomer = CustomerModel.fromJson(customerData);
+      final index = _customers.indexWhere((c) => c.id.toString() == id);
+      if (index != -1) {
+        _customers[index] = updatedCustomer;
+      }
+
+      // Update current customer if it's the same
+      if (_currentCustomer?.id.toString() == id) {
+        _currentCustomer = updatedCustomer;
+      }
+
+      _setSuccessMessage('Customer "${name}" updated successfully');
+      print('✅ Updated customer: $name');
+
+      return true;
+    } catch (e) {
+      _handleError('Failed to update customer', e);
+      return false;
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
+  /// Delete customer
+  Future<bool> deleteCustomer(String id, String name) async {
+    try {
+      _isDeleting = true;
+      _clearMessages();
+      notifyListeners();
+
+      // Call service
       final success = await CustomerService.deleteCustomer(id);
+
       if (success) {
-        _showSuccessSnackbar('Customer deleted successfully');
-        refreshCustomers();
+        // Remove from local list
+        _customers.removeWhere((c) => c.id.toString() == id);
+        _totalItems--;
+
+        // Clear current customer if it's the deleted one
+        if (_currentCustomer?.id.toString() == id) {
+          _currentCustomer = null;
+        }
+
+        _setSuccessMessage('Customer "$name" deleted successfully');
+        print('✅ Deleted customer: $name');
+
         return true;
       } else {
         throw Exception('Delete operation failed');
       }
     } catch (e) {
-      _showErrorSnackbar('Failed to delete customer: ${e.toString()}');
+      _handleError('Failed to delete customer', e);
       return false;
+    } finally {
+      _isDeleting = false;
+      notifyListeners();
     }
   }
 
-  // Delete multiple customers
-  Future<bool> deleteMultipleCustomers() async {
-    if (selectedCustomers.isEmpty) {
-      _showErrorSnackbar('No customers selected');
-      return false;
-    }
-
+  /// Search customers
+  Future<void> searchCustomers(String query) async {
     try {
-      // Delete each selected customer
-      for (final customer in selectedCustomers) {
-        await CustomerService.deleteCustomer(customer.id.toString());
-      }
+      _isSearching = true;
+      _searchQuery = query;
+      _currentPage = 1; // Reset to first page
+      notifyListeners();
 
-      _showSuccessSnackbar(
-          '${selectedCustomers.length} customers deleted successfully');
-      clearSelection();
-      refreshCustomers();
-      return true;
+      await loadCustomers(showLoading: false);
     } catch (e) {
-      _showErrorSnackbar('Failed to delete customers: ${e.toString()}');
-      return false;
+      _handleError('Failed to search customers', e);
+    } finally {
+      _isSearching = false;
     }
   }
 
-  // Form management
-  void setEditMode(CustomerModel customer) {
-    isEditMode.value = true;
-    editingCustomerId.value = customer.id.toString();
-    nameController.text = customer.name;
-    emailController.text = customer.email;
-    phoneController.text = customer.phone;
-    passwordController.clear();
-    confirmPasswordController.clear();
-    selectedImageBase64.value = customer.avatar ?? '';
+  /// Clear search and reload all customers
+  Future<void> clearSearch() async {
+    _searchQuery = '';
+    _currentPage = 1;
+    await loadCustomers();
   }
 
-  void clearForm() {
-    isEditMode.value = false;
-    editingCustomerId.value = '';
-    nameController.clear();
-    emailController.clear();
-    phoneController.clear();
-    passwordController.clear();
-    confirmPasswordController.clear();
-    selectedImageBase64.value = '';
-  }
+  // ===== PAGINATION METHODS =====
 
-  void setSelectedImage(String base64Image) {
-    selectedImageBase64.value = base64Image;
-  }
-
-  // Selection management
-  void toggleCustomerSelection(CustomerModel customer) {
-    if (selectedCustomers.contains(customer)) {
-      selectedCustomers.remove(customer);
-    } else {
-      selectedCustomers.add(customer);
+  /// Go to next page
+  Future<void> nextPage() async {
+    if (hasNextPage && !isLoading) {
+      await loadCustomers(page: _currentPage + 1);
     }
-    _updateSelectAllState();
   }
 
-  void toggleSelectAll() {
-    if (isAllSelected.value) {
-      selectedCustomers.clear();
-    } else {
-      selectedCustomers.assignAll(customers);
+  /// Go to previous page
+  Future<void> previousPage() async {
+    if (hasPreviousPage && !isLoading) {
+      await loadCustomers(page: _currentPage - 1);
     }
-    _updateSelectAllState();
   }
 
-  void clearSelection() {
-    selectedCustomers.clear();
-    isAllSelected.value = false;
-  }
-
-  void _updateSelectAllState() {
-    isAllSelected.value =
-        customers.isNotEmpty && selectedCustomers.length == customers.length;
-  }
-
-  // Utility methods
-  bool isCustomerSelected(CustomerModel customer) {
-    return selectedCustomers.contains(customer);
-  }
-
-  int get selectedCount => selectedCustomers.length;
-
-  List<CustomerModel> get filteredCustomers {
-    if (searchQuery.value.isEmpty) {
-      return customers;
+  /// Go to specific page
+  Future<void> goToPage(int page) async {
+    if (page > 0 && page <= _totalPages && page != _currentPage && !isLoading) {
+      await loadCustomers(page: page);
     }
-
-    return customers.where((customer) {
-      final query = searchQuery.value.toLowerCase();
-      return customer.name.toLowerCase().contains(query) ||
-          customer.email.toLowerCase().contains(query) ||
-          customer.phone.contains(query);
-    }).toList();
   }
 
-  // Statistics
-  int get totalCustomersCount => totalItems.value;
+  /// Change items per page
+  Future<void> changeItemsPerPage(int itemsPerPage) async {
+    if (itemsPerPage != _itemsPerPage && !isLoading) {
+      _itemsPerPage = itemsPerPage;
+      _currentPage = 1; // Reset to first page
+      await loadCustomers();
+    }
+  }
 
-  int get newCustomersCount =>
-      customers.where((c) => (c.customerStatus ?? '') == 'New Customer').length;
+  /// Change sorting
+  Future<void> changeSorting(String sortBy, {String? sortOrder}) async {
+    if (!isLoading) {
+      _sortBy = sortBy;
+      if (sortOrder != null) {
+        _sortOrder = sortOrder;
+      } else {
+        // Toggle sort order if same field
+        _sortOrder =
+            (_sortBy == sortBy && _sortOrder == 'ASC') ? 'DESC' : 'ASC';
+      }
+      _currentPage = 1; // Reset to first page
+      await loadCustomers();
+    }
+  }
 
-  // Snackbar helpers
-  void _showSuccessSnackbar(String message) {
-    Get.snackbar(
-      'Success',
-      message,
-      backgroundColor: Colors.green,
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
+  // ===== UTILITY METHODS =====
+
+  /// Refresh data
+  Future<void> refresh() async {
+    await loadCustomers();
+  }
+
+  /// Test connection to backend
+  Future<void> testConnection() async {
+    try {
+      _setLoading(true);
+      _clearMessages();
+
+      final isConnected = await CustomerService.testConnection();
+      _isConnected = isConnected;
+
+      if (isConnected) {
+        _setSuccessMessage('✅ Backend connection successful');
+      } else {
+        _setErrorMessage('❌ Backend connection failed');
+      }
+    } catch (e) {
+      _isConnected = false;
+      _handleError('Connection test failed', e);
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Diagnose connection issues
+  Future<void> diagnoseConnection() async {
+    try {
+      _setLoading(true);
+      _clearMessages();
+
+      _connectionDiagnosis = await CustomerService.diagnoseConnection();
+
+      final hasAnySuccess = _connectionDiagnosis.values
+          .any((result) => result.toLowerCase().contains('success'));
+
+      if (hasAnySuccess) {
+        _setSuccessMessage('✅ Connection diagnosis completed');
+      } else {
+        _setErrorMessage('❌ Connection issues detected');
+      }
+    } catch (e) {
+      _handleError('Connection diagnosis failed', e);
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Get customer by ID from current list
+  CustomerModel? getCustomerById(String id) {
+    try {
+      return _customers.firstWhere((c) => c.id.toString() == id);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get customers by status
+  List<CustomerModel> getCustomersByStatus(String status) {
+    return _customers.where((c) => c.customerStatus == status).toList();
+  }
+
+  /// Get customers by tier
+  List<CustomerModel> getCustomersByTier(String tier) {
+    return _customers.where((c) => c.customerTier == tier).toList();
+  }
+
+  /// Get active customers (ordered in last 30 days)
+  List<CustomerModel> getActiveCustomers() {
+    return _customers.where((c) => c.isActiveCustomer).toList();
+  }
+
+  /// Get customer statistics
+  Map<String, dynamic> getCustomerStatistics() {
+    final totalCustomers = _customers.length;
+    final activeCustomers = getActiveCustomers().length;
+    final newCustomers = getCustomersByStatus('New Customer').length;
+    final loyalCustomers = getCustomersByStatus('Loyal Customer').length;
+
+    // Tier distribution
+    final goldCustomers = getCustomersByTier('Gold').length;
+    final silverCustomers = getCustomersByTier('Silver').length;
+    final bronzeCustomers = getCustomersByTier('Bronze').length;
+    final basicCustomers = getCustomersByTier('Basic').length;
+
+    // Calculate total spending
+    final totalSpent =
+        _customers.fold<double>(0.0, (sum, customer) => sum + customer.spent);
+
+    return {
+      'totalCustomers': totalCustomers,
+      'activeCustomers': activeCustomers,
+      'newCustomers': newCustomers,
+      'loyalCustomers': loyalCustomers,
+      'goldTier': goldCustomers,
+      'silverTier': silverCustomers,
+      'bronzeTier': bronzeCustomers,
+      'basicTier': basicCustomers,
+      'totalSpent': totalSpent,
+      'averageSpent': totalCustomers > 0 ? totalSpent / totalCustomers : 0.0,
+      'activePercentage':
+          totalCustomers > 0 ? (activeCustomers / totalCustomers) * 100 : 0.0,
+    };
+  }
+
+  // ===== PRIVATE HELPER METHODS =====
+
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  void _setErrorMessage(String message) {
+    _errorMessage = message;
+    _successMessage = '';
+    notifyListeners();
+    print('❌ Error: $message');
+  }
+
+  void _setSuccessMessage(String message) {
+    _successMessage = message;
+    _errorMessage = '';
+    notifyListeners();
+    print('✅ Success: $message');
+  }
+
+  void _handleError(String operation, dynamic error) {
+    final errorMessage = error.toString().replaceFirst('Exception: ', '');
+    _setErrorMessage('$operation: $errorMessage');
+  }
+
+  void _clearMessages() {
+    _errorMessage = '';
+    _successMessage = '';
+  }
+
+  /// Clear current customer
+  void clearCurrentCustomer() {
+    _currentCustomer = null;
+    notifyListeners();
+  }
+
+  /// Clear all data (useful for logout)
+  void clearData() {
+    _customers.clear();
+    _currentCustomer = null;
+    _searchQuery = '';
+    _currentPage = 1;
+    _totalPages = 1;
+    _totalItems = 0;
+    _clearMessages();
+    notifyListeners();
+  }
+
+  // ===== MESSAGE HANDLING =====
+
+  /// Clear error message
+  void clearError() {
+    _errorMessage = '';
+    notifyListeners();
+  }
+
+  /// Clear success message
+  void clearSuccess() {
+    _successMessage = '';
+    notifyListeners();
+  }
+
+  /// Clear all messages
+  void clearMessages() {
+    _clearMessages();
+    notifyListeners();
+  }
+
+  // ===== VALIDATION HELPERS =====
+
+  /// Validate customer data and return errors
+  Map<String, String?> validateCustomer({
+    required String name,
+    required String email,
+    required String phone,
+    String? password,
+  }) {
+    return CustomerService.validateCustomerData(
+      name: name,
+      email: email,
+      phone: phone,
+      password: password,
     );
   }
 
-  void _showErrorSnackbar(String message) {
-    Get.snackbar(
-      'Error',
-      message,
-      backgroundColor: Colors.red,
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
-    );
+  /// Check if email already exists (excluding current customer)
+  bool isEmailTaken(String email, {String? excludeId}) {
+    return _customers.any((customer) =>
+        customer.email.toLowerCase() == email.toLowerCase() &&
+        customer.id.toString() != excludeId);
   }
 
-  // Validation
-  String? validateName(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Name is required';
-    }
-    if (value.length < 2) {
-      return 'Name must be at least 2 characters';
-    }
-    return null;
+  /// Check if phone already exists (excluding current customer)
+  bool isPhoneTaken(String phone, {String? excludeId}) {
+    return _customers.any((customer) =>
+        customer.phone == phone && customer.id.toString() != excludeId);
   }
 
-  String? validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Email is required';
-    }
-    if (!GetUtils.isEmail(value)) {
-      return 'Please enter a valid email';
-    }
-    return null;
-  }
+  // ===== DISPOSE =====
 
-  String? validatePhone(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Phone is required';
-    }
-    if (value.length < 10) {
-      return 'Phone must be at least 10 digits';
-    }
-    return null;
-  }
-
-  String? validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Password is required';
-    }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    return null;
-  }
-
-  String? validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please confirm password';
-    }
-    if (value != passwordController.text) {
-      return 'Passwords do not match';
-    }
-    return null;
+  @override
+  void dispose() {
+    // Clean up any resources if needed
+    super.dispose();
   }
 }
