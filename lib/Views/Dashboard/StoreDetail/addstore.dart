@@ -2,35 +2,33 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker_web/image_picker_web.dart';
-import '../../../Common/widgets/texts/customdropdownfield.dart';
-import '../../../Common/widgets/texts/customtextfield.dart';
 import '../../../src/StoreService.dart';
+import '../../../Common/widgets/texts/customtextfield.dart';
 
 class AddNewStoreScreen extends StatefulWidget {
   const AddNewStoreScreen({super.key});
-
   @override
   State<AddNewStoreScreen> createState() => _AddNewStoreScreenState();
 }
 
 class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController phoneController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  final TextEditingController addressController = TextEditingController();
+  // Owner data controllers
+  final TextEditingController ownerNameController = TextEditingController();
+  final TextEditingController ownerEmailController = TextEditingController();
+  final TextEditingController ownerPhoneController = TextEditingController();
+  final TextEditingController ownerPasswordController = TextEditingController();
+
+  // Store data controllers
   final TextEditingController storeNameController = TextEditingController();
+  final TextEditingController addressController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController openTimeController = TextEditingController();
   final TextEditingController closeTimeController = TextEditingController();
   final TextEditingController latitudeController = TextEditingController();
-  final TextEditingController longitudeController =
-      TextEditingController(); // Fixed: longitudeController, not longtitudeController
+  final TextEditingController longitudeController = TextEditingController();
 
-  String? selectedRole;
   bool isLoading = false;
   bool showPassword = false;
-
   Uint8List? _imageBytes;
   String? _imageBase64;
   bool _isHoveringUpload = false;
@@ -39,39 +37,34 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
     setState(() {
       isLoading = true;
     });
-
     try {
       final pickedImage = await ImagePickerWeb.getImageAsBytes();
 
       if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) {
-        // 5MB
-        // Konversi ke base64 dan tambahkan prefix yang sesuai
         final base64String = base64Encode(pickedImage);
-        // Tentukan format gambar (umumnya JPEG)
         final imageBase64WithPrefix = 'data:image/jpeg;base64,' + base64String;
 
         setState(() {
-          _imageBytes = pickedImage; // Simpan bytes untuk ditampilkan
-          _imageBase64 =
-              imageBase64WithPrefix; // Base64 dengan prefix yang sesuai untuk backend
+          _imageBytes = pickedImage;
+          _imageBase64 = imageBase64WithPrefix;
         });
 
-        print('Gambar berhasil dikonversi ke base64 dengan prefix');
+        print('Image successfully converted to base64 with prefix');
       } else if (pickedImage == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tidak ada gambar yang dipilih')),
+          const SnackBar(content: Text('No image selected')),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text(
-                  'Gambar terlalu besar, pilih gambar yang lebih kecil dari 5MB!')),
+              content:
+                  Text('Image too large, choose an image smaller than 5MB!')),
         );
       }
     } catch (e) {
-      print('Error saat memilih gambar: $e');
+      print('Error picking image: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saat memilih gambar: $e')),
+        SnackBar(content: Text('Error picking image: $e')),
       );
     } finally {
       setState(() {
@@ -80,17 +73,13 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
     }
   }
 
-// Ganti method _saveStore() di file addstore.dart dengan kode berikut:
-
   Future<void> _saveStore() async {
-    // Validation logic
-    if (nameController.text.isEmpty ||
-        emailController.text.isEmpty ||
-        phoneController.text.isEmpty ||
-        passwordController.text.isEmpty ||
-        addressController.text.isEmpty ||
+    if (ownerNameController.text.isEmpty ||
+        ownerEmailController.text.isEmpty ||
+        ownerPhoneController.text.isEmpty ||
+        ownerPasswordController.text.isEmpty ||
         storeNameController.text.isEmpty ||
-        descriptionController.text.isEmpty ||
+        addressController.text.isEmpty ||
         openTimeController.text.isEmpty ||
         closeTimeController.text.isEmpty ||
         latitudeController.text.isEmpty ||
@@ -101,32 +90,13 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
       return;
     }
 
-    // Validate and convert latitude/longitude to double
-    double? latitude;
-    double? longitude;
+    final latitude = double.tryParse(latitudeController.text);
+    final longitude = double.tryParse(longitudeController.text);
 
-    try {
-      latitude = double.parse(latitudeController.text);
-      longitude = double.parse(longitudeController.text);
-    } catch (e) {
+    if (latitude == null || longitude == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Please enter valid latitude and longitude values')),
-      );
-      return;
-    }
-
-    // Additional validation for latitude and longitude ranges
-    if (latitude < -90 || latitude > 90) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Latitude must be between -90 and 90')),
-      );
-      return;
-    }
-
-    if (longitude < -180 || longitude > 180) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Longitude must be between -180 and 180')),
+            content: Text('Please enter valid latitude and longitude')),
       );
       return;
     }
@@ -136,61 +106,36 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
     });
 
     try {
-      // Debug: periksa apakah gambar dalam format yang benar
-      if (_imageBase64 != null) {
-        print(
-            'Format base64 gambar: ${_imageBase64!.substring(0, 30)}...'); // Tampilkan awal string saja
-        if (!_imageBase64!.startsWith('data:image/')) {
-          print(
-              'Warning: Format base64 gambar tidak dimulai dengan "data:image/"');
-        }
-      } else {
-        print('Tidak ada gambar yang dipilih');
-        // Menampilkan pesan jika tidak ada gambar yang dipilih
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Harap pilih gambar toko')),
-        );
-        setState(() {
-          isLoading = false;
-        });
-        return;
-      }
-
-      // Memanggil StoreService.createStore dengan data yang benar
       final response = await StoreService.createStore(
-        nameController.text, // name
-        emailController.text, // email
-        passwordController.text, // password
-        phoneController.text, // phone
-        storeNameController.text, // storeName
-        addressController.text, // address
-        descriptionController.text, // description
-        openTimeController.text, // openTime
-        closeTimeController.text, // closeTime
-        latitude, // latitude (double)
-        longitude, // longitude (double)
-        _imageBase64, // imageBase64
+        name: storeNameController.text,
+        email: ownerEmailController.text,
+        password: ownerPasswordController.text,
+        phone: ownerPhoneController.text,
+        address: addressController.text,
+        description: descriptionController.text.isNotEmpty
+            ? descriptionController.text
+            : null,
+        imageBase64: _imageBase64,
+        openTime: openTimeController.text,
+        closeTime: closeTimeController.text,
+        latitude: latitude,
+        longitude: longitude,
       );
 
-      print('Response dari server: $response');
+      print('Response from server: $response');
 
       if (response != null) {
-        // Jika berhasil menambah store, tampilkan popup
         _showSuccessDialog();
-        // Reset form
-        _resetForm();
-        // Navigate back after successful creation
+        _clearForm();
         Future.delayed(const Duration(seconds: 1), () {
           Navigator.of(context).pop(true);
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gagal menambahkan store')),
+          const SnackBar(content: Text('Failed to add store')),
         );
       }
     } catch (e) {
-      // Show error message with detailed error
-      print('Error detail: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to add store: $e'),
@@ -204,14 +149,13 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
     }
   }
 
-// Tambahkan method helper untuk reset form
-  void _resetForm() {
-    nameController.clear();
-    emailController.clear();
-    phoneController.clear();
-    passwordController.clear();
-    addressController.clear();
+  void _clearForm() {
+    ownerNameController.clear();
+    ownerEmailController.clear();
+    ownerPhoneController.clear();
+    ownerPasswordController.clear();
     storeNameController.clear();
+    addressController.clear();
     descriptionController.clear();
     openTimeController.clear();
     closeTimeController.clear();
@@ -226,16 +170,15 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
   void _showSuccessDialog() {
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dismissing the dialog
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Success'),
-          content: const Text(
-              'Store berhasil ditambahkan!'), // Fixed: "Store" not "Driver"
+          content: const Text('Store successfully added!'),
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
+                Navigator.of(context).pop();
               },
               child: const Text('OK'),
             ),
@@ -283,7 +226,6 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -300,7 +242,7 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.store,
+                            Icons.store_mall_directory,
                             color: Theme.of(context).primaryColor,
                             size: 24,
                           ),
@@ -316,58 +258,154 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                         ],
                       ),
                     ),
-
-                    // Form content
                     Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Left section - Form fields
                           Expanded(
                             flex: 3,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // Owner Information Section
+                                Text(
+                                  'Owner Information',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
                                 CustomTextField(
-                                  label: "Enter full name",
-                                  title: "Full Name",
+                                  label: "Enter owner full name",
+                                  title: "Owner Name",
                                   icon: Icons.person,
-                                  controller: nameController,
-                                ), //Full Name
+                                  controller: ownerNameController,
+                                ),
                                 CustomTextField(
-                                  label: "Enter email address",
-                                  title: "Email",
+                                  label: "Enter owner email address",
+                                  title: "Owner Email",
                                   icon: Icons.email,
                                   keyboardType: TextInputType.emailAddress,
-                                  controller: emailController,
-                                ), //Email
+                                  controller: ownerEmailController,
+                                ),
                                 CustomTextField(
-                                  label: "Enter phone number",
-                                  title: "Phone Number",
+                                  label: "Enter owner phone number",
+                                  title: "Owner Phone",
                                   icon: Icons.phone,
                                   keyboardType: TextInputType.phone,
-                                  controller: phoneController,
-                                ), //Phone
+                                  controller: ownerPhoneController,
+                                ),
                                 CustomTextField(
                                   label: "Enter password",
                                   title: "Password",
                                   icon: Icons.lock,
                                   obscureText: !showPassword,
+                                  controller: ownerPasswordController,
                                   icon2: showPassword
                                       ? Icons.visibility
                                       : Icons.visibility_off,
-                                  controller: passwordController,
-                                ), //Password
+                                ),
+
+                                const SizedBox(height: 24),
+
+                                // Store Information Section
+                                Text(
+                                  'Store Information',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                CustomTextField(
+                                  label: "Enter store name",
+                                  title: "Store Name",
+                                  icon: Icons.store,
+                                  controller: storeNameController,
+                                ),
+                                CustomTextField(
+                                  label: "Enter store address",
+                                  title: "Address",
+                                  icon: Icons.location_on,
+                                  controller: addressController,
+                                  maxLines: 3,
+                                ),
+                                CustomTextField(
+                                  label: "Enter store description (optional)",
+                                  title: "Description",
+                                  icon: Icons.description,
+                                  controller: descriptionController,
+                                  maxLines: 3,
+                                ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: CustomTextField(
+                                        label: "Enter open time (HH:mm)",
+                                        title: "Open Time",
+                                        icon: Icons.access_time,
+                                        controller: openTimeController,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: CustomTextField(
+                                        label: "Enter close time (HH:mm)",
+                                        title: "Close Time",
+                                        icon: Icons.access_time_filled,
+                                        controller: closeTimeController,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: CustomTextField(
+                                        label: "Enter latitude",
+                                        title: "Latitude",
+                                        icon: Icons.gps_fixed,
+                                        keyboardType: TextInputType.number,
+                                        controller: latitudeController,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: CustomTextField(
+                                        label: "Enter longitude",
+                                        title: "Longitude",
+                                        icon: Icons.gps_fixed,
+                                        keyboardType: TextInputType.number,
+                                        controller: longitudeController,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
                                 const SizedBox(height: 24),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: ElevatedButton.icon(
                                         onPressed:
-                                            _saveStore, // Fixed: Call the actual save method
-                                        icon: const Icon(Icons.check_circle),
-                                        label: const Text('Add Store'),
+                                            isLoading ? null : _saveStore,
+                                        icon: isLoading
+                                            ? const SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  color: Colors.white,
+                                                  strokeWidth: 2,
+                                                ))
+                                            : const Icon(Icons.check_circle),
+                                        label: Text(isLoading
+                                            ? 'Adding...'
+                                            : 'Add Store'),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor:
                                               Theme.of(context).primaryColor,
@@ -386,60 +424,14 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                               ],
                             ),
                           ),
-
                           const SizedBox(width: 40),
-
-                          // Right section - Upload image
                           Expanded(
                             flex: 2,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                CustomTextField(
-                                  label: "Store name",
-                                  title: "Store Name",
-                                  icon: Icons.store_mall_directory,
-                                  controller: storeNameController,
-                                ),
-                                CustomTextField(
-                                  label: "Address Store",
-                                  title: "Address Store",
-                                  icon: Icons.add_road,
-                                  controller: addressController,
-                                ),
-                                CustomTextField(
-                                  label: "Description Store",
-                                  title: "Description",
-                                  icon: Icons.border_color,
-                                  controller: descriptionController,
-                                ),
-                                CustomTextField(
-                                  label: "Open Time",
-                                  title: "Open Time",
-                                  icon: Icons.access_time,
-                                  controller: openTimeController,
-                                ),
-                                CustomTextField(
-                                  label: "Close Time",
-                                  title: "Close Time",
-                                  icon: Icons.access_time_filled,
-                                  controller: closeTimeController,
-                                ),
-                                CustomTextField(
-                                  label: "Latitude",
-                                  title: "Latitude",
-                                  icon: Icons.pin_drop_rounded,
-                                  controller: latitudeController,
-                                ),
-                                CustomTextField(
-                                  label: "Longitude",
-                                  title: "Longitude",
-                                  icon: Icons.pin_drop_rounded,
-                                  controller:
-                                      longitudeController, // Fixed: use longitudeController
-                                ),
                                 const Text(
-                                  'Profile Photo',
+                                  'Store Image',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -448,15 +440,13 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 const Text(
-                                  'Upload a profile picture (Recommended: 192×182)',
+                                  'Upload a store image (Recommended: 400×300)',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.black54,
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-
-                                // Image upload area
                                 MouseRegion(
                                   onEnter: (_) =>
                                       setState(() => _isHoveringUpload = true),
@@ -484,7 +474,6 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                           ? Stack(
                                               alignment: Alignment.center,
                                               children: [
-                                                // Display selected image
                                                 ClipRRect(
                                                   borderRadius:
                                                       BorderRadius.circular(10),
@@ -495,7 +484,6 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                                     height: double.infinity,
                                                   ),
                                                 ),
-                                                // Overlay for change button
                                                 Positioned(
                                                   bottom: 0,
                                                   left: 0,
@@ -521,7 +509,7 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                                         const SizedBox(
                                                             width: 8),
                                                         const Text(
-                                                          'Change Photo',
+                                                          'Change Image',
                                                           style: TextStyle(
                                                             color: Colors.white,
                                                             fontSize: 14,
@@ -592,7 +580,7 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                                     ),
                                                     const SizedBox(height: 8),
                                                     Text(
-                                                      'JPG, PNG or GIF (Max 2MB)',
+                                                      'JPG, PNG or GIF (Max 5MB)',
                                                       style: TextStyle(
                                                         color: Colors
                                                             .grey.shade600,
@@ -604,7 +592,6 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                     ),
                                   ),
                                 ),
-
                                 if (_imageBase64 != null)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 12.0),
@@ -616,10 +603,7 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                       ),
                                     ),
                                   ),
-
                                 const SizedBox(height: 24),
-
-                                // Information box
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
@@ -639,7 +623,7 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          'Adding a clear profile photo helps with customer identification and improves the user experience.',
+                                          'Adding a clear store image helps customers identify your store and improves the user experience.',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: Colors.blue.shade700,
