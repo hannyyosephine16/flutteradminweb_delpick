@@ -227,18 +227,21 @@ class StoreController extends GetxController {
       }
 
       await StoreService.createStore(
-        ownerNameController.text, // name
-        ownerEmailController.text, // email
-        ownerPasswordController.text, // password
-        ownerPhoneController.text, // phone
-        storeNameController.text, // storeName
-        addressController.text, // address
-        descriptionController.text, // description
-        openTimeController.text, // openTime
-        closeTimeController.text, // closeTime
-        latitude, // latitude
-        longitude, // longitude
-        selectedImageBase64.value.isNotEmpty ? selectedImageBase64.value : null,
+        name: storeNameController.text,
+        email: ownerEmailController.text,
+        password: ownerPasswordController.text,
+        phone: ownerPhoneController.text,
+        address: addressController.text,
+        description: descriptionController.text.isNotEmpty
+            ? descriptionController.text
+            : null,
+        imageBase64: selectedImageBase64.value.isNotEmpty
+            ? selectedImageBase64.value
+            : null,
+        openTime: openTimeController.text,
+        closeTime: closeTimeController.text,
+        latitude: latitude,
+        longitude: longitude,
       );
 
       _showSuccessSnackbar('Store created successfully');
@@ -264,35 +267,24 @@ class StoreController extends GetxController {
       final latitude = double.tryParse(latitudeController.text);
       final longitude = double.tryParse(longitudeController.text);
 
-      final Map<String, dynamic> updateData = {
-        // Owner data
-        'name': ownerNameController.text,
-        'email': ownerEmailController.text,
-        'phone': ownerPhoneController.text,
-
-        // Store data
-        'storeName': storeNameController.text,
-        'address': addressController.text,
-        'description': descriptionController.text,
-        'openTime': openTimeController.text,
-        'closeTime': closeTimeController.text,
-        'status': selectedStatus.value,
-      };
-
-      if (ownerPasswordController.text.isNotEmpty) {
-        updateData['password'] = ownerPasswordController.text;
-      }
-
-      if (latitude != null && longitude != null) {
-        updateData['latitude'] = latitude;
-        updateData['longitude'] = longitude;
-      }
-
-      if (selectedImageBase64.value.isNotEmpty) {
-        updateData['image'] = selectedImageBase64.value;
-      }
-
-      await StoreService.updateStore(editingStoreId.value, updateData);
+      await StoreService.updateStore(
+        editingStoreId.value,
+        name: storeNameController.text,
+        email: ownerEmailController.text,
+        phone: ownerPhoneController.text,
+        address: addressController.text,
+        description: descriptionController.text.isNotEmpty
+            ? descriptionController.text
+            : null,
+        imageBase64: selectedImageBase64.value.isNotEmpty
+            ? selectedImageBase64.value
+            : null,
+        openTime: openTimeController.text,
+        closeTime: closeTimeController.text,
+        latitude: latitude,
+        longitude: longitude,
+        status: selectedStatus.value,
+      );
 
       _showSuccessSnackbar('Store updated successfully');
       clearForm();
