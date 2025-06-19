@@ -1,3 +1,5 @@
+// Updated BaseService.dart untuk format respons backend yang sebenarnya
+
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_constant.dart';
@@ -75,7 +77,7 @@ abstract class BaseService {
     return token != null;
   }
 
-  // Response handling
+  // ✅ UPDATED: Response handling untuk format backend yang sebenarnya
   static Map<String, dynamic> handleResponse(Response response) {
     print('📡 === RESPONSE HANDLER ===');
     print('📡 Status: ${response.statusCode}');
@@ -86,43 +88,57 @@ abstract class BaseService {
       throw Exception('Invalid response from server');
     }
 
+    // ✅ Check HTTP status first
+    if (response.statusCode! < 200 || response.statusCode! >= 300) {
+      print('❌ HTTP Error Status: ${response.statusCode}');
+      throw Exception('HTTP Error: ${response.statusCode}');
+    }
+
     final responseData = response.data as Map<String, dynamic>;
     print('📡 Response Keys: ${responseData.keys.toList()}');
 
-    // ✅ FIXED: Handle response format without statusCode
-    // Check if HTTP status is success
-    if (response.statusCode! >= 200 && response.statusCode! < 300) {
-      // If response has message, consider it valid
-      if (responseData.containsKey(ApiConstants.messageKey)) {
-        print('✅ Response validation passed (message-based)');
-        return responseData;
-      }
+    // ✅ FIXED: Handle actual backend response format
+    // Backend format: { "message": "...", "data": {...} }
+
+    if (responseData.containsKey(ApiConstants.messageKey)) {
+      print('✅ Response validation passed (has message)');
+      return responseData;
     }
 
-    // Fallback to original validation
-    if (!ApiConstants.isValidResponse(responseData)) {
-      print('❌ Invalid response format');
-      print('❌ Expected keys: statusCode + message OR just message');
-      print('❌ Actual keys: ${responseData.keys.toList()}');
-      throw Exception('Invalid response format from server');
+    // ✅ Fallback: Check if it has required data structure  
+    if (responseData.containsKey('token') && responseData.containsKey('user')) {
+      print('✅ Response validation passed (direct auth format)');
+      return responseData;
     }
 
-    if (!ApiConstants.isSuccessResponse(responseData)) {
-      final errorMsg = ApiConstants.getErrorMessage(responseData);
-      print('❌ API Error Response: $errorMsg');
-      throw Exception(errorMsg);
-    }
-
-    print('✅ Response validation passed');
-    return responseData;
+    print('❌ Invalid response format');
+    print('❌ Expected: message field OR token+user fields');
+    print('❌ Actual keys: ${responseData.keys.toList()}');
+    throw Exception('Invalid response format from server');
   }
 
   static T extractData<T>(Map<String, dynamic> response) {
-    final data = ApiConstants.extractData(response);
+    // ✅ UPDATED: Extract data dari format backend yang sebenarnya
+    dynamic data;
+
+    if (response.containsKey(ApiConstants.dataKey)) {
+      // Format: { "message": "...", "data": {...} }
+      data = response[ApiConstants.dataKey];
+    } else {
+      // Format direct: { "token": "...", "user": {...} }
+      data = response;
+    }
+
     if (data is T) {
       return data;
     }
-    throw Exception('Invalid data type in response');
+
+    // ✅ Handle case where T is expected to be Map<String, dynamic>
+    if (T == Map<String, dynamic> && data is Map) {
+      return Map<String, dynamic>.from(data) as T;
+    }
+
+    throw Exception('Invalid data type in response. Expected: $T, Got: ${data.runtimeType}');
   }
 
   // Error handling
@@ -131,7 +147,15 @@ abstract class BaseService {
 
     switch (e.type) {
       case DioExceptionType.connectionError:
-        errorMessage = ApiConstants.networkError;
+        errorMessage = '''
+🌐 Connection Error!
+
+Solutions:
+1. Check internet connection
+2. Verify backend URL: ${ApiConstants.baseUrl}
+3. For development: flutter run -d chrome --web-browser-flag="--disable-web-security"
+4. Check if backend server is running
+''';
         break;
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
@@ -142,7 +166,7 @@ abstract class BaseService {
         final statusCode = e.response?.statusCode;
         final responseData = e.response?.data;
 
-        // Try to extract error message from response
+        // ✅ UPDATED: Try to extract error message from actual backend format
         if (responseData is Map<String, dynamic>) {
           if (responseData.containsKey(ApiConstants.messageKey)) {
             errorMessage = responseData[ApiConstants.messageKey];
@@ -153,40 +177,13 @@ abstract class BaseService {
             } else if (errors is List && errors.isNotEmpty) {
               errorMessage = errors.first.toString();
             } else {
-              errorMessage = ApiConstants.getErrorMessage(
-                  {ApiConstants.statusCodeKey: statusCode});
+              errorMessage = _getDefaultErrorMessage(statusCode);
             }
           } else {
-            errorMessage = ApiConstants.getErrorMessage(
-                {ApiConstants.statusCodeKey: statusCode});
+            errorMessage = _getDefaultErrorMessage(statusCode);
           }
         } else {
-          switch (statusCode) {
-            case 400:
-              errorMessage = ApiConstants.validationError;
-              break;
-            case 401:
-              errorMessage = ApiConstants.unauthorizedError;
-              clearStorage(); // Auto logout
-              break;
-            case 403:
-              errorMessage = ApiConstants.forbiddenError;
-              break;
-            case 404:
-              errorMessage = ApiConstants.notFoundError;
-              break;
-            case 409:
-              errorMessage = ApiConstants.conflictError;
-              break;
-            case 422:
-              errorMessage = ApiConstants.validationError;
-              break;
-            case 500:
-              errorMessage = ApiConstants.serverError;
-              break;
-            default:
-              errorMessage = 'Server error: HTTP $statusCode';
-          }
+          errorMessage = _getDefaultErrorMessage(statusCode);
         }
         break;
       case DioExceptionType.cancel:
@@ -199,12 +196,34 @@ abstract class BaseService {
     throw Exception(errorMessage);
   }
 
+  static String _getDefaultErrorMessage(int? statusCode) {
+    switch (statusCode) {
+      case 400:
+        return ApiConstants.validationError;
+      case 401:
+        clearStorage(); // Auto logout
+        return ApiConstants.unauthorizedError;
+      case 403:
+        return ApiConstants.forbiddenError;
+      case 404:
+        return ApiConstants.notFoundError;
+      case 409:
+        return ApiConstants.conflictError;
+      case 422:
+        return ApiConstants.validationError;
+      case 500:
+        return ApiConstants.serverError;
+      default:
+        return 'Server error: HTTP ${statusCode ?? 'unknown'}';
+    }
+  }
+
   // CRUD operations with proper error handling
   static Future<Map<String, dynamic>> get(
-    String endpoint, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-  }) async {
+      String endpoint, {
+        Map<String, dynamic>? queryParameters,
+        Options? options,
+      }) async {
     try {
       final response = await dio.get(
         endpoint,
@@ -219,11 +238,11 @@ abstract class BaseService {
   }
 
   static Future<Map<String, dynamic>> post(
-    String endpoint, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-  }) async {
+      String endpoint, {
+        dynamic data,
+        Map<String, dynamic>? queryParameters,
+        Options? options,
+      }) async {
     try {
       final response = await dio.post(
         endpoint,
@@ -239,11 +258,11 @@ abstract class BaseService {
   }
 
   static Future<Map<String, dynamic>> put(
-    String endpoint, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-  }) async {
+      String endpoint, {
+        dynamic data,
+        Map<String, dynamic>? queryParameters,
+        Options? options,
+      }) async {
     try {
       final response = await dio.put(
         endpoint,
@@ -259,11 +278,11 @@ abstract class BaseService {
   }
 
   static Future<Map<String, dynamic>> patch(
-    String endpoint, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-  }) async {
+      String endpoint, {
+        dynamic data,
+        Map<String, dynamic>? queryParameters,
+        Options? options,
+      }) async {
     try {
       final response = await dio.patch(
         endpoint,
@@ -279,11 +298,11 @@ abstract class BaseService {
   }
 
   static Future<Map<String, dynamic>> delete(
-    String endpoint, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-  }) async {
+      String endpoint, {
+        dynamic data,
+        Map<String, dynamic>? queryParameters,
+        Options? options,
+      }) async {
     try {
       final response = await dio.delete(
         endpoint,
@@ -324,11 +343,11 @@ abstract class BaseService {
 
   // File upload helper
   static Future<Map<String, dynamic>> uploadFile(
-    String endpoint,
-    String filePath, {
-    String fieldName = 'file',
-    Map<String, dynamic>? additionalData,
-  }) async {
+      String endpoint,
+      String filePath, {
+        String fieldName = 'file',
+        Map<String, dynamic>? additionalData,
+      }) async {
     try {
       final formData = FormData.fromMap({
         fieldName: await MultipartFile.fromFile(filePath),
@@ -343,13 +362,21 @@ abstract class BaseService {
     }
   }
 
-  // Pagination helper
+  // ✅ UPDATED: Pagination helper untuk format backend yang sebenarnya
   static Map<String, dynamic> extractPaginationData(
       Map<String, dynamic> response) {
+
+    // ✅ Check both old and new format
     return {
-      'totalItems': response[ApiConstants.totalItemsKey] ?? 0,
-      'totalPages': response[ApiConstants.totalPagesKey] ?? 0,
-      'currentPage': response[ApiConstants.currentPageKey] ?? 1,
+      'totalItems': response[ApiConstants.totalItemsKey] ??
+          response['total_items'] ??
+          response['totalItems'] ?? 0,
+      'totalPages': response[ApiConstants.totalPagesKey] ??
+          response['total_pages'] ??
+          response['totalPages'] ?? 0,
+      'currentPage': response[ApiConstants.currentPageKey] ??
+          response['current_page'] ??
+          response['currentPage'] ?? 1,
     };
   }
 
@@ -367,6 +394,43 @@ abstract class BaseService {
       return response.statusCode == ApiConstants.statusOk;
     } catch (e) {
       return false;
+    }
+  }
+
+  // ✅ NEW: Specific login method using the base service
+  static Future<Map<String, dynamic>> login(String email, String password) async {
+    try {
+      final response = await post(
+        ApiConstants.login,
+        data: {
+          'email': email,
+          'password': password,
+        },
+      );
+
+      // ✅ Handle actual backend response format
+      if (response.containsKey('data') && response['data'] is Map<String, dynamic>) {
+        final data = response['data'] as Map<String, dynamic>;
+        final token = data['token'] as String?;
+        final user = data['user'] as Map<String, dynamic>?;
+
+        if (token != null && user != null) {
+          // Save token and user data
+          await saveToken(token);
+          await saveUserData(user);
+
+          return {
+            'success': true,
+            'token': token,
+            'user': user,
+            'message': response['message'] ?? 'Login successful',
+          };
+        }
+      }
+
+      throw Exception('Invalid login response format');
+    } catch (e) {
+      throw Exception('Login failed: $e');
     }
   }
 }

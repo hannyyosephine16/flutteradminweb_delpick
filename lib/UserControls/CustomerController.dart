@@ -1,3 +1,4 @@
+// FIXED: CustomerController.dart dengan debugging untuk response parsing
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../src/CustomerService.dart';
@@ -65,6 +66,11 @@ class CustomerController extends GetxController {
         sortOrder: sortOrder.value,
       );
 
+      print('📥 === RAW RESPONSE DEBUG ===');
+      print('📥 Response type: ${response.runtimeType}');
+      print('📥 Response keys: ${response?.keys?.toList()}');
+      print('📥 Full response: $response');
+
       if (response != null) {
         await _handleCustomersResponse(response, refresh || page == 1);
       } else {
@@ -90,82 +96,222 @@ class CustomerController extends GetxController {
     }
   }
 
-  /// Handle the customers response from API
+  /// Handle the customers response from API with detailed debugging
   Future<void> _handleCustomersResponse(
       Map<String, dynamic> response, bool replaceList) async {
     try {
+      print('🔧 === RESPONSE PARSING DEBUG ===');
+      print('🔧 Response structure: ${response.keys.toList()}');
+
       // Extract data based on response format
       dynamic data;
       if (response.containsKey('data')) {
         data = response['data'];
+        print('🔧 Found data key, extracting...');
       } else {
         data = response;
+        print('🔧 No data key, using response directly');
       }
+
+      print('🔧 Data type: ${data.runtimeType}');
+      print('🔧 Data content: $data');
 
       List<CustomerModel> newCustomers = [];
 
       // Handle different data formats
       if (data is Map<String, dynamic>) {
+        print('🔧 Data is Map, checking for customers array...');
+        print('🔧 Data keys: ${data.keys.toList()}');
+
         // Check if data contains customers array
         if (data.containsKey('customers')) {
+          print('🔧 Found customers array');
           final customersList = data['customers'] as List;
-          newCustomers = customersList
-              .map((item) =>
-                  CustomerModel.fromJson(item as Map<String, dynamic>))
-              .toList();
+          print('🔧 Customers array length: ${customersList.length}');
+          print(
+              '🔧 First customer: ${customersList.isNotEmpty ? customersList[0] : 'Empty'}');
+
+          // Parse each customer
+          for (int i = 0; i < customersList.length; i++) {
+            try {
+              final customerJson = customersList[i] as Map<String, dynamic>;
+              print(
+                  '🔧 Parsing customer $i: ${customerJson['name']} (ID: ${customerJson['id']})');
+
+              final customer = CustomerModel.fromJson(customerJson);
+              newCustomers.add(customer);
+              print('✅ Successfully parsed customer: ${customer.name}');
+            } catch (e) {
+              print('❌ Error parsing customer $i: $e');
+            }
+          }
         }
         // Check if data contains data array
         else if (data.containsKey('data')) {
+          print('🔧 Found nested data array');
           final customersList = data['data'] as List;
           newCustomers = customersList
               .map((item) =>
                   CustomerModel.fromJson(item as Map<String, dynamic>))
               .toList();
         }
+
         // Extract pagination info
         _updatePaginationInfo(data);
       } else if (data is List) {
+        print('🔧 Data is direct array of customers');
         // Direct array of customers
         newCustomers = data
             .map((item) => CustomerModel.fromJson(item as Map<String, dynamic>))
             .toList();
       }
 
+      print('🔧 === PARSING RESULT ===');
+      print('🔧 Parsed customers count: ${newCustomers.length}');
+      for (int i = 0; i < newCustomers.length; i++) {
+        final customer = newCustomers[i];
+        print(
+            '🔧 Customer $i: ${customer.name} (${customer.email}) - ID: ${customer.id}');
+      }
+
       // Update customers list
       if (replaceList) {
+        print('🔧 Replacing customers list with ${newCustomers.length} items');
         customers.assignAll(newCustomers);
       } else {
+        print('🔧 Adding ${newCustomers.length} items to existing list');
         customers.addAll(newCustomers);
       }
 
       // Update pagination from response
       _updatePaginationInfo(response);
 
+      print('🔧 === FINAL STATE ===');
+      print('🔧 Total customers in controller: ${customers.length}');
+      print('🔧 Customers observable updated');
+
+      // Force UI update
+      customers.refresh();
+
       print(
           '✅ Loaded ${newCustomers.length} customers (Total: ${customers.length})');
     } catch (e) {
       print('❌ Error handling customers response: $e');
-      throw Exception('Failed to process customers data');
+      print('❌ Stack trace: ${StackTrace.current}');
+      throw Exception('Failed to process customers data: $e');
     }
   }
 
   /// Update pagination information
   void _updatePaginationInfo(Map<String, dynamic> response) {
+    print('🔧 === PAGINATION DEBUG ===');
+    print('🔧 Response keys for pagination: ${response.keys.toList()}');
+
     // Handle different pagination key formats
-    totalItems.value = response['totalItems'] ??
-        response['total_items'] ??
+    totalItems.value = response['total_items'] ??
+        response['totalItems'] ??
         response['total'] ??
         0;
 
-    totalPages.value = response['totalPages'] ?? response['total_pages'] ?? 1;
+    totalPages.value = response['total_pages'] ??
+        response['totalPages'] ??
+        response['pages'] ??
+        1;
 
-    currentPage.value = response['currentPage'] ??
-        response['current_page'] ??
+    currentPage.value = response['current_page'] ??
+        response['currentPage'] ??
         response['page'] ??
         1;
 
     hasNextPage.value = currentPage.value < totalPages.value;
+
+    print('🔧 Pagination updated:');
+    print('🔧 - Total items: ${totalItems.value}');
+    print('🔧 - Total pages: ${totalPages.value}');
+    print('🔧 - Current page: ${currentPage.value}');
+    print('🔧 - Has next page: ${hasNextPage.value}');
   }
+
+  /// Debug method to manually check customer data
+  Future<void> debugCustomerData() async {
+    try {
+      print('🐛 === MANUAL DEBUG START ===');
+      isLoading.value = true;
+
+      // Call API directly and log everything
+      final response = await CustomerService.getAllCustomers(
+        page: 1,
+        limit: 10,
+      );
+
+      print('🐛 Direct API Response:');
+      print('🐛 Type: ${response.runtimeType}');
+      print('🐛 Keys: ${response?.keys?.toList()}');
+      print('🐛 Content: $response');
+
+      if (response != null && response['data'] != null) {
+        final data = response['data'];
+        print('🐛 Data section:');
+        print('🐛 Data type: ${data.runtimeType}');
+        print('🐛 Data keys: ${data.keys?.toList()}');
+
+        if (data['customers'] != null) {
+          final customersList = data['customers'] as List;
+          print('🐛 Customers array found with ${customersList.length} items');
+
+          for (int i = 0; i < customersList.length; i++) {
+            final customer = customersList[i];
+            print(
+                '🐛 Customer $i: ${customer['name']} - ${customer['email']} (ID: ${customer['id']})');
+          }
+
+          // Try to parse them
+          print('🐛 Attempting to parse customers...');
+          final List<CustomerModel> testCustomers = [];
+          for (final customerJson in customersList) {
+            try {
+              final customer = CustomerModel.fromJson(customerJson);
+              testCustomers.add(customer);
+              print('🐛 ✅ Parsed: ${customer.name}');
+            } catch (e) {
+              print('🐛 ❌ Parse error: $e');
+            }
+          }
+
+          print('🐛 Successfully parsed ${testCustomers.length} customers');
+
+          // Manually update the observable
+          customers.assignAll(testCustomers);
+          customers.refresh();
+
+          print('🐛 Controller now has ${customers.length} customers');
+        }
+      }
+
+      Get.snackbar(
+        'Debug Complete',
+        'Check console for debug info. Found ${customers.length} customers.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.blue.shade100,
+        colorText: Colors.blue.shade900,
+        duration: Duration(seconds: 3),
+      );
+    } catch (e) {
+      print('🐛 Debug error: $e');
+      Get.snackbar(
+        'Debug Error',
+        'Debug failed: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange.shade100,
+        colorText: Colors.orange.shade900,
+        duration: Duration(seconds: 3),
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // ... rest of the methods remain the same ...
 
   /// Create new customer
   Future<bool> createCustomer({
@@ -182,19 +328,17 @@ class CustomerController extends GetxController {
 
       print('🔄 Creating customer: $name ($email)');
 
-      // Use the corrected method signature with positional arguments
       final response = await CustomerService.createCustomer(
-        name, // positional argument 1
-        email, // positional argument 2
-        phone, // positional argument 3
-        password, // positional argument 4
-        imageBase64, // positional argument 5
+        name,
+        email,
+        phone,
+        password,
+        imageBase64,
       );
 
       if (response != null) {
         print('✅ Customer created successfully');
 
-        // Show success message
         Get.snackbar(
           'Success',
           'Customer "$name" has been created successfully',
@@ -204,7 +348,6 @@ class CustomerController extends GetxController {
           duration: Duration(seconds: 3),
         );
 
-        // Refresh the customers list
         await loadCustomers(refresh: true);
         return true;
       } else {
@@ -215,7 +358,6 @@ class CustomerController extends GetxController {
       hasError.value = true;
       errorMessage.value = _getErrorMessage(e);
 
-      // Show error message
       Get.snackbar(
         'Error',
         errorMessage.value,
@@ -245,21 +387,19 @@ class CustomerController extends GetxController {
 
       print('🔄 Updating customer: $id');
 
-      // Use the corrected method signature with positional arguments
       final response = await CustomerService.updateCustomer(
-        id, // positional argument 1
-        name, // positional argument 2
-        email, // positional argument 3
-        phone, // positional argument 4
-        null, // positional argument 5 (currentPassword - not used in admin update)
-        null, // positional argument 6 (newPassword - not used in admin update)
-        imageBase64, // positional argument 7
+        id,
+        name,
+        email,
+        phone,
+        null,
+        null,
+        imageBase64,
       );
 
       if (response != null) {
         print('✅ Customer updated successfully');
 
-        // Update the customer in the local list
         final updatedCustomer = CustomerModel.fromApiResponse(response);
         if (updatedCustomer != null) {
           final index = customers.indexWhere((c) => c.id.toString() == id);
@@ -268,13 +408,11 @@ class CustomerController extends GetxController {
             customers.refresh();
           }
 
-          // Update selected customer if it's the same one
           if (selectedCustomer.value?.id.toString() == id) {
             selectedCustomer.value = updatedCustomer;
           }
         }
 
-        // Show success message
         Get.snackbar(
           'Success',
           'Customer "$name" has been updated successfully',
@@ -293,7 +431,6 @@ class CustomerController extends GetxController {
       hasError.value = true;
       errorMessage.value = _getErrorMessage(e);
 
-      // Show error message
       Get.snackbar(
         'Error',
         errorMessage.value,
@@ -322,15 +459,12 @@ class CustomerController extends GetxController {
       if (success) {
         print('✅ Customer deleted successfully');
 
-        // Remove from local list
         customers.removeWhere((customer) => customer.id.toString() == id);
 
-        // Clear selected customer if it was deleted
         if (selectedCustomer.value?.id.toString() == id) {
           selectedCustomer.value = null;
         }
 
-        // Show success message
         Get.snackbar(
           'Success',
           'Customer has been deleted successfully',
@@ -349,7 +483,6 @@ class CustomerController extends GetxController {
       hasError.value = true;
       errorMessage.value = _getErrorMessage(e);
 
-      // Show error message
       Get.snackbar(
         'Error',
         errorMessage.value,
@@ -466,57 +599,14 @@ class CustomerController extends GetxController {
     }
   }
 
-  /// Diagnose connection issues
-  Future<void> diagnoseConnection() async {
-    try {
-      isLoading.value = true;
-
-      final results = await CustomerService.diagnoseConnection();
-
-      // Show diagnosis results
-      String message = 'Connection Diagnosis:\n';
-      results.forEach((key, value) {
-        message += '• $key: $value\n';
-      });
-
-      Get.dialog(
-        AlertDialog(
-          title: Text('Connection Diagnosis'),
-          content: SingleChildScrollView(
-            child: Text(message),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: Text('OK'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      Get.snackbar(
-        'Diagnosis Error',
-        'Failed to run diagnosis: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.shade100,
-        colorText: Colors.red.shade900,
-        duration: Duration(seconds: 4),
-      );
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
   /// Get user-friendly error message
   String _getErrorMessage(dynamic error) {
     String errorString = error.toString();
 
-    // Remove "Exception: " prefix if present
     if (errorString.startsWith('Exception: ')) {
       errorString = errorString.substring(11);
     }
 
-    // Handle specific error cases
     if (errorString.contains('401') || errorString.contains('Unauthorized')) {
       return 'Authentication required. Please login again.';
     } else if (errorString.contains('403') ||
@@ -544,6 +634,17 @@ class CustomerController extends GetxController {
     return errorString.isNotEmpty
         ? errorString
         : 'An unexpected error occurred';
+  }
+
+  // Computed properties for UI
+  bool get hasCustomers => customers.isNotEmpty;
+  bool get isEmpty => customers.isEmpty && !isLoading.value;
+  bool get canLoadMore => hasNextPage.value && !isLoadingMore.value;
+  String get statusMessage {
+    if (isLoading.value) return 'Loading customers...';
+    if (hasError.value) return errorMessage.value;
+    if (isEmpty) return 'No customers found';
+    return '${customers.length} customers loaded';
   }
 
   /// Get customers statistics
@@ -610,16 +711,5 @@ class CustomerController extends GetxController {
   /// Check if image format is valid
   bool isValidImageFormat(String? imageBase64) {
     return CustomerService.isValidImageFormat(imageBase64);
-  }
-
-  // Computed properties for UI
-  bool get hasCustomers => customers.isNotEmpty;
-  bool get isEmpty => customers.isEmpty && !isLoading.value;
-  bool get canLoadMore => hasNextPage.value && !isLoadingMore.value;
-  String get statusMessage {
-    if (isLoading.value) return 'Loading customers...';
-    if (hasError.value) return errorMessage.value;
-    if (isEmpty) return 'No customers found';
-    return '${customers.length} customers loaded';
   }
 }

@@ -1,4 +1,4 @@
-// lib/Views/Section/CustomerSection.dart
+// CustomerSection.dart dengan debug tools untuk mendiagnosa masalah data
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:delpick_admin/Views/Dashboard/CustomerDetail/EditCustomer.dart';
@@ -21,6 +21,8 @@ class CustomerSectionState extends State<CustomerSection> {
   @override
   void initState() {
     super.initState();
+    print('🔧 CustomerSection initState');
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.loadCustomers(refresh: true);
     });
@@ -34,6 +36,8 @@ class CustomerSectionState extends State<CustomerSection> {
 
   void _navigateToEditCustomer(CustomerModel customer) {
     try {
+      print('📝 Navigating to edit customer with ID: ${customer.id}');
+
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -42,9 +46,11 @@ class CustomerSectionState extends State<CustomerSection> {
           ),
         ),
       ).then((_) {
+        print('🔄 Returned from edit screen, refreshing data');
         controller.refreshCustomers();
       });
     } catch (e) {
+      print('❌ Error navigating to edit: $e');
       Get.snackbar(
         'Error',
         'Navigation error: $e',
@@ -66,15 +72,66 @@ class CustomerSectionState extends State<CustomerSection> {
         backgroundColor: Colors.white,
         elevation: 1,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.blue),
-            onPressed: () => controller.refreshCustomers(),
-            tooltip: 'Refresh Data',
+          // ✅ ENHANCED DEBUG TOOLS - More prominent
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                print('🐛 === MANUAL DEBUG TRIGGERED ===');
+                await controller.debugCustomerData();
+              },
+              icon: const Icon(Icons.bug_report, size: 18),
+              label: const Text('Debug API'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.healing, color: Colors.green),
-            onPressed: () => controller.testConnection(),
-            tooltip: 'Test Connection',
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                print('🔄 === MANUAL REFRESH TRIGGERED ===');
+                await controller.refreshCustomers();
+              },
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Refresh'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                print('🔬 === CONNECTION TEST TRIGGERED ===');
+                await controller.testConnection();
+              },
+              icon: const Icon(Icons.healing, size: 18),
+              label: const Text('Test'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
           ),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -125,10 +182,20 @@ class CustomerSectionState extends State<CustomerSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ✅ ENHANCED DEBUG INFO
+                  _buildDebugInfo(),
+                  const SizedBox(height: 12),
+
+                  // ✅ HEADER WITH STATUS INFO
                   _buildHeader(),
                   const SizedBox(height: 16),
+
+                  // ✅ MAIN CONTENT
                   Expanded(
                     child: Obx(() {
+                      print(
+                          '🔄 UI Rebuild - Loading: ${controller.isLoading.value}, Error: ${controller.hasError.value}, Customers: ${controller.customers.length}');
+
                       if (controller.isLoading.value) {
                         return _buildLoadingState();
                       }
@@ -144,6 +211,8 @@ class CustomerSectionState extends State<CustomerSection> {
                       return isSmallScreen ? _buildListView() : _buildTable();
                     }),
                   ),
+
+                  // ✅ FOOTER WITH PAGINATION AND STATS
                   _buildFooter(),
                 ],
               ),
@@ -154,6 +223,129 @@ class CustomerSectionState extends State<CustomerSection> {
     );
   }
 
+  // ✅ NEW: DEBUG INFO PANEL
+  Widget _buildDebugInfo() {
+    return Obx(() => Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Debug Info',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Live Status',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 16,
+                runSpacing: 4,
+                children: [
+                  _debugInfoItem(
+                      'Loading',
+                      controller.isLoading.value.toString(),
+                      controller.isLoading.value
+                          ? Colors.orange
+                          : Colors.green),
+                  _debugInfoItem(
+                      'Has Error',
+                      controller.hasError.value.toString(),
+                      controller.hasError.value ? Colors.red : Colors.green),
+                  _debugInfoItem(
+                      'Customers Count',
+                      controller.customers.length.toString(),
+                      controller.customers.length > 0
+                          ? Colors.green
+                          : Colors.orange),
+                  _debugInfoItem('Total Items',
+                      controller.totalItems.value.toString(), Colors.blue),
+                  _debugInfoItem('Current Page',
+                      controller.currentPage.value.toString(), Colors.blue),
+                  _debugInfoItem(
+                      'Search Query',
+                      controller.searchQuery.value.isEmpty
+                          ? 'None'
+                          : controller.searchQuery.value,
+                      Colors.purple),
+                ],
+              ),
+              if (controller.hasError.value) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline,
+                          size: 16, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Error: ${controller.errorMessage.value}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ));
+  }
+
+  Widget _debugInfoItem(String label, String value, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$label: ',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ✅ IMPROVED HEADER WITH SEARCH AND STATUS
   Widget _buildHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,6 +561,15 @@ class CustomerSectionState extends State<CustomerSection> {
                 ),
               ),
               ElevatedButton.icon(
+                onPressed: () => controller.debugCustomerData(),
+                icon: const Icon(Icons.bug_report, size: 18),
+                label: const Text('Debug'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+              ElevatedButton.icon(
                 onPressed: () => controller.testConnection(),
                 icon: const Icon(Icons.healing, size: 18),
                 label: const Text('Test'),
@@ -418,11 +619,22 @@ class CustomerSectionState extends State<CustomerSection> {
             ),
           ),
           const SizedBox(height: 24),
+
+          // ✅ ENHANCED DEBUG BUTTON IN EMPTY STATE
           Wrap(
             spacing: 12,
             runSpacing: 12,
             alignment: WrapAlignment.center,
             children: [
+              ElevatedButton.icon(
+                onPressed: () => controller.debugCustomerData(),
+                icon: const Icon(Icons.bug_report, size: 18),
+                label: const Text('Debug API Data'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+              ),
               ElevatedButton.icon(
                 onPressed: () {
                   Navigator.push(
@@ -466,6 +678,7 @@ class CustomerSectionState extends State<CustomerSection> {
   Widget _buildTable() {
     return Obx(() {
       final customers = controller.customers;
+      print('🔄 Building table with ${customers.length} customers');
 
       return Container(
         decoration: BoxDecoration(
