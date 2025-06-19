@@ -96,7 +96,7 @@ class ApiService {
       print('📥 Raw Response Data: ${response.data}');
 
       if (response.statusCode == 200) {
-        return _handleActualBackendResponse(response.data);
+        return await _handleActualBackendResponse(response.data);
       } else {
         throw Exception('Login failed with status: ${response.statusCode}');
       }
@@ -112,8 +112,8 @@ class ApiService {
   }
 
   // ✅ NEW: Handler khusus untuk format respons backend yang sebenarnya
-  static Map<String, dynamic> _handleActualBackendResponse(
-      dynamic responseData) {
+  static Future<Map<String, dynamic>> _handleActualBackendResponse(
+      dynamic responseData) async {
     print('🔍 Processing actual backend response...');
 
     if (responseData == null) {
@@ -169,8 +169,8 @@ class ApiService {
     print('✅ Login successful for user: ${user['name']} (${user['role']})');
 
     // ✅ Save data
-    saveToken(token);
-    saveUserData(user);
+    await saveToken(token);
+    await saveUserData(user);
 
     // ✅ Return dalam format yang diharapkan Flutter
     return {
@@ -370,20 +370,120 @@ This is a browser security restriction. Solutions:
       print('🧪 Testing login endpoint...');
 
       // Make an OPTIONS request to test CORS
-      final response = await _dio.options(
-        ApiConstants.login,
-        options: Options(
-          sendTimeout: Duration(seconds: 10),
-          receiveTimeout: Duration(seconds: 10),
-          validateStatus: (status) => status != null,
-        ),
-      );
+      final response = await _dio.options;
 
-      print('🧪 OPTIONS response: ${response.statusCode}');
-      return response.statusCode == 200 || response.statusCode == 204;
+      print('🧪 OPTIONS response: ${response}');
+      return response == 200 || response == 204;
     } catch (e) {
       print('❌ Login endpoint test failed: $e');
       return false;
+    }
+  }
+
+  // ✅ NEW: Generic API methods
+  static Future<Map<String, dynamic>> get(
+    String endpoint, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) async {
+    try {
+      if (!_initialized) initialize();
+
+      final response = await _dio.get(
+        endpoint,
+        queryParameters: queryParameters,
+        options: options,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data as Map<String, dynamic>;
+      } else {
+        throw Exception('Request failed with status: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      _handleDioException(e);
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> post(
+    String endpoint, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) async {
+    try {
+      if (!_initialized) initialize();
+
+      final response = await _dio.post(
+        endpoint,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return response.data as Map<String, dynamic>;
+      } else {
+        throw Exception('Request failed with status: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      _handleDioException(e);
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> put(
+    String endpoint, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) async {
+    try {
+      if (!_initialized) initialize();
+
+      final response = await _dio.put(
+        endpoint,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data as Map<String, dynamic>;
+      } else {
+        throw Exception('Request failed with status: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      _handleDioException(e);
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> delete(
+    String endpoint, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) async {
+    try {
+      if (!_initialized) initialize();
+
+      final response = await _dio.delete(
+        endpoint,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return response.data as Map<String, dynamic>;
+      } else {
+        throw Exception('Request failed with status: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      _handleDioException(e);
+      rethrow;
     }
   }
 }

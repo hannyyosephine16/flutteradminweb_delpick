@@ -72,27 +72,27 @@ class CustomerSectionState extends State<CustomerSection> {
         backgroundColor: Colors.white,
         elevation: 1,
         actions: [
-          // ✅ ENHANCED DEBUG TOOLS - More prominent
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                print('🐛 === MANUAL DEBUG TRIGGERED ===');
-                await controller.debugCustomerData();
-              },
-              icon: const Icon(Icons.bug_report, size: 18),
-              label: const Text('Debug API'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-            ),
-          ),
+          // // ✅ ENHANCED DEBUG TOOLS - More prominent
+          // Container(
+          //   margin: const EdgeInsets.symmetric(horizontal: 4.0),
+          //   child: ElevatedButton.icon(
+          //     onPressed: () async {
+          //       print('🐛 === MANUAL DEBUG TRIGGERED ===');
+          //       await controller.debugCustomerData();
+          //     },
+          //     icon: const Icon(Icons.bug_report, size: 18),
+          //     label: const Text('Debug API'),
+          //     style: ElevatedButton.styleFrom(
+          //       backgroundColor: Colors.orange,
+          //       foregroundColor: Colors.white,
+          //       shape: RoundedRectangleBorder(
+          //         borderRadius: BorderRadius.circular(8.0),
+          //       ),
+          //       padding:
+          //           const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          //     ),
+          //   ),
+          // ),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 4.0),
             child: ElevatedButton.icon(
@@ -113,26 +113,26 @@ class CustomerSectionState extends State<CustomerSection> {
               ),
             ),
           ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                print('🔬 === CONNECTION TEST TRIGGERED ===');
-                await controller.testConnection();
-              },
-              icon: const Icon(Icons.healing, size: 18),
-              label: const Text('Test'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-            ),
-          ),
+          // Container(
+          //   margin: const EdgeInsets.symmetric(horizontal: 4.0),
+          //   child: ElevatedButton.icon(
+          //     onPressed: () async {
+          //       print('🔬 === CONNECTION TEST TRIGGERED ===');
+          //       await controller.testConnection();
+          //     },
+          //     icon: const Icon(Icons.healing, size: 18),
+          //     label: const Text('Test'),
+          //     style: ElevatedButton.styleFrom(
+          //       backgroundColor: Colors.green,
+          //       foregroundColor: Colors.white,
+          //       shape: RoundedRectangleBorder(
+          //         borderRadius: BorderRadius.circular(8.0),
+          //       ),
+          //       padding:
+          //           const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          //     ),
+          //   ),
+          // ),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 8.0),
             child: ElevatedButton.icon(
@@ -183,8 +183,8 @@ class CustomerSectionState extends State<CustomerSection> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ✅ ENHANCED DEBUG INFO
-                  _buildDebugInfo(),
-                  const SizedBox(height: 12),
+                  // _buildDebugInfo(),
+                  // const SizedBox(height: 12),
 
                   // ✅ HEADER WITH STATUS INFO
                   _buildHeader(),

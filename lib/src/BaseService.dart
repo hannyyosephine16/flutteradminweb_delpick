@@ -1,4 +1,4 @@
-// Updated BaseService.dart untuk format respons backend yang sebenarnya
+// Fixed BaseService.dart untuk format respons backend yang sebenarnya
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -105,7 +105,7 @@ abstract class BaseService {
       return responseData;
     }
 
-    // ✅ Fallback: Check if it has required data structure  
+    // ✅ Fallback: Check if it has required data structure
     if (responseData.containsKey('token') && responseData.containsKey('user')) {
       print('✅ Response validation passed (direct auth format)');
       return responseData;
@@ -117,6 +117,7 @@ abstract class BaseService {
     throw Exception('Invalid response format from server');
   }
 
+  // ✅ FIXED: Extract data method with proper type handling
   static T extractData<T>(Map<String, dynamic> response) {
     // ✅ UPDATED: Extract data dari format backend yang sebenarnya
     dynamic data;
@@ -133,9 +134,33 @@ abstract class BaseService {
       return data;
     }
 
-    // ✅ Handle case where T is expected to be Map<String, dynamic>
-    if (T == Map<String, dynamic> && data is Map) {
+    // ✅ FIXED: Handle case where T is expected to be Map<String, dynamic>
+    // Use runtimeType comparison instead of direct type comparison
+    if (T.toString() == 'Map<String, dynamic>' && data is Map) {
       return Map<String, dynamic>.from(data) as T;
+    }
+
+    // ✅ Handle List<Map<String, dynamic>> case
+    if (T.toString().startsWith('List<') && data is List) {
+      return data.cast<Map<String, dynamic>>() as T;
+    }
+
+    // ✅ Handle primitive types
+    if (data != null) {
+      try {
+        return data as T;
+      } catch (e) {
+        // If cast fails, try to convert
+        if (T == String) {
+          return data.toString() as T;
+        }
+        if (T == int && data is String) {
+          return int.tryParse(data)! as T;
+        }
+        if (T == double && data is String) {
+          return double.tryParse(data)! as T;
+        }
+      }
     }
 
     throw Exception('Invalid data type in response. Expected: $T, Got: ${data.runtimeType}');
