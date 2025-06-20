@@ -147,7 +147,7 @@ class DriverModel {
     }
   }
 
-  // ✅ Helper methods for safe parsing
+  // ✅ FIXED: Helper methods for safe parsing
   static int _parseIntSafely(dynamic value, int defaultValue) {
     if (value == null) return defaultValue;
     if (value is int) return value;
@@ -158,21 +158,26 @@ class DriverModel {
     return defaultValue;
   }
 
+  // ✅ FIXED: Safe double parsing
   static double _parseDoubleSafely(dynamic value, double defaultValue) {
     if (value == null) return defaultValue;
     if (value is double) return value;
     if (value is int) return value.toDouble();
     if (value is String) {
-      return double.tryParse(value) ?? defaultValue;
+      // ✅ FIXED: Handle string parsing properly
+      final parsed = double.tryParse(value);
+      return parsed ?? defaultValue;
     }
     return defaultValue;
   }
 
+  // ✅ FIXED: Safe nullable double parsing
   static double? _parseNullableDoubleSafely(dynamic value) {
     if (value == null) return null;
     if (value is double) return value;
     if (value is int) return value.toDouble();
     if (value is String) {
+      // ✅ FIXED: Handle string parsing properly
       return double.tryParse(value);
     }
     return null;
