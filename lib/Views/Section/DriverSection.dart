@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
 import '../../src/DriverService.dart';
 import '../Dashboard/DriverDetail/adddriver.dart';
 import '../Dashboard/DriverDetail/EditDriver.dart';
@@ -25,7 +24,6 @@ class DriverSectionState extends State<DriverSection> {
   String _searchQuery = '';
   bool _isSearchActive = false;
 
-  // ✅ ADD: Status filter
   String _selectedStatusFilter = 'all';
   final List<String> _statusOptions = ['all', 'active', 'inactive', 'busy'];
 
@@ -35,7 +33,6 @@ class DriverSectionState extends State<DriverSection> {
     _fetchDrivers();
   }
 
-  // ✅ FIXED: Safe double parsing helper
   double _parseDoubleValue(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
@@ -46,7 +43,6 @@ class DriverSectionState extends State<DriverSection> {
     return 0.0;
   }
 
-  // ✅ FIXED: Fetch drivers with proper backend data structure
   Future<void> _fetchDrivers() async {
     setState(() {
       _isLoading = true;
@@ -281,12 +277,9 @@ class DriverSectionState extends State<DriverSection> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ✅ UPDATED: Header with new card format
                     _buildHeader(),
                     const SizedBox(height: 16),
-
                     if (_hasError) _buildErrorMessage(),
-
                     if (_isLoading)
                       const Expanded(
                         child: Center(
@@ -294,14 +287,11 @@ class DriverSectionState extends State<DriverSection> {
                         ),
                       )
                     else
-                      // ✅ UPDATED: Expanded table to be taller
                       Expanded(
-                        flex: 3, // ✅ Make table much taller
+                        flex: 3,
                         child: isSmallScreen ? _buildListView() : _buildTable(),
                       ),
-
                     const SizedBox(height: 16),
-
                     if (!_isLoading) _buildPagination(),
                   ],
                 ),
@@ -313,7 +303,6 @@ class DriverSectionState extends State<DriverSection> {
     );
   }
 
-  // ✅ UPDATED: New header format like in the image
   Widget _buildHeader() {
     final filteredDrivers = _filteredDrivers;
     final showingCount = filteredDrivers.length;
@@ -335,8 +324,6 @@ class DriverSectionState extends State<DriverSection> {
           ],
         ),
         const SizedBox(height: 16),
-
-        // ✅ NEW: Stats panel like in the image
         Row(
           children: [
             // Total card
@@ -372,7 +359,6 @@ class DriverSectionState extends State<DriverSection> {
             ),
             const SizedBox(width: 16),
 
-            // ✅ FIXED: Status filter dropdown
             Expanded(
               child: _buildStatusFilter(),
             ),
@@ -382,7 +368,6 @@ class DriverSectionState extends State<DriverSection> {
     );
   }
 
-// ✅ NEW: Info card widget like in the image - SMALLER HEIGHT
   Widget _buildInfoCard({
     required IconData icon,
     required String label,
@@ -448,10 +433,9 @@ class DriverSectionState extends State<DriverSection> {
     );
   }
 
-// ✅ FIXED: Status filter dropdown - SMALLER HEIGHT
   Widget _buildStatusFilter() {
     return Container(
-      padding: const EdgeInsets.all(12), // ✅ REDUCED from 16 to 12
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -467,7 +451,7 @@ class DriverSectionState extends State<DriverSection> {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(6), // ✅ REDUCED from 8 to 6
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: const Color(0xFF9C27B0).withOpacity(0.1),
               borderRadius: BorderRadius.circular(6),
@@ -475,31 +459,31 @@ class DriverSectionState extends State<DriverSection> {
             child: const Icon(
               Icons.filter_list,
               color: Color(0xFF9C27B0),
-              size: 18, // ✅ REDUCED from 20 to 18
+              size: 18,
             ),
           ),
-          const SizedBox(width: 10), // ✅ REDUCED from 12 to 10
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min, // ✅ ADDED to minimize height
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   'Filter',
                   style: TextStyle(
-                    fontSize: 11, // ✅ REDUCED from 12 to 11
+                    fontSize: 11,
                     color: Colors.grey.shade600,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 1), // ✅ REDUCED from 2 to 1
+                const SizedBox(height: 1),
                 DropdownButton<String>(
                   value: _selectedStatusFilter,
                   isExpanded: true,
                   underline: const SizedBox(),
-                  isDense: true, // ✅ ADDED to reduce height
+                  isDense: true,
                   style: const TextStyle(
-                    fontSize: 14, // ✅ REDUCED from 16 to 14
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF9C27B0),
                   ),
