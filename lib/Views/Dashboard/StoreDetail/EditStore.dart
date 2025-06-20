@@ -1022,7 +1022,7 @@ class _EditStoreScreenState extends State<EditStoreScreen>
   Future<void> _selectImage() async {
     try {
       final html.FileUploadInputElement uploadInput =
-      html.FileUploadInputElement();
+          html.FileUploadInputElement();
       uploadInput.accept = 'image/*';
       uploadInput.click();
 
@@ -1132,14 +1132,14 @@ class _EditStoreScreenState extends State<EditStoreScreen>
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                BorderSide(color: GlobalStyle.buttonColor, width: 2),
+                    BorderSide(color: GlobalStyle.buttonColor, width: 2),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: Colors.red.shade400, width: 2),
               ),
               contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             ),
           ),
         ],
@@ -1240,79 +1240,79 @@ class _EditStoreScreenState extends State<EditStoreScreen>
             ),
             child: _selectedImageBase64 != null
                 ? Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    _selectedImageBase64!,
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedImageBase64 = null;
-                      });
-                      _storeController.setSelectedImage('');
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade600,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 4,
-                          ),
-                        ],
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(
+                          _selectedImageBase64!,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                      child: const Icon(Icons.close,
-                          color: Colors.white, size: 16),
-                    ),
-                  ),
-                ),
-              ],
-            )
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedImageBase64 = null;
+                            });
+                            _storeController.setSelectedImage('');
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade600,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.close,
+                                color: Colors.white, size: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
                 : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: GlobalStyle.buttonColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: GlobalStyle.buttonColor.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.cloud_upload_outlined,
+                          size: 40,
+                          color: GlobalStyle.buttonColor,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Upload Store Image',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'PNG, JPG up to 5MB',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
                   ),
-                  child: Icon(
-                    Icons.cloud_upload_outlined,
-                    size: 40,
-                    color: GlobalStyle.buttonColor,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Upload Store Image',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'PNG, JPG up to 5MB',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
-              ],
-            ),
           ),
           const SizedBox(height: 20),
           SizedBox(
@@ -1352,33 +1352,33 @@ class _EditStoreScreenState extends State<EditStoreScreen>
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Obx(() => Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: GlobalStyle.buttonColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                _storeController.isEditMode.value
-                    ? Icons.edit
-                    : Icons.add_business,
-                color: GlobalStyle.buttonColor,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              _storeController.isEditMode.value
-                  ? 'Edit Store'
-                  : 'Add New Store',
-              style: TextStyle(
-                color: Colors.grey.shade800,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        )),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: GlobalStyle.buttonColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _storeController.isEditMode.value
+                        ? Icons.edit
+                        : Icons.add_business,
+                    color: GlobalStyle.buttonColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  _storeController.isEditMode.value
+                      ? 'Edit Store'
+                      : 'Add New Store',
+                  style: TextStyle(
+                    color: Colors.grey.shade800,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            )),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
@@ -1395,398 +1395,398 @@ class _EditStoreScreenState extends State<EditStoreScreen>
       ),
       body: _isLoading
           ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: GlobalStyle.buttonColor),
-            const SizedBox(height: 16),
-            Text(
-              'Loading store data...',
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      )
-          : FadeTransition(
-        opacity: _fadeAnimation,
-        child: SlideTransition(
-          position: _slideAnimation,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Left Section - Form Fields
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.shade200,
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Owner Information Section
-                          _buildSectionHeader(
-                              'Owner Information', Icons.person),
-
-                          _buildStyledTextField(
-                            controller:
-                            _storeController.ownerNameController,
-                            label: "Owner Name",
-                            hint: "Enter owner full name",
-                            icon: Icons.person_outline,
-                            validator: _storeController.validateOwnerName,
-                          ),
-
-                          _buildStyledTextField(
-                            controller:
-                            _storeController.ownerEmailController,
-                            label: "Owner Email",
-                            hint: "owner@example.com",
-                            icon: Icons.email_outlined,
-                            validator:
-                            _storeController.validateOwnerEmail,
-                          ),
-
-                          _buildStyledTextField(
-                            controller:
-                            _storeController.ownerPhoneController,
-                            label: "Owner Phone",
-                            hint: "+62 812 3456 7890",
-                            icon: Icons.phone_outlined,
-                            validator:
-                            _storeController.validateOwnerPhone,
-                          ),
-
-                          // Password fields (only show in create mode)
-                          Obx(
-                                () => !_storeController.isEditMode.value
-                                ? Column(
-                              children: [
-                                _buildStyledTextField(
-                                  controller: _storeController
-                                      .ownerPasswordController,
-                                  label: "Password",
-                                  hint: "Enter secure password",
-                                  icon: Icons.lock_outline,
-                                  obscureText: true,
-                                  validator: _storeController
-                                      .validatePassword,
-                                ),
-                                _buildStyledTextField(
-                                  controller: _storeController
-                                      .confirmPasswordController,
-                                  label: "Confirm Password",
-                                  hint: "Re-enter password",
-                                  icon: Icons.lock_outline,
-                                  obscureText: true,
-                                  validator: _storeController
-                                      .validateConfirmPassword,
-                                ),
-                              ],
-                            )
-                                : const SizedBox.shrink(),
-                          ),
-
-                          const SizedBox(height: 32),
-
-                          // Store Information Section
-                          _buildSectionHeader(
-                              'Store Information', Icons.store),
-
-                          _buildStyledTextField(
-                            controller:
-                            _storeController.storeNameController,
-                            label: "Store Name",
-                            hint: "Enter store name",
-                            icon: Icons.storefront,
-                            validator: _storeController.validateStoreName,
-                          ),
-
-                          _buildStyledTextField(
-                            controller:
-                            _storeController.addressController,
-                            label: "Store Address",
-                            hint: "Enter complete address",
-                            icon: Icons.location_on_outlined,
-                            maxLines: 3,
-                            validator: _storeController.validateAddress,
-                          ),
-
-                          _buildStyledTextField(
-                            controller:
-                            _storeController.descriptionController,
-                            label: "Description (Optional)",
-                            hint: "Describe your store...",
-                            icon: Icons.description_outlined,
-                            maxLines: 3,
-                          ),
-
-                          // Operating Hours
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildStyledTextField(
-                                  controller:
-                                  _storeController.openTimeController,
-                                  label: "Opening Time",
-                                  hint: "08:00",
-                                  icon: Icons.access_time,
-                                ),
-                              ),
-                              const SizedBox(width: 20),
-                              Expanded(
-                                child: _buildStyledTextField(
-                                  controller: _storeController
-                                      .closeTimeController,
-                                  label: "Closing Time",
-                                  hint: "22:00",
-                                  icon: Icons.access_time,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          // Location Coordinates
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildStyledTextField(
-                                  controller:
-                                  _storeController.latitudeController,
-                                  label: "Latitude",
-                                  hint: "e.g. -6.2088",
-                                  icon: Icons.my_location,
-                                  validator: (value) =>
-                                      _storeController.validateCoordinate(
-                                          value, 'Latitude'),
-                                ),
-                              ),
-                              const SizedBox(width: 20),
-                              Expanded(
-                                child: _buildStyledTextField(
-                                  controller: _storeController
-                                      .longitudeController,
-                                  label: "Longitude",
-                                  hint: "e.g. 106.8456",
-                                  icon: Icons.place,
-                                  validator: (value) =>
-                                      _storeController.validateCoordinate(
-                                          value, 'Longitude'),
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          // ✅ FIXED: Status dropdown (only in edit mode)
-                          Obx(
-                                () => _storeController.isEditMode.value
-                                ? Container(
-                              margin:
-                              const EdgeInsets.only(bottom: 20),
-                              child: Column(
-                                crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Store Status',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    width: double.infinity,
-                                    padding:
-                                    const EdgeInsets.symmetric(
-                                        horizontal: 16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade50,
-                                      border: Border.all(
-                                          color:
-                                          Colors.grey.shade300),
-                                      borderRadius:
-                                      BorderRadius.circular(12),
-                                    ),
-                                    child:
-                                    DropdownButtonHideUnderline(
-                                      child: DropdownButton<String>(
-                                        value: _storeController
-                                            .selectedStatus.value,
-                                        isExpanded: true,
-                                        items: _statusOptions
-                                            .map((String status) {
-                                          return DropdownMenuItem
-                                          String>(
-                                          value: status,
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: 8,
-                                                height: 8,
-                                                decoration:
-                                                BoxDecoration(
-                                                  color: status ==
-                                                      'active'
-                                                      ? Colors
-                                                      .green
-                                                      : Colors
-                                                      .orange,
-                                                  shape: BoxShape
-                                                      .circle,
-                                                ),
-                                              ),
-                                              const SizedBox(
-                                                  width: 8),
-                                              Text(status
-                                                  .toUpperCase()),
-                                            ],
-                                          ),
-                                          );
-                                        }).toList(),
-                                        onChanged: (value) {
-                                          if (value != null) {
-                                            _storeController
-                                                .setSelectedStatus(
-                                                value);
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                                : const SizedBox.shrink(),
-                          ),
-
-                          const SizedBox(height: 32),
-
-                          // Submit Button
-                          SizedBox(
-                            width: double.infinity,
-                            child: Obx(() => Container(
-                              height: 56,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    GlobalStyle.buttonColor,
-                                    GlobalStyle.buttonColor
-                                        .withOpacity(0.8),
-                                  ],
-                                ),
-                                borderRadius:
-                                BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: GlobalStyle.buttonColor
-                                        .withOpacity(0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: ElevatedButton(
-                                onPressed: _storeController
-                                    .isFormLoading.value
-                                    ? null
-                                    : _submitForm,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.transparent,
-                                  shadowColor: Colors.transparent,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                    BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: _storeController
-                                    .isFormLoading.value
-                                    ? const Row(
-                                  mainAxisAlignment:
-                                  MainAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child:
-                                      CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                    SizedBox(width: 12),
-                                    Text(
-                                      'Processing...',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight:
-                                        FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                                    : Row(
-                                  mainAxisAlignment:
-                                  MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      _storeController
-                                          .isEditMode.value
-                                          ? Icons.save
-                                          : Icons.add_business,
-                                      color: Colors.white,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _storeController
-                                          .isEditMode.value
-                                          ? 'Update Store'
-                                          : 'Create Store',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight:
-                                        FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(width: 32),
-
-                  // Right Section - Image Upload
-                  Expanded(
-                    flex: 1,
-                    child: _buildImageSection(),
+                  CircularProgressIndicator(color: GlobalStyle.buttonColor),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading store data...',
+                    style: TextStyle(color: Colors.grey.shade600),
                   ),
                 ],
               ),
+            )
+          : FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left Section - Form Fields
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            padding: const EdgeInsets.all(32),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.shade200,
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Owner Information Section
+                                _buildSectionHeader(
+                                    'Owner Information', Icons.person),
+
+                                _buildStyledTextField(
+                                  controller:
+                                      _storeController.ownerNameController,
+                                  label: "Owner Name",
+                                  hint: "Enter owner full name",
+                                  icon: Icons.person_outline,
+                                  validator: _storeController.validateOwnerName,
+                                ),
+
+                                _buildStyledTextField(
+                                  controller:
+                                      _storeController.ownerEmailController,
+                                  label: "Owner Email",
+                                  hint: "owner@example.com",
+                                  icon: Icons.email_outlined,
+                                  validator:
+                                      _storeController.validateOwnerEmail,
+                                ),
+
+                                _buildStyledTextField(
+                                  controller:
+                                      _storeController.ownerPhoneController,
+                                  label: "Owner Phone",
+                                  hint: "+62 812 3456 7890",
+                                  icon: Icons.phone_outlined,
+                                  validator:
+                                      _storeController.validateOwnerPhone,
+                                ),
+
+                                // Password fields (only show in create mode)
+                                Obx(
+                                  () => !_storeController.isEditMode.value
+                                      ? Column(
+                                          children: [
+                                            _buildStyledTextField(
+                                              controller: _storeController
+                                                  .ownerPasswordController,
+                                              label: "Password",
+                                              hint: "Enter secure password",
+                                              icon: Icons.lock_outline,
+                                              obscureText: true,
+                                              validator: _storeController
+                                                  .validatePassword,
+                                            ),
+                                            _buildStyledTextField(
+                                              controller: _storeController
+                                                  .confirmPasswordController,
+                                              label: "Confirm Password",
+                                              hint: "Re-enter password",
+                                              icon: Icons.lock_outline,
+                                              obscureText: true,
+                                              validator: _storeController
+                                                  .validateConfirmPassword,
+                                            ),
+                                          ],
+                                        )
+                                      : const SizedBox.shrink(),
+                                ),
+
+                                const SizedBox(height: 32),
+
+                                // Store Information Section
+                                _buildSectionHeader(
+                                    'Store Information', Icons.store),
+
+                                _buildStyledTextField(
+                                  controller:
+                                      _storeController.storeNameController,
+                                  label: "Store Name",
+                                  hint: "Enter store name",
+                                  icon: Icons.storefront,
+                                  validator: _storeController.validateStoreName,
+                                ),
+
+                                _buildStyledTextField(
+                                  controller:
+                                      _storeController.addressController,
+                                  label: "Store Address",
+                                  hint: "Enter complete address",
+                                  icon: Icons.location_on_outlined,
+                                  maxLines: 3,
+                                  validator: _storeController.validateAddress,
+                                ),
+
+                                _buildStyledTextField(
+                                  controller:
+                                      _storeController.descriptionController,
+                                  label: "Description (Optional)",
+                                  hint: "Describe your store...",
+                                  icon: Icons.description_outlined,
+                                  maxLines: 3,
+                                ),
+
+                                // Operating Hours
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildStyledTextField(
+                                        controller:
+                                            _storeController.openTimeController,
+                                        label: "Opening Time",
+                                        hint: "08:00",
+                                        icon: Icons.access_time,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 20),
+                                    Expanded(
+                                      child: _buildStyledTextField(
+                                        controller: _storeController
+                                            .closeTimeController,
+                                        label: "Closing Time",
+                                        hint: "22:00",
+                                        icon: Icons.access_time,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                // Location Coordinates
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildStyledTextField(
+                                        controller:
+                                            _storeController.latitudeController,
+                                        label: "Latitude",
+                                        hint: "e.g. -6.2088",
+                                        icon: Icons.my_location,
+                                        validator: (value) =>
+                                            _storeController.validateCoordinate(
+                                                value, 'Latitude'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 20),
+                                    Expanded(
+                                      child: _buildStyledTextField(
+                                        controller: _storeController
+                                            .longitudeController,
+                                        label: "Longitude",
+                                        hint: "e.g. 106.8456",
+                                        icon: Icons.place,
+                                        validator: (value) =>
+                                            _storeController.validateCoordinate(
+                                                value, 'Longitude'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                Obx(
+                                  () => _storeController.isEditMode.value
+                                      ? Container(
+                                          margin:
+                                              const EdgeInsets.only(bottom: 20),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Store Status',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                width: double.infinity,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 16),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade50,
+                                                  border: Border.all(
+                                                      color:
+                                                          Colors.grey.shade300),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
+                                                child:
+                                                    DropdownButtonHideUnderline(
+                                                  child: DropdownButton<String>(
+                                                    value: _storeController
+                                                        .selectedStatus.value,
+                                                    isExpanded: true,
+                                                    items: _statusOptions
+                                                        .map((String status) {
+                                                      return DropdownMenuItem<
+                                                          String>(
+                                                        // ✅ FIXED: Added missing '<'
+                                                        value: status,
+                                                        child: Row(
+                                                          children: [
+                                                            Container(
+                                                              width: 8,
+                                                              height: 8,
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                color: status ==
+                                                                        'active'
+                                                                    ? Colors
+                                                                        .green
+                                                                    : Colors
+                                                                        .orange,
+                                                                shape: BoxShape
+                                                                    .circle,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                                width: 8),
+                                                            Text(status
+                                                                .toUpperCase()),
+                                                          ],
+                                                        ),
+                                                      );
+                                                    }).toList(),
+                                                    onChanged: (value) {
+                                                      if (value != null) {
+                                                        _storeController
+                                                            .setSelectedStatus(
+                                                                value);
+                                                      }
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      : const SizedBox.shrink(),
+                                ),
+
+                                const SizedBox(height: 32),
+
+                                // Submit Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: Obx(() => Container(
+                                        height: 56,
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              GlobalStyle.buttonColor,
+                                              GlobalStyle.buttonColor
+                                                  .withOpacity(0.8),
+                                            ],
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: GlobalStyle.buttonColor
+                                                  .withOpacity(0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: ElevatedButton(
+                                          onPressed: _storeController
+                                                  .isFormLoading.value
+                                              ? null
+                                              : _submitForm,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.transparent,
+                                            shadowColor: Colors.transparent,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          child: _storeController
+                                                  .isFormLoading.value
+                                              ? const Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    SizedBox(
+                                                      height: 20,
+                                                      width: 20,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                        color: Colors.white,
+                                                        strokeWidth: 2,
+                                                      ),
+                                                    ),
+                                                    SizedBox(width: 12),
+                                                    Text(
+                                                      'Processing...',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                )
+                                              : Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      _storeController
+                                                              .isEditMode.value
+                                                          ? Icons.save
+                                                          : Icons.add_business,
+                                                      color: Colors.white,
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      _storeController
+                                                              .isEditMode.value
+                                                          ? 'Update Store'
+                                                          : 'Create Store',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                        ),
+                                      )),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 32),
+
+                        // Right Section - Image Upload
+                        Expanded(
+                          flex: 1,
+                          child: _buildImageSection(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }
