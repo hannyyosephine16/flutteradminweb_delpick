@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:image_picker_web/image_picker_web.dart';
-import '../../../src/StoreService.dart';
+import '../../../UserControls/StoreController.dart';
 import '../../../Common/widgets/texts/customtextfield.dart';
 
 class AddNewStoreScreen extends StatefulWidget {
@@ -12,180 +13,107 @@ class AddNewStoreScreen extends StatefulWidget {
 }
 
 class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
-  // Owner data controllers
-  final TextEditingController ownerNameController = TextEditingController();
-  final TextEditingController ownerEmailController = TextEditingController();
-  final TextEditingController ownerPhoneController = TextEditingController();
-  final TextEditingController ownerPasswordController = TextEditingController();
-
-  // Store data controllers
-  final TextEditingController storeNameController = TextEditingController();
-  final TextEditingController addressController = TextEditingController();
-  final TextEditingController descriptionController = TextEditingController();
-  final TextEditingController openTimeController = TextEditingController();
-  final TextEditingController closeTimeController = TextEditingController();
-  final TextEditingController latitudeController = TextEditingController();
-  final TextEditingController longitudeController = TextEditingController();
-
-  bool isLoading = false;
+  final StoreController storeController = Get.find<StoreController>();
   bool showPassword = false;
   Uint8List? _imageBytes;
-  String? _imageBase64;
   bool _isHoveringUpload = false;
+  @override
+  void initState() {
+    super.initState();
+// Clear form when opening add store screen
+    storeController.clearForm();
+  }
 
   Future<void> _pickImage() async {
-    setState(() {
-      isLoading = true;
-    });
     try {
       final pickedImage = await ImagePickerWeb.getImageAsBytes();
-
       if (pickedImage != null && pickedImage.lengthInBytes < 5 * 1024 * 1024) {
         final base64String = base64Encode(pickedImage);
-        final imageBase64WithPrefix = 'data:image/jpeg;base64,' + base64String;
+        final imageBase64WithPrefix = 'data:image/jpeg;base64,$base64String';
 
         setState(() {
           _imageBytes = pickedImage;
-          _imageBase64 = imageBase64WithPrefix;
         });
 
-        print('Image successfully converted to base64 with prefix');
+        storeController.setSelectedImage(imageBase64WithPrefix);
+
+        Get.snackbar(
+          'Success',
+          'Image selected successfully',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
       } else if (pickedImage == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No image selected')),
+        Get.snackbar(
+          'Info',
+          'No image selected',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text('Image too large, choose an image smaller than 5MB!')),
+        Get.snackbar(
+          'Error',
+          'Image too large, choose an image smaller than 5MB!',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
         );
       }
     } catch (e) {
-      print('Error picking image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
+      Get.snackbar(
+        'Error',
+        'Error picking image: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
       );
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
     }
+  }
+
+  void _removeImage() {
+    setState(() {
+      _imageBytes = null;
+    });
+    storeController.setSelectedImage('');
   }
 
   Future<void> _saveStore() async {
-    if (ownerNameController.text.isEmpty ||
-        ownerEmailController.text.isEmpty ||
-        ownerPhoneController.text.isEmpty ||
-        ownerPasswordController.text.isEmpty ||
-        storeNameController.text.isEmpty ||
-        addressController.text.isEmpty ||
-        openTimeController.text.isEmpty ||
-        closeTimeController.text.isEmpty ||
-        latitudeController.text.isEmpty ||
-        longitudeController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all required fields')),
-      );
+    if (!storeController.formKey.currentState!.validate()) {
       return;
     }
+    final success = await storeController.createStore();
 
-    final latitude = double.tryParse(latitudeController.text);
-    final longitude = double.tryParse(longitudeController.text);
-
-    if (latitude == null || longitude == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Please enter valid latitude and longitude')),
-      );
-      return;
-    }
-
-    setState(() {
-      isLoading = true;
-    });
-
-    try {
-      final response = await StoreService.createStore(
-        name: storeNameController.text,
-        email: ownerEmailController.text,
-        password: ownerPasswordController.text,
-        phone: ownerPhoneController.text,
-        address: addressController.text,
-        description: descriptionController.text.isNotEmpty
-            ? descriptionController.text
-            : null,
-        imageBase64: _imageBase64,
-        openTime: openTimeController.text,
-        closeTime: closeTimeController.text,
-        latitude: latitude,
-        longitude: longitude,
-      );
-
-      print('Response from server: $response');
-
-      if (response != null) {
-        _showSuccessDialog();
-        _clearForm();
-        Future.delayed(const Duration(seconds: 1), () {
-          Navigator.of(context).pop(true);
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to add store')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to add store: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
+    if (success) {
       setState(() {
-        isLoading = false;
+        _imageBytes = null;
       });
+      Navigator.of(context).pop(true);
     }
   }
 
-  void _clearForm() {
-    ownerNameController.clear();
-    ownerEmailController.clear();
-    ownerPhoneController.clear();
-    ownerPasswordController.clear();
-    storeNameController.clear();
-    addressController.clear();
-    descriptionController.clear();
-    openTimeController.clear();
-    closeTimeController.clear();
-    latitudeController.clear();
-    longitudeController.clear();
-    setState(() {
-      _imageBytes = null;
-      _imageBase64 = null;
-    });
-  }
-
-  void _showSuccessDialog() {
-    showDialog(
+  Future<void> _selectTime(
+      BuildContext context, TextEditingController controller) async {
+    final TimeOfDay? picked = await showTimePicker(
       context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Success'),
-          content: const Text('Store successfully added!'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
-          ],
+      initialTime: TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+                  primary: Theme.of(context).primaryColor,
+                ),
+          ),
+          child: child!,
         );
       },
     );
+    if (picked != null) {
+      final formattedTime =
+          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      controller.text = formattedTime;
+    }
   }
 
   @override
@@ -260,383 +188,511 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
                     ),
                     Padding(
                       padding: const EdgeInsets.all(24.0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Owner Information Section
-                                Text(
-                                  'Owner Information',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).primaryColor,
+                      child: Form(
+                        key: storeController.formKey,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+// Owner Information Section
+                                  Text(
+                                    'Owner Information',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context).primaryColor,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 16),
-                                CustomTextField(
-                                  label: "Enter owner full name",
-                                  title: "Owner Name",
-                                  icon: Icons.person,
-                                  controller: ownerNameController,
-                                ),
-                                CustomTextField(
-                                  label: "Enter owner email address",
-                                  title: "Owner Email",
-                                  icon: Icons.email,
-                                  keyboardType: TextInputType.emailAddress,
-                                  controller: ownerEmailController,
-                                ),
-                                CustomTextField(
-                                  label: "Enter owner phone number",
-                                  title: "Owner Phone",
-                                  icon: Icons.phone,
-                                  keyboardType: TextInputType.phone,
-                                  controller: ownerPhoneController,
-                                ),
-                                CustomTextField(
-                                  label: "Enter password",
-                                  title: "Password",
-                                  icon: Icons.lock,
-                                  obscureText: !showPassword,
-                                  controller: ownerPasswordController,
-                                  icon2: showPassword
-                                      ? Icons.visibility
-                                      : Icons.visibility_off,
-                                ),
+                                  const SizedBox(height: 16),
+                                  CustomTextField(
+                                    label: "Enter owner full name",
+                                    title: "Owner Name *",
+                                    icon: Icons.person,
+                                    controller:
+                                        storeController.ownerNameController,
+                                    validator:
+                                        storeController.validateOwnerName,
+                                  ),
 
-                                const SizedBox(height: 24),
+                                  CustomTextField(
+                                    label: "Enter owner email address",
+                                    title: "Owner Email *",
+                                    icon: Icons.email,
+                                    keyboardType: TextInputType.emailAddress,
+                                    controller:
+                                        storeController.ownerEmailController,
+                                    validator:
+                                        storeController.validateOwnerEmail,
+                                  ),
 
-                                // Store Information Section
-                                Text(
-                                  'Store Information',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).primaryColor,
+                                  CustomTextField(
+                                    label: "Enter owner phone number",
+                                    title: "Owner Phone *",
+                                    icon: Icons.phone,
+                                    keyboardType: TextInputType.phone,
+                                    controller:
+                                        storeController.ownerPhoneController,
+                                    validator:
+                                        storeController.validateOwnerPhone,
                                   ),
-                                ),
-                                const SizedBox(height: 16),
-                                CustomTextField(
-                                  label: "Enter store name",
-                                  title: "Store Name",
-                                  icon: Icons.store,
-                                  controller: storeNameController,
-                                ),
-                                CustomTextField(
-                                  label: "Enter store address",
-                                  title: "Address",
-                                  icon: Icons.location_on,
-                                  controller: addressController,
-                                  maxLines: 3,
-                                ),
-                                CustomTextField(
-                                  label: "Enter store description (optional)",
-                                  title: "Description",
-                                  icon: Icons.description,
-                                  controller: descriptionController,
-                                  maxLines: 3,
-                                ),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: CustomTextField(
-                                        label: "Enter open time (HH:mm)",
-                                        title: "Open Time",
-                                        icon: Icons.access_time,
-                                        controller: openTimeController,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: CustomTextField(
-                                        label: "Enter close time (HH:mm)",
-                                        title: "Close Time",
-                                        icon: Icons.access_time_filled,
-                                        controller: closeTimeController,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: CustomTextField(
-                                        label: "Enter latitude",
-                                        title: "Latitude",
-                                        icon: Icons.gps_fixed,
-                                        keyboardType: TextInputType.number,
-                                        controller: latitudeController,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: CustomTextField(
-                                        label: "Enter longitude",
-                                        title: "Longitude",
-                                        icon: Icons.gps_fixed,
-                                        keyboardType: TextInputType.number,
-                                        controller: longitudeController,
-                                      ),
-                                    ),
-                                  ],
-                                ),
 
-                                const SizedBox(height: 24),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        onPressed:
-                                            isLoading ? null : _saveStore,
-                                        icon: isLoading
-                                            ? const SizedBox(
-                                                width: 20,
-                                                height: 20,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ))
-                                            : const Icon(Icons.check_circle),
-                                        label: Text(isLoading
-                                            ? 'Adding...'
-                                            : 'Add Store'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              Theme.of(context).primaryColor,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 16),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
-                                        ),
+                                  CustomTextField(
+                                    label:
+                                        "Enter password (minimum 6 characters)",
+                                    title: "Password *",
+                                    icon: Icons.lock,
+                                    obscureText: !showPassword,
+                                    controller:
+                                        storeController.ownerPasswordController,
+                                    validator: storeController.validatePassword,
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        showPassword
+                                            ? Icons.visibility
+                                            : Icons.visibility_off,
+                                        color: Colors.grey,
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 40),
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Store Image',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Upload a store image (Recommended: 400×300)',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                MouseRegion(
-                                  onEnter: (_) =>
-                                      setState(() => _isHoveringUpload = true),
-                                  onExit: (_) =>
-                                      setState(() => _isHoveringUpload = false),
-                                  child: GestureDetector(
-                                    onTap: _pickImage,
-                                    child: Container(
-                                      height: 280,
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        color: _isHoveringUpload
-                                            ? Colors.grey.shade100
-                                            : Colors.grey.shade50,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: _isHoveringUpload
-                                              ? Theme.of(context).primaryColor
-                                              : Colors.grey.shade300,
-                                          width: 2,
-                                          style: BorderStyle.solid,
-                                        ),
-                                      ),
-                                      child: _imageBytes != null
-                                          ? Stack(
-                                              alignment: Alignment.center,
-                                              children: [
-                                                ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  child: Image.memory(
-                                                    _imageBytes!,
-                                                    fit: BoxFit.cover,
-                                                    width: double.infinity,
-                                                    height: double.infinity,
-                                                  ),
-                                                ),
-                                                Positioned(
-                                                  bottom: 0,
-                                                  left: 0,
-                                                  right: 0,
-                                                  child: Container(
-                                                    color: Colors.black
-                                                        .withOpacity(0.6),
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      vertical: 12,
-                                                      horizontal: 16,
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        const Icon(
-                                                          Icons.edit,
-                                                          color: Colors.white,
-                                                          size: 16,
-                                                        ),
-                                                        const SizedBox(
-                                                            width: 8),
-                                                        const Text(
-                                                          'Change Image',
-                                                          style: TextStyle(
-                                                            color: Colors.white,
-                                                            fontSize: 14,
-                                                          ),
-                                                        ),
-                                                        const Spacer(),
-                                                        IconButton(
-                                                          icon: const Icon(
-                                                            Icons.delete,
-                                                            color: Colors.white,
-                                                            size: 18,
-                                                          ),
-                                                          onPressed: () {
-                                                            setState(() {
-                                                              _imageBytes =
-                                                                  null;
-                                                              _imageBase64 =
-                                                                  null;
-                                                            });
-                                                          },
-                                                          padding:
-                                                              EdgeInsets.zero,
-                                                          constraints:
-                                                              const BoxConstraints(),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            )
-                                          : isLoading
-                                              ? const Center(
-                                                  child:
-                                                      CircularProgressIndicator(),
-                                                )
-                                              : Column(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              16),
-                                                      decoration: BoxDecoration(
-                                                        color: Theme.of(context)
-                                                            .primaryColor
-                                                            .withOpacity(0.1),
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                      child: Icon(
-                                                        Icons
-                                                            .cloud_upload_rounded,
-                                                        size: 36,
-                                                        color: Theme.of(context)
-                                                            .primaryColor,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 16),
-                                                    Text(
-                                                      'Drag & drop or click to upload',
-                                                      style: TextStyle(
-                                                        color: Theme.of(context)
-                                                            .primaryColor,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 8),
-                                                    Text(
-                                                      'JPG, PNG or GIF (Max 5MB)',
-                                                      style: TextStyle(
-                                                        color: Colors
-                                                            .grey.shade600,
-                                                        fontSize: 12,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
+                                      onPressed: () {
+                                        setState(() {
+                                          showPassword = !showPassword;
+                                        });
+                                      },
                                     ),
                                   ),
-                                ),
-                                if (_imageBase64 != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 12.0),
-                                    child: Text(
-                                      'Image selected: ${(_imageBytes!.lengthInBytes / 1024).toStringAsFixed(2)} KB',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade600,
-                                      ),
+
+                                  const SizedBox(height: 24),
+
+                                  // Store Information Section
+                                  Text(
+                                    'Store Information',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context).primaryColor,
                                     ),
                                   ),
-                                const SizedBox(height: 24),
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.blue.shade200,
-                                    ),
+                                  const SizedBox(height: 16),
+
+                                  CustomTextField(
+                                    label: "Enter store name",
+                                    title: "Store Name *",
+                                    icon: Icons.store,
+                                    controller:
+                                        storeController.storeNameController,
+                                    validator:
+                                        storeController.validateStoreName,
                                   ),
-                                  child: Row(
+
+                                  CustomTextField(
+                                    label: "Enter store address",
+                                    title: "Address *",
+                                    icon: Icons.location_on,
+                                    controller:
+                                        storeController.addressController,
+                                    validator: storeController.validateAddress,
+                                    maxLines: 3,
+                                  ),
+
+                                  CustomTextField(
+                                    label: "Enter store description (optional)",
+                                    title: "Description",
+                                    icon: Icons.description,
+                                    controller:
+                                        storeController.descriptionController,
+                                    maxLines: 3,
+                                  ),
+
+                                  Row(
                                     children: [
-                                      Icon(
-                                        Icons.info_outline,
-                                        color: Colors.blue.shade700,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
                                       Expanded(
-                                        child: Text(
-                                          'Adding a clear store image helps customers identify your store and improves the user experience.',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.blue.shade700,
-                                          ),
+                                        child: CustomTextField(
+                                          label: "Tap to select time",
+                                          title: "Open Time *",
+                                          icon: Icons.access_time,
+                                          controller: storeController
+                                              .openTimeController,
+                                          readOnly: true,
+                                          onTap: () => _selectTime(
+                                              context,
+                                              storeController
+                                                  .openTimeController),
+                                          validator: (value) => storeController
+                                              .validateCoordinate(
+                                                  value, 'Open time'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: CustomTextField(
+                                          label: "Tap to select time",
+                                          title: "Close Time *",
+                                          icon: Icons.access_time_filled,
+                                          controller: storeController
+                                              .closeTimeController,
+                                          readOnly: true,
+                                          onTap: () => _selectTime(
+                                              context,
+                                              storeController
+                                                  .closeTimeController),
+                                          validator: (value) => storeController
+                                              .validateCoordinate(
+                                                  value, 'Close time'),
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                              ],
+
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: CustomTextField(
+                                          label: "Enter latitude (-90 to 90)",
+                                          title: "Latitude *",
+                                          icon: Icons.gps_fixed,
+                                          keyboardType: const TextInputType
+                                              .numberWithOptions(decimal: true),
+                                          controller: storeController
+                                              .latitudeController,
+                                          validator: (value) => storeController
+                                              .validateCoordinate(
+                                                  value, 'Latitude'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: CustomTextField(
+                                          label:
+                                              "Enter longitude (-180 to 180)",
+                                          title: "Longitude *",
+                                          icon: Icons.gps_fixed,
+                                          keyboardType: const TextInputType
+                                              .numberWithOptions(decimal: true),
+                                          controller: storeController
+                                              .longitudeController,
+                                          validator: (value) => storeController
+                                              .validateCoordinate(
+                                                  value, 'Longitude'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 24),
+
+                                  Obx(() => Row(
+                                        children: [
+                                          Expanded(
+                                            child: ElevatedButton.icon(
+                                              onPressed: storeController
+                                                      .isFormLoading.value
+                                                  ? null
+                                                  : _saveStore,
+                                              icon: storeController
+                                                      .isFormLoading.value
+                                                  ? const SizedBox(
+                                                      width: 20,
+                                                      height: 20,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                        color: Colors.white,
+                                                        strokeWidth: 2,
+                                                      ))
+                                                  : const Icon(
+                                                      Icons.check_circle),
+                                              label: Text(storeController
+                                                      .isFormLoading.value
+                                                  ? 'Adding Store...'
+                                                  : 'Add Store'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    Theme.of(context)
+                                                        .primaryColor,
+                                                foregroundColor: Colors.white,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 16),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: OutlinedButton.icon(
+                                              onPressed: storeController
+                                                      .isFormLoading.value
+                                                  ? null
+                                                  : () {
+                                                      storeController
+                                                          .clearForm();
+                                                      setState(() {
+                                                        _imageBytes = null;
+                                                      });
+                                                    },
+                                              icon: const Icon(Icons.clear),
+                                              label: const Text('Clear Form'),
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor:
+                                                    Theme.of(context)
+                                                        .primaryColor,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 16),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      )),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 40),
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Store Image',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Upload a store image (Recommended: 400×300, Max: 5MB)',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  MouseRegion(
+                                    onEnter: (_) => setState(
+                                        () => _isHoveringUpload = true),
+                                    onExit: (_) => setState(
+                                        () => _isHoveringUpload = false),
+                                    child: GestureDetector(
+                                      onTap: _pickImage,
+                                      child: Container(
+                                        height: 280,
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: _isHoveringUpload
+                                              ? Colors.grey.shade100
+                                              : Colors.grey.shade50,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: _isHoveringUpload
+                                                ? Theme.of(context).primaryColor
+                                                : Colors.grey.shade300,
+                                            width: 2,
+                                            style: BorderStyle.dashed,
+                                          ),
+                                        ),
+                                        child: _imageBytes != null
+                                            ? Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10),
+                                                    child: Image.memory(
+                                                      _imageBytes!,
+                                                      fit: BoxFit.cover,
+                                                      width: double.infinity,
+                                                      height: double.infinity,
+                                                    ),
+                                                  ),
+                                                  Positioned(
+                                                    top: 8,
+                                                    right: 8,
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.red,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(20),
+                                                      ),
+                                                      child: IconButton(
+                                                        icon: const Icon(
+                                                          Icons.delete,
+                                                          color: Colors.white,
+                                                          size: 18,
+                                                        ),
+                                                        onPressed: _removeImage,
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .all(4),
+                                                        constraints:
+                                                            const BoxConstraints(),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Positioned(
+                                                    bottom: 0,
+                                                    left: 0,
+                                                    right: 0,
+                                                    child: Container(
+                                                      color: Colors.black
+                                                          .withOpacity(0.6),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                        vertical: 8,
+                                                        horizontal: 16,
+                                                      ),
+                                                      child: const Row(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          Icon(
+                                                            Icons.edit,
+                                                            color: Colors.white,
+                                                            size: 16,
+                                                          ),
+                                                          SizedBox(width: 8),
+                                                          Text(
+                                                            'Click to change image',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors.white,
+                                                              fontSize: 12,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            16),
+                                                    decoration: BoxDecoration(
+                                                      color: Theme.of(context)
+                                                          .primaryColor
+                                                          .withOpacity(0.1),
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: Icon(
+                                                      Icons
+                                                          .cloud_upload_rounded,
+                                                      size: 36,
+                                                      color: Theme.of(context)
+                                                          .primaryColor,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 16),
+                                                  Text(
+                                                    'Drag & drop or click to upload',
+                                                    style: TextStyle(
+                                                      color: Theme.of(context)
+                                                          .primaryColor,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    'JPG, PNG or GIF (Max 5MB)',
+                                                    style: TextStyle(
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (_imageBytes != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 12.0),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade50,
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          border: Border.all(
+                                              color: Colors.green.shade200),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: Colors.green.shade600,
+                                              size: 16,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'Image selected: ${(_imageBytes!.lengthInBytes / 1024).toStringAsFixed(2)} KB',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.green.shade700,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(height: 24),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: Colors.blue.shade200),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.info_outline,
+                                          color: Colors.blue.shade700,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Adding a clear store image helps customers identify your store and improves the user experience.',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.blue.shade700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -647,5 +703,11 @@ class _AddNewStoreScreenState extends State<AddNewStoreScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+// Don't dispose controllers here since they're managed by GetX
+    super.dispose();
   }
 }
