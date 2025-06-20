@@ -110,12 +110,9 @@ class ApiConstants {
   static const String messageKey = 'message';
   static const String dataKey = 'data';
   static const String errorsKey = 'errors';
-
-  // ✅ DEPRECATED: statusCode tidak digunakan di format backend yang sebenarnya
   static const String statusCodeKey = 'statusCode'; // Kept for compatibility
 
   // ✅ UPDATED: Pagination keys (sesuai format backend)
-  // Backend menggunakan snake_case atau camelCase?
   static const String totalItemsKey = 'totalItems';
   static const String totalPagesKey = 'totalPages';
   static const String currentPageKey = 'currentPage';
@@ -386,5 +383,74 @@ class ApiConstants {
 
     final dataMap = data as Map<String, dynamic>;
     return dataMap.containsKey('token') && dataMap.containsKey('user');
+  }
+
+  /// Format currency (Indonesian Rupiah)
+  static String formatCurrency(double amount) {
+    return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]}.',
+        )}';
+  }
+
+  /// Format date for display
+  static String formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  /// Format time for display
+  static String formatTime(DateTime date) {
+    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Format datetime for display
+  static String formatDateTime(DateTime date) {
+    return '${formatDate(date)} ${formatTime(date)}';
+  }
+
+  // Validation helpers
+  static bool isValidEmail(String email) {
+    return RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+        .hasMatch(email);
+  }
+
+  static bool isValidPhoneNumber(String phone) {
+    return RegExp(r'^\+?[1-9]\d{1,14}$').hasMatch(phone);
+  }
+
+  /// Get order status display text
+  static String getOrderStatusDisplayText(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return 'Pending';
+      case 'confirmed':
+        return 'Confirmed';
+      case 'preparing':
+        return 'Preparing';
+      case 'ready_for_pickup':
+        return 'Ready for Pickup';
+      case 'on_delivery':
+        return 'On Delivery';
+      case 'delivered':
+        return 'Delivered';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  /// Get driver status display text
+  static String getDriverStatusDisplayText(String status) {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return 'Active';
+      case 'inactive':
+        return 'Inactive';
+      case 'busy':
+        return 'Busy';
+      default:
+        return 'Unknown';
+    }
   }
 }

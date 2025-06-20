@@ -76,138 +76,155 @@ class CustomerService extends BaseService {
     String? imageBase64,
   ) async {
     try {
-      print('🔄 Creating customer with data:');
-      print('- Name: $name');
-      print('- Email: $email');
-      print('- Phone: $phone');
-      print('- Has image: ${imageBase64 != null}');
+      print('🔄 Creating customer: $name ($email)');
 
-      // Prepare data according to backend validation schema
-      final data = {
-        'name': name.trim(),
-        'email': email.trim(),
-        'phone': phone.trim(),
+      final requestData = {
+        'name': name,
+        'email': email,
+        'phone': phone,
         'password': password,
+        'role': 'customer',
+        if (imageBase64 != null && imageBase64.isNotEmpty) 'image': imageBase64,
       };
 
-      // Add image only if it exists and is properly formatted
-      if (imageBase64 != null && imageBase64.isNotEmpty) {
-        if (imageBase64.startsWith('data:image/')) {
-          data['image'] = imageBase64;
-          print('✅ Image included in request (${imageBase64.length} chars)');
-        } else {
-          print('⚠️ Image format invalid, skipping image upload');
-        }
-      }
-
-      print('📤 Sending create customer request...');
+      print('📤 Request data: ${requestData.keys.toList()}');
 
       final response = await BaseService.post(
         ApiConstants.customers,
-        data: data,
+        data: requestData,
       );
 
-      print('📥 Create customer response received');
-      print('Response keys: ${response.keys}');
+      print('📥 Raw response: $response');
 
-      if (response['statusCode'] == 201 || response['statusCode'] == 200) {
+      // ✅ FIX: Backend mengembalikan format { "message": "...", "data": {...} }
+      if (response.containsKey('message') && response.containsKey('data')) {
         print('✅ Customer created successfully');
         return response;
       } else {
-        print('❌ Unexpected response: ${response['statusCode']}');
+        print('❌ Invalid response format');
         return null;
       }
     } catch (e) {
       print('❌ Error creating customer: $e');
-
-      // More specific error handling
-      if (e.toString().contains('409') || e.toString().contains('Conflict')) {
-        throw Exception('Email already exists. Please use a different email.');
-      } else if (e.toString().contains('400') ||
-          e.toString().contains('validation')) {
-        throw Exception('Invalid data provided. Please check all fields.');
-      } else if (e.toString().contains('401')) {
-        throw Exception('Authentication required. Please login again.');
-      } else if (e.toString().contains('403')) {
-        throw Exception('Access denied. Admin privileges required.');
-      }
-
-      throw Exception('Failed to create customer: ${e.toString()}');
+      throw Exception('Failed to create customer: $e');
     }
   }
 
   /// Update customer (Admin only)
   /// Fixed to match backend expectation
+  // static Future<Map<String, dynamic>?> updateCustomer(
+  //   String id,
+  //   String name,
+  //   String email,
+  //   String phone,
+  //   String? currentPassword, // Not used in update, but kept for compatibility
+  //   String? newPassword, // Not used in update, but kept for compatibility
+  //   String? imageBase64,
+  // )
+  // async {
+  //   try {
+  //     print('🔄 Updating customer with ID: $id');
+  //     print('- Name: $name');
+  //     print('- Email: $email');
+  //     print('- Phone: $phone');
+  //     print('- Has image: ${imageBase64 != null}');
+  //
+  //     final endpoint = BaseService.buildUrlWithParams(
+  //       ApiConstants.customerById,
+  //       {'id': id},
+  //     );
+  //
+  //     // Prepare data according to backend validation schema
+  //     final data = {
+  //       'name': name.trim(),
+  //       'email': email.trim(),
+  //       'phone': phone.trim(),
+  //     };
+  //
+  //     // Add image only if it exists and is properly formatted
+  //     if (imageBase64 != null && imageBase64.isNotEmpty) {
+  //       if (imageBase64.startsWith('data:image/')) {
+  //         data['image'] = imageBase64;
+  //         print('✅ Image included in update request');
+  //       } else {
+  //         print('⚠️ Image format invalid, skipping image update');
+  //       }
+  //     }
+  //
+  //     print('📤 Sending update customer request...');
+  //
+  //     final response = await BaseService.put(endpoint, data: data);
+  //
+  //     print('📥 Update customer response received');
+  //
+  //     if (response['statusCode'] == 200) {
+  //       print('✅ Customer updated successfully');
+  //       return response;
+  //     } else {
+  //       print('❌ Unexpected response: ${response['statusCode']}');
+  //       return null;
+  //     }
+  //   } catch (e) {
+  //     print('❌ Error updating customer: $e');
+  //
+  //     // More specific error handling
+  //     if (e.toString().contains('404')) {
+  //       throw Exception('Customer not found.');
+  //     } else if (e.toString().contains('409') ||
+  //         e.toString().contains('Conflict')) {
+  //       throw Exception('Email already exists. Please use a different email.');
+  //     } else if (e.toString().contains('400') ||
+  //         e.toString().contains('validation')) {
+  //       throw Exception('Invalid data provided. Please check all fields.');
+  //     } else if (e.toString().contains('401')) {
+  //       throw Exception('Authentication required. Please login again.');
+  //     } else if (e.toString().contains('403')) {
+  //       throw Exception('Access denied. Admin privileges required.');
+  //     }
+  //
+  //     throw Exception('Failed to update customer: ${e.toString()}');
+  //   }
+  // }
   static Future<Map<String, dynamic>?> updateCustomer(
     String id,
     String name,
     String email,
     String phone,
-    String? currentPassword, // Not used in update, but kept for compatibility
-    String? newPassword, // Not used in update, but kept for compatibility
+    String? address,
+    String? role,
     String? imageBase64,
   ) async {
     try {
-      print('🔄 Updating customer with ID: $id');
-      print('- Name: $name');
-      print('- Email: $email');
-      print('- Phone: $phone');
-      print('- Has image: ${imageBase64 != null}');
+      print('🔄 Updating customer: $id');
 
-      final endpoint = BaseService.buildUrlWithParams(
-        ApiConstants.customerById,
-        {'id': id},
-      );
-
-      // Prepare data according to backend validation schema
-      final data = {
-        'name': name.trim(),
-        'email': email.trim(),
-        'phone': phone.trim(),
+      final requestData = {
+        'name': name,
+        'email': email,
+        'phone': phone,
+        if (address != null) 'address': address,
+        if (imageBase64 != null && imageBase64.isNotEmpty) 'image': imageBase64,
       };
 
-      // Add image only if it exists and is properly formatted
-      if (imageBase64 != null && imageBase64.isNotEmpty) {
-        if (imageBase64.startsWith('data:image/')) {
-          data['image'] = imageBase64;
-          print('✅ Image included in update request');
-        } else {
-          print('⚠️ Image format invalid, skipping image update');
-        }
-      }
+      print('📤 Update request data: ${requestData.keys.toList()}');
 
-      print('📤 Sending update customer request...');
+      final response = await BaseService.put(
+        '${ApiConstants.customers}/$id',
+        data: requestData,
+      );
 
-      final response = await BaseService.put(endpoint, data: data);
+      print('📥 Raw update response: $response');
 
-      print('📥 Update customer response received');
-
-      if (response['statusCode'] == 200) {
+      // ✅ FIX: Backend mengembalikan format { "message": "...", "data": {...} }
+      if (response.containsKey('message') && response.containsKey('data')) {
         print('✅ Customer updated successfully');
         return response;
       } else {
-        print('❌ Unexpected response: ${response['statusCode']}');
+        print('❌ Invalid response format');
         return null;
       }
     } catch (e) {
       print('❌ Error updating customer: $e');
-
-      // More specific error handling
-      if (e.toString().contains('404')) {
-        throw Exception('Customer not found.');
-      } else if (e.toString().contains('409') ||
-          e.toString().contains('Conflict')) {
-        throw Exception('Email already exists. Please use a different email.');
-      } else if (e.toString().contains('400') ||
-          e.toString().contains('validation')) {
-        throw Exception('Invalid data provided. Please check all fields.');
-      } else if (e.toString().contains('401')) {
-        throw Exception('Authentication required. Please login again.');
-      } else if (e.toString().contains('403')) {
-        throw Exception('Access denied. Admin privileges required.');
-      }
-
-      throw Exception('Failed to update customer: ${e.toString()}');
+      throw Exception('Failed to update customer: $e');
     }
   }
 

@@ -289,10 +289,18 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
         _imageBase64,
       );
 
-      if (response != null) {
-        print('✅ Customer updated successfully');
+      print('📥 Update customer response: $response'); // ✅ ADD: Debug log
+
+      // ✅ FIX: Check response format sesuai backend
+      if (response != null &&
+          response.containsKey('message') &&
+          response.containsKey('data')) {
+        final message = response['message'] as String;
+        print('✅ Customer updated successfully: $message');
+
         _showSuccessDialog();
       } else {
+        print('❌ Invalid response: $response');
         _showErrorSnackBar('Failed to update customer. Please try again.');
       }
     } catch (e) {

@@ -174,23 +174,13 @@ App Configuration:
     return features;
   }
 
-  // Validation helpers
-  static bool isValidEmail(String email) {
-    return RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
-        .hasMatch(email);
+  static bool isValidName(String name) {
+    return name.length >= minNameLength && name.length <= maxNameLength;
   }
 
   static bool isValidPassword(String password) {
     return password.length >= minPasswordLength &&
         password.length <= maxPasswordLength;
-  }
-
-  static bool isValidName(String name) {
-    return name.length >= minNameLength && name.length <= maxNameLength;
-  }
-
-  static bool isValidPhoneNumber(String phone) {
-    return RegExp(r'^\+?[1-9]\d{1,14}$').hasMatch(phone);
   }
 
   // Environment-specific configurations

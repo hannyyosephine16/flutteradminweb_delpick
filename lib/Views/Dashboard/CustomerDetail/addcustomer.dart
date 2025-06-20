@@ -219,11 +219,19 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
         _imageBase64,
       );
 
-      if (response != null) {
-        print('✅ Customer created successfully');
+      print('📥 Create customer response: $response'); // ✅ ADD: Debug log
+
+      // ✅ FIX: Check response format sesuai backend
+      if (response != null &&
+          response.containsKey('message') &&
+          response.containsKey('data')) {
+        final message = response['message'] as String;
+        print('✅ Customer created successfully: $message');
+
         _showSuccessDialog();
         _resetForm();
       } else {
+        print('❌ Invalid response: $response');
         _showErrorSnackBar('Failed to create customer. Please try again.');
       }
     } catch (e) {
