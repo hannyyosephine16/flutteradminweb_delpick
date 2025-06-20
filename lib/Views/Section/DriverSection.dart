@@ -25,6 +25,10 @@ class DriverSectionState extends State<DriverSection> {
   String _searchQuery = '';
   bool _isSearchActive = false;
 
+  // ✅ ADD: Status filter
+  String _selectedStatusFilter = 'all';
+  final List<String> _statusOptions = ['all', 'active', 'inactive', 'busy'];
+
   @override
   void initState() {
     super.initState();
@@ -68,23 +72,17 @@ class DriverSectionState extends State<DriverSection> {
 
       print('📡 Response received: ${response.keys.toList()}');
 
-      // ✅ FIXED: Handle backend response format properly
-      // Backend format: { "message": "...", "data": [...], "totalItems": 10, ... }
-
       List<dynamic> driversData = [];
 
       if (response.containsKey('data') && response['data'] != null) {
         final data = response['data'];
 
         if (data is List) {
-          // Direct array in data field
           driversData = data;
         } else if (data is Map<String, dynamic>) {
-          // Check for nested structure
           if (data.containsKey('drivers') && data['drivers'] is List) {
             driversData = data['drivers'];
           } else {
-            // Handle case where data is wrapped
             driversData = [data];
           }
         }
@@ -92,7 +90,6 @@ class DriverSectionState extends State<DriverSection> {
 
       print('📊 Found ${driversData.length} drivers in response');
 
-      // ✅ FIXED: Map backend data to frontend format with safe parsing
       setState(() {
         _allDrivers = driversData.map((driver) {
           if (driver is! Map<String, dynamic>) {
@@ -103,7 +100,6 @@ class DriverSectionState extends State<DriverSection> {
           final driverMap = Map<String, dynamic>.from(driver);
           final userData = driverMap['user'] as Map<String, dynamic>? ?? {};
 
-          // ✅ FIXED: Safe mapping with proper type conversion
           return {
             'id': (driverMap['id'] ?? 0).toString(),
             'username': userData['name'] ?? 'Unknown Driver',
@@ -112,8 +108,7 @@ class DriverSectionState extends State<DriverSection> {
             'license_number': driverMap['license_number'] ?? 'N/A',
             'vehicle_plate': driverMap['vehicle_plate'] ?? 'N/A',
             'status': driverMap['status'] ?? 'inactive',
-            'rating':
-                _parseDoubleValue(driverMap['rating']), // ✅ FIXED: Safe parsing
+            'rating': _parseDoubleValue(driverMap['rating']),
             'reviews_count': (driverMap['reviews_count'] ?? 0) is int
                 ? driverMap['reviews_count']
                 : int.tryParse(driverMap['reviews_count'].toString()) ?? 0,
@@ -125,13 +120,11 @@ class DriverSectionState extends State<DriverSection> {
                 : null,
             'created_at': driverMap['created_at'],
             'updated_at': driverMap['updated_at'],
-            // Keep original data for editing
             'driverData': driverMap,
             'userData': userData,
           };
         }).toList();
 
-        // ✅ FIXED: Handle pagination properly
         _totalItems = (response['totalItems'] as num?)?.toInt() ??
             (response['total_items'] as num?)?.toInt() ??
             driversData.length;
@@ -158,25 +151,34 @@ class DriverSectionState extends State<DriverSection> {
   }
 
   List<Map<String, dynamic>> get _filteredDrivers {
-    if (_searchQuery.isEmpty) {
-      return _allDrivers;
-    }
+    var filtered = _allDrivers.where((driver) {
+      // Status filter
+      if (_selectedStatusFilter != 'all' &&
+          driver["status"] != _selectedStatusFilter) {
+        return false;
+      }
 
-    return _allDrivers.where((driver) {
-      final id = driver["id"]?.toString().toLowerCase() ?? '';
-      final username = driver["username"]?.toString().toLowerCase() ?? '';
-      final email = driver["email"]?.toString().toLowerCase() ?? '';
-      final phone = driver["phone"]?.toString().toLowerCase() ?? '';
-      final licensePlate =
-          driver["vehicle_plate"]?.toString().toLowerCase() ?? '';
-      final query = _searchQuery.toLowerCase();
+      // Search filter
+      if (_searchQuery.isNotEmpty) {
+        final id = driver["id"]?.toString().toLowerCase() ?? '';
+        final username = driver["username"]?.toString().toLowerCase() ?? '';
+        final email = driver["email"]?.toString().toLowerCase() ?? '';
+        final phone = driver["phone"]?.toString().toLowerCase() ?? '';
+        final licensePlate =
+            driver["vehicle_plate"]?.toString().toLowerCase() ?? '';
+        final query = _searchQuery.toLowerCase();
 
-      return id.contains(query) ||
-          username.contains(query) ||
-          email.contains(query) ||
-          phone.contains(query) ||
-          licensePlate.contains(query);
+        return id.contains(query) ||
+            username.contains(query) ||
+            email.contains(query) ||
+            phone.contains(query) ||
+            licensePlate.contains(query);
+      }
+
+      return true;
     }).toList();
+
+    return filtered;
   }
 
   Future<void> _deleteDriver(String id) async {
@@ -193,20 +195,18 @@ class DriverSectionState extends State<DriverSection> {
     }
   }
 
-  // ✅ NEW: Get status color based on backend status
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'active':
-        return const Color(0xFF4CAF50); // Green
+        return const Color(0xFF4CAF50);
       case 'busy':
-        return const Color(0xFFFF9800); // Orange
+        return const Color(0xFFFF9800);
       case 'inactive':
       default:
-        return const Color(0xFF757575); // Grey
+        return const Color(0xFF757575);
     }
   }
 
-  // ✅ NEW: Get status display text
   String _getStatusDisplay(String status) {
     switch (status.toLowerCase()) {
       case 'active':
@@ -281,14 +281,12 @@ class DriverSectionState extends State<DriverSection> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header with statistics and search
+                    // ✅ UPDATED: Header with new card format
                     _buildHeader(),
                     const SizedBox(height: 16),
 
-                    // Error message if any
                     if (_hasError) _buildErrorMessage(),
 
-                    // Loading indicator
                     if (_isLoading)
                       const Expanded(
                         child: Center(
@@ -296,14 +294,14 @@ class DriverSectionState extends State<DriverSection> {
                         ),
                       )
                     else
-                      // Table Section
+                      // ✅ UPDATED: Expanded table to be taller
                       Expanded(
+                        flex: 3, // ✅ Make table much taller
                         child: isSmallScreen ? _buildListView() : _buildTable(),
                       ),
 
                     const SizedBox(height: 16),
 
-                    // Pagination
                     if (!_isLoading) _buildPagination(),
                   ],
                 ),
@@ -315,13 +313,10 @@ class DriverSectionState extends State<DriverSection> {
     );
   }
 
-  // ✅ NEW: Enhanced header with statistics
+  // ✅ UPDATED: New header format like in the image
   Widget _buildHeader() {
-    final activeDrivers =
-        _allDrivers.where((d) => d['status'] == 'active').length;
-    final busyDrivers = _allDrivers.where((d) => d['status'] == 'busy').length;
-    final inactiveDrivers =
-        _allDrivers.where((d) => d['status'] == 'inactive').length;
+    final filteredDrivers = _filteredDrivers;
+    final showingCount = filteredDrivers.length;
 
     return Column(
       children: [
@@ -329,7 +324,7 @@ class DriverSectionState extends State<DriverSection> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              "Driver List",
+              "Driver Management",
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -341,53 +336,188 @@ class DriverSectionState extends State<DriverSection> {
         ),
         const SizedBox(height: 16),
 
-        // Statistics cards
+        // ✅ NEW: Stats panel like in the image
         Row(
           children: [
+            // Total card
             Expanded(
-                child: _buildStatCard(
-                    'Total', _totalItems.toString(), Colors.blue)),
-            const SizedBox(width: 12),
+              child: _buildInfoCard(
+                icon: Icons.people,
+                label: 'Total',
+                value: _totalItems.toString(),
+                color: const Color(0xFF1976D2),
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // Showing card
             Expanded(
-                child: _buildStatCard(
-                    'Active', activeDrivers.toString(), Colors.green)),
-            const SizedBox(width: 12),
+              child: _buildInfoCard(
+                icon: Icons.visibility,
+                label: 'Showing',
+                value: showingCount.toString(),
+                color: const Color(0xFF388E3C),
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // Page card
             Expanded(
-                child: _buildStatCard(
-                    'Busy', busyDrivers.toString(), Colors.orange)),
-            const SizedBox(width: 12),
+              child: _buildInfoCard(
+                icon: Icons.view_agenda,
+                label: 'Page',
+                value: '$_currentPage/$_totalPages',
+                color: const Color(0xFFF57C00),
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // ✅ FIXED: Status filter dropdown
             Expanded(
-                child: _buildStatCard(
-                    'Inactive', inactiveDrivers.toString(), Colors.grey)),
+              child: _buildStatusFilter(),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color) {
+// ✅ NEW: Info card widget like in the image - SMALLER HEIGHT
+  Widget _buildInfoCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12), // ✅ REDUCED from 16 to 12
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Column(
+      child: Row(
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+          Container(
+            padding: const EdgeInsets.all(6), // ✅ REDUCED from 8 to 6
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              icon,
               color: color,
+              size: 18, // ✅ REDUCED from 20 to 18
             ),
           ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: color.withOpacity(0.8),
+          const SizedBox(width: 10), // ✅ REDUCED from 12 to 10
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, // ✅ ADDED to minimize height
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11, // ✅ REDUCED from 12 to 11
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 1), // ✅ REDUCED from 2 to 1
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16, // ✅ REDUCED from 18 to 16
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+// ✅ FIXED: Status filter dropdown - SMALLER HEIGHT
+  Widget _buildStatusFilter() {
+    return Container(
+      padding: const EdgeInsets.all(12), // ✅ REDUCED from 16 to 12
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6), // ✅ REDUCED from 8 to 6
+            decoration: BoxDecoration(
+              color: const Color(0xFF9C27B0).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(
+              Icons.filter_list,
+              color: Color(0xFF9C27B0),
+              size: 18, // ✅ REDUCED from 20 to 18
+            ),
+          ),
+          const SizedBox(width: 10), // ✅ REDUCED from 12 to 10
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, // ✅ ADDED to minimize height
+              children: [
+                Text(
+                  'Filter',
+                  style: TextStyle(
+                    fontSize: 11, // ✅ REDUCED from 12 to 11
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 1), // ✅ REDUCED from 2 to 1
+                DropdownButton<String>(
+                  value: _selectedStatusFilter,
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  isDense: true, // ✅ ADDED to reduce height
+                  style: const TextStyle(
+                    fontSize: 14, // ✅ REDUCED from 16 to 14
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF9C27B0),
+                  ),
+                  items: _statusOptions.map((String status) {
+                    return DropdownMenuItem<String>(
+                      value: status,
+                      child: Text(status.toUpperCase()),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedStatusFilter = newValue;
+                      });
+                    }
+                  },
+                ),
+              ],
             ),
           ),
         ],
@@ -473,7 +603,6 @@ class DriverSectionState extends State<DriverSection> {
     );
   }
 
-  // ✅ FIXED: Enhanced table with all backend fields
   Widget _buildTable() {
     final displayedDrivers = _filteredDrivers;
 
@@ -484,7 +613,6 @@ class DriverSectionState extends State<DriverSection> {
       ),
       child: Column(
         children: [
-          // Header Row
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -513,8 +641,6 @@ class DriverSectionState extends State<DriverSection> {
               ),
             ),
           ),
-
-          // No results message
           if (displayedDrivers.isEmpty)
             Container(
               padding: const EdgeInsets.all(24),
@@ -524,8 +650,6 @@ class DriverSectionState extends State<DriverSection> {
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
             ),
-
-          // Table Body
           if (displayedDrivers.isNotEmpty)
             Expanded(
               child: ListView.builder(
@@ -602,7 +726,6 @@ class DriverSectionState extends State<DriverSection> {
     );
   }
 
-  // ✅ NEW: Enhanced status cell with proper colors
   Widget _buildStatusCell(String status, double flex) {
     return Expanded(
       flex: (flex * 10).toInt(),
@@ -665,7 +788,6 @@ class DriverSectionState extends State<DriverSection> {
     );
   }
 
-  // ✅ FIXED: Enhanced mobile list view
   Widget _buildListView() {
     final displayedDrivers = _filteredDrivers;
 
@@ -703,8 +825,6 @@ class DriverSectionState extends State<DriverSection> {
                 _listTile("Vehicle", driver["vehicle_plate"] ?? "N/A"),
                 _listTile("Rating",
                     "⭐ ${_parseDoubleValue(driver["rating"]).toStringAsFixed(1)}"),
-
-                // Status with proper styling
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Row(
@@ -738,10 +858,7 @@ class DriverSectionState extends State<DriverSection> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // Action buttons
                 Row(
                   children: [
                     Expanded(
@@ -862,7 +979,6 @@ class DriverSectionState extends State<DriverSection> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Info text
           Text(
             'Showing ${(_currentPage - 1) * _rowsPerPage + 1} - ${(_currentPage * _rowsPerPage).clamp(0, _totalItems)} of $_totalItems drivers',
             style: TextStyle(
@@ -870,8 +986,6 @@ class DriverSectionState extends State<DriverSection> {
               color: Colors.grey.shade600,
             ),
           ),
-
-          // Pagination controls
           Row(
             children: [
               IconButton(
