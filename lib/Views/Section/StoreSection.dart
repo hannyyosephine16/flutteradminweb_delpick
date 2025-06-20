@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:delpick_admin/Views/Dashboard/StoreDetail/EditStore.dart';
 import 'package:delpick_admin/Views/Dashboard/StoreDetail/addstore.dart';
+import '../../UserControls/StoreController.dart';
+import '../../Models/StoreModel.dart';
 
 class StoreSection extends StatefulWidget {
   const StoreSection({Key? key}) : super(key: key);
@@ -10,38 +13,13 @@ class StoreSection extends StatefulWidget {
 }
 
 class StoreSectionState extends State<StoreSection> {
-  int _currentPage = 0;
-  final int _rowsPerPage = 5;
-
+  late final StoreController _storeController;
   final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-  bool _isSearchActive = false;
 
-  // Dummy data
-  final List<Map<String, dynamic>> _allStores = [
-    {"id": "1", "username": "John", "email": "john@gmail.com", "phone": "0821345678"},
-    {"id": "2", "username": "Rifqi", "email": "rifqi@gmail.com", "phone": "0821345678"},
-    {"id": "3", "username": "Yefta", "email": "yefta@gmail.com", "phone": "0821345678"},
-    {"id": "4", "username": "Haikal", "email": "haikal@gmail.com", "phone": "0821345678"},
-    {"id": "5", "username": "Miranda", "email": "Miranda@gmail.com", "phone": "0821345678"},
-    {"id": "6", "username": "Chairiansyah", "email": "chairiansyah@gmail.com", "phone": "0821345678"},
-    {"id": "7", "username": "Michael", "email": "michael@gmail.com", "phone": "0821345678"},
-    {"id": "8", "username": "Sarah", "email": "sarah@gmail.com", "phone": "0821345678"},
-    {"id": "9", "username": "David", "email": "david@gmail.com", "phone": "0821345678"},
-    {"id": "10", "username": "Amanda", "email": "amanda@gmail.com", "phone": "0821345678"},
-  ];
-
-  List<Map<String, dynamic>> get _filteredStores {
-    if (_searchQuery.isEmpty) {
-      return _allStores;
-    }
-
-    return _allStores.where((store) {
-      return store["id"].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          store["username"].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          store["email"].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          store["phone"].toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
+  @override
+  void initState() {
+    super.initState();
+    _storeController = Get.put(StoreController());
   }
 
   @override
@@ -84,235 +62,345 @@ class StoreSectionState extends State<StoreSection> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: LayoutBuilder(
-            builder: (context, constraints) {
-              final bool isSmallScreen = constraints.maxWidth < 800;
+        child: LayoutBuilder(builder: (context, constraints) {
+          final bool isSmallScreen = constraints.maxWidth < 800;
 
-              return Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+          return Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header with title and search button/field
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            "Store Management",
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1A3B89), // Darker blue for title
-                            ),
-                          ),
-                          _isSearchActive
-                              ? _buildSearchField()
-                              : IconButton(
-                            icon: const Icon(Icons.search, color: Color(0xFF1A3B89)),
-                            onPressed: () {
-                              setState(() {
-                                _isSearchActive = true;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with title and stats
+                  _buildHeader(),
+                  const SizedBox(height: 16),
 
-                      // Table Section
-                      Expanded(
-                        child: isSmallScreen
-                            ? _buildListView()
-                            : _buildTable(),
-                      ),
+                  // Search and filter section
+                  _buildSearchAndFilter(),
+                  const SizedBox(height: 16),
 
-                      const SizedBox(height: 16),
+                  // Table/List Section
+                  Expanded(
+                    child: Obx(() {
+                      if (_storeController.isLoading.value &&
+                          _storeController.stores.isEmpty) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                      // Pagination
-                      _buildPagination(),
-                    ],
+                      if (_storeController.hasError.value) {
+                        return _buildErrorState();
+                      }
+
+                      return isSmallScreen ? _buildListView() : _buildTable();
+                    }),
                   ),
-                ),
-              );
-            }
-        ),
+
+                  const SizedBox(height: 16),
+
+                  // Pagination
+                  Obx(() => _buildPagination()),
+                ],
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
 
-  Widget _buildSearchField() {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.only(left: 16.0),
-        child: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: 'Search stores...',
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () {
-                setState(() {
-                  _searchController.clear();
-                  _searchQuery = '';
-                  _isSearchActive = false;
-                });
-              },
+  Widget _buildHeader() {
+    return Obx(() => Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Store Management",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A3B89),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Total: ${_storeController.totalStoresCount} stores",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.0),
-              borderSide: BorderSide(color: Colors.grey.shade300),
+            Row(
+              children: [
+                _buildStatCard(
+                    "Active", _storeController.activeStoresCount, Colors.green),
+                const SizedBox(width: 12),
+                _buildStatCard("Inactive", _storeController.inactiveStoresCount,
+                    Colors.orange),
+                const SizedBox(width: 12),
+                _buildStatCard("Avg Rating",
+                    _storeController.averageRatingDisplay, Colors.blue),
+              ],
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.0),
-              borderSide: const BorderSide(color: Color(0xFF1A3B89), width: 2.0),
+          ],
+        ));
+  }
+
+  Widget _buildStatCard(String label, dynamic value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value.toString(),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
             ),
           ),
-          onChanged: (value) {
-            setState(() {
-              _searchQuery = value;
-              _currentPage = 0; // Reset to first page when searching
-            });
-          },
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: color.withOpacity(0.8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchAndFilter() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search stores by name, address, or owner...',
+              prefixIcon: const Icon(Icons.search, color: Color(0xFF1A3B89)),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        _storeController.searchStores('');
+                      },
+                    )
+                  : null,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8.0),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8.0),
+                borderSide:
+                    const BorderSide(color: Color(0xFF1A3B89), width: 2.0),
+              ),
+            ),
+            onChanged: (value) {
+              _storeController.searchStores(value);
+            },
+          ),
         ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 1,
+          child: Obx(() => DropdownButtonFormField<String>(
+                value: _storeController.selectedStatusFilter.value,
+                decoration: InputDecoration(
+                  labelText: 'Filter by Status',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                ),
+                items: _storeController.filterOptions.map((String status) {
+                  return DropdownMenuItem<String>(
+                    value: status,
+                    child: Text(status.toUpperCase()),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    _storeController.filterStoresByStatus(newValue);
+                  }
+                },
+              )),
+        ),
+        const SizedBox(width: 16),
+        ElevatedButton.icon(
+          onPressed: () => _storeController.refreshStores(),
+          icon: Obx(() => _storeController.isLoading.value
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh)),
+          label: const Text('Refresh'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1A3B89),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 64,
+            color: Colors.red.shade300,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Error loading stores',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.red.shade700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Obx(() => Text(
+                _storeController.errorMessage.value,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+              )),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => _storeController.refreshStores(),
+            child: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTable() {
-    final startIndex = _currentPage * _rowsPerPage;
-    final endIndex = (startIndex + _rowsPerPage) < _filteredStores.length
-        ? startIndex + _rowsPerPage
-        : _filteredStores.length;
-    final displayedStores = _filteredStores.sublist(
-        startIndex,
-        endIndex
-    );
+    return Obx(() {
+      final stores = _storeController.filteredStores;
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        children: [
-          // Header Row with gradient
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF1A3B89), Color(0xFF2A5CAA)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(8),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10.0),
-              child: Row(
-                children: [
-                  _tableHeaderCell("Store ID", 1.5),
-                  _tableHeaderCell("Store Name", 2),
-                  _tableHeaderCell("Address", 2),
-                  _tableHeaderCell("Rating", 1),
-                  _tableHeaderCell("Gambar Toko", 3),
-                  _tableHeaderCell("Email", 3),
-                  _tableHeaderCell("Phone Number", 2),
-                  _tableHeaderCell("Actions", 1.5),
-                ],
-              ),
-            ),
-          ),
+      if (stores.isEmpty) {
+        return _buildEmptyState();
+      }
 
-          // No results message
-          if (displayedStores.isEmpty)
+      return Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          children: [
+            // Header Row with gradient
             Container(
-              padding: const EdgeInsets.all(24),
-              alignment: Alignment.center,
-              child: const Text(
-                "No stores found matching your search",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF1A3B89), Color(0xFF2A5CAA)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  topRight: Radius.circular(8),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                child: Row(
+                  children: [
+                    _tableHeaderCell("Store ID", 1),
+                    _tableHeaderCell("Store Name", 2),
+                    _tableHeaderCell("Owner", 2),
+                    _tableHeaderCell("Address", 2.5),
+                    _tableHeaderCell("Phone", 1.5),
+                    _tableHeaderCell("Status", 1),
+                    _tableHeaderCell("Rating", 1),
+                    _tableHeaderCell("Actions", 1.5),
+                  ],
                 ),
               ),
             ),
 
-          // Table Body
-          if (displayedStores.isNotEmpty)
+            // Table Body
             Expanded(
               child: ListView.builder(
-                itemCount: displayedStores.length,
+                itemCount: stores.length,
                 itemBuilder: (context, index) {
-                  final store = displayedStores[index];
+                  final store = stores[index];
                   return Container(
                     decoration: BoxDecoration(
-                      color: index % 2 == 0 ? Colors.grey.shade50 : Colors.white,
+                      color:
+                          index % 2 == 0 ? Colors.grey.shade50 : Colors.white,
                       border: Border(
                         bottom: BorderSide(color: Colors.grey.shade200),
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        _tableCell(store["id"], 1.5),
-                        _tableCell(store["username"], 2),
-                        _tableCell(store["email"], 3),
-                        _tableCell(store["phone"], 2),
-                        Expanded(
-                          flex: 15,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit, color: Color(0xFF1A3B89)),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (context) => EditStoreScreen()
-                                      ),
-                                    );
-                                  },
-                                  tooltip: "Edit",
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () {
-                                    // Show delete confirmation dialog
-                                    _showDeleteConfirmationDialog(store["username"]);
-                                  },
-                                  tooltip: "Delete",
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      child: Row(
+                        children: [
+                          _tableCell(store.id.toString(), 1),
+                          _tableCell(store.name, 2),
+                          _tableCell(store.ownerName, 2),
+                          _tableCell(store.address, 2.5, isAddress: true),
+                          _tableCell(store.phone, 1.5),
+                          _tableStatusCell(store.status, 1),
+                          _tableCell(store.ratingDisplay, 1),
+                          _tableActionCell(store, 1.5),
+                        ],
+                      ),
                     ),
                   );
                 },
               ),
             ),
-        ],
-      ),
-    );
+
+            // Loading more indicator
+            if (_storeController.isLoadingMore.value)
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: const CircularProgressIndicator(),
+              ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _tableHeaderCell(String text, double flex) {
@@ -324,7 +412,7 @@ class StoreSectionState extends State<StoreSection> {
           text,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
@@ -333,16 +421,18 @@ class StoreSectionState extends State<StoreSection> {
     );
   }
 
-  Widget _tableCell(String text, double flex) {
+  Widget _tableCell(String text, double flex, {bool isAddress = false}) {
     return Expanded(
       flex: (flex * 10).toInt(),
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
         child: Text(
           text,
           textAlign: TextAlign.center,
+          maxLines: isAddress ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 13,
+            fontSize: 12,
             color: Colors.black87,
           ),
         ),
@@ -350,101 +440,219 @@ class StoreSectionState extends State<StoreSection> {
     );
   }
 
-  Widget _buildListView() {
-    final startIndex = _currentPage * _rowsPerPage;
-    final endIndex = (startIndex + _rowsPerPage) < _filteredStores.length
-        ? startIndex + _rowsPerPage
-        : _filteredStores.length;
-    final displayedStores = _filteredStores.sublist(
-        startIndex,
-        endIndex
-    );
-
-    if (displayedStores.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        alignment: Alignment.center,
-        child: const Text(
-          "No stores found matching your search",
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey,
-          ),
-        ),
-      );
+  Widget _tableStatusCell(String status, double flex) {
+    Color statusColor;
+    switch (status.toLowerCase()) {
+      case 'active':
+        statusColor = Colors.green;
+        break;
+      case 'inactive':
+        statusColor = Colors.orange;
+        break;
+      case 'closed':
+        statusColor = Colors.red;
+        break;
+      default:
+        statusColor = Colors.grey;
     }
 
-    return ListView.builder(
-      itemCount: displayedStores.length,
-      itemBuilder: (context, index) {
-        final store = displayedStores[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: BorderSide(color: Colors.grey.shade200),
+    return Expanded(
+      flex: (flex * 10).toInt(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: statusColor.withOpacity(0.3)),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              children: [
-                _listTile("Store ID", store["id"]),
-                _listTile("Store Name", store["storeName"]),
-                _listTile("Address", store["address"]),
-                _listTile("Rating", store["rating"]),
-                _listTile("Gambar Toko", store["image"]),
-                _listTile("Email", store["email"]),
-                _listTile("Phone", store["phone"]),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => EditStoreScreen()
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.edit, size: 16),
-                        label: const Text("Edit"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A3B89),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          _showDeleteConfirmationDialog(store["username"]);
-                        },
-                        icon: const Icon(Icons.delete, size: 16),
-                        label: const Text("Delete"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          child: Text(
+            status.toUpperCase(),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: statusColor,
             ),
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  Widget _tableActionCell(StoreModel store, double flex) {
+    return Expanded(
+      flex: (flex * 10).toInt(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit, color: Color(0xFF1A3B89), size: 18),
+              onPressed: () {
+                _storeController.setEditMode(store);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => EditStoreScreen()),
+                );
+              },
+              tooltip: "Edit Store",
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+              onPressed: () {
+                _showDeleteConfirmationDialog(store);
+              },
+              tooltip: "Delete Store",
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildListView() {
+    return Obx(() {
+      final stores = _storeController.filteredStores;
+
+      if (stores.isEmpty) {
+        return _buildEmptyState();
+      }
+
+      return ListView.builder(
+        itemCount:
+            stores.length + (_storeController.isLoadingMore.value ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == stores.length) {
+            return Container(
+              padding: const EdgeInsets.all(16),
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final store = stores[index];
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: Colors.grey.shade200),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          store.name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1A3B89),
+                          ),
+                        ),
+                      ),
+                      _buildStatusChip(store.status),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _listTile("Store ID", store.id.toString()),
+                  _listTile("Owner", store.ownerName),
+                  _listTile("Address", store.address),
+                  _listTile("Phone", store.phone),
+                  _listTile("Operating Hours", store.operatingHours),
+                  _listTile("Rating", "${store.ratingDisplay} ⭐"),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            _storeController.setEditMode(store);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => EditStoreScreen()),
+                            );
+                          },
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text("Edit"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1A3B89),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            _showDeleteConfirmationDialog(store);
+                          },
+                          icon: const Icon(Icons.delete, size: 16),
+                          label: const Text("Delete"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    });
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color statusColor;
+    switch (status.toLowerCase()) {
+      case 'active':
+        statusColor = Colors.green;
+        break;
+      case 'inactive':
+        statusColor = Colors.orange;
+        break;
+      case 'closed':
+        statusColor = Colors.red;
+        break;
+      default:
+        statusColor = Colors.grey;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: statusColor.withOpacity(0.3)),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: statusColor,
+        ),
+      ),
     );
   }
 
@@ -452,146 +660,203 @@ class StoreSectionState extends State<StoreSection> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const Text(": ", style: TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.store,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
           Text(
-            label,
+            _storeController.searchQuery.value.isNotEmpty
+                ? 'No stores found matching your search'
+                : 'No stores found',
             style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey.shade700,
-              fontWeight: FontWeight.w500,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade600,
             ),
           ),
+          const SizedBox(height: 8),
           Text(
-            value,
-            style: const TextStyle(
+            _storeController.searchQuery.value.isNotEmpty
+                ? 'Try adjusting your search terms'
+                : 'Add your first store to get started',
+            style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+              color: Colors.grey.shade500,
             ),
           ),
+          if (_storeController.searchQuery.value.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                _searchController.clear();
+                _storeController.searchStores('');
+              },
+              child: const Text('Clear Search'),
+            ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildPagination() {
-    // Calculate total pages based on filtered results
-    final int totalPages = (_filteredStores.length / _rowsPerPage).ceil();
+    final totalPages = _storeController.totalPages.value;
+    final currentPage = _storeController.currentPage.value;
 
-    // If no results, don't show pagination
-    if (totalPages == 0) {
+    if (totalPages <= 1) {
       return const SizedBox.shrink();
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         color: Colors.grey.shade50,
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Previous page button
-          IconButton(
-            icon: const Icon(Icons.chevron_left, color: Color(0xFF1A3B89)),
-            onPressed: _currentPage > 0
-                ? () {
-              setState(() {
-                _currentPage--;
-              });
-            }
-                : null,
-            style: IconButton.styleFrom(
-              foregroundColor: const Color(0xFF1A3B89),
+          Text(
+            "Showing ${_storeController.stores.length} of ${_storeController.totalItems.value} stores",
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
             ),
           ),
-
-          // Page number indicators
-          if (totalPages > 0)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(
-                totalPages > 4 ? 4 : totalPages,
-                    (index) {
-                  // Calculate which page numbers to show
-                  int pageNum;
-                  if (totalPages <= 4) {
-                    pageNum = index;
-                  } else if (_currentPage <= 1) {
-                    pageNum = index;
-                  } else if (_currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + index;
-                  } else {
-                    pageNum = _currentPage - 1 + index;
-                  }
-
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _currentPage = pageNum;
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _currentPage == pageNum
-                            ? const Color(0xFF1A3B89)
-                            : Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        minimumSize: const Size(40, 40),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(
-                            color: const Color(0xFF1A3B89).withOpacity(0.3),
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        "${pageNum + 1}",
-                        style: TextStyle(
-                          color: _currentPage == pageNum
-                              ? Colors.white
-                              : const Color(0xFF1A3B89),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  );
-                },
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, color: Color(0xFF1A3B89)),
+                onPressed: currentPage > 1
+                    ? () {
+                        _storeController.fetchStores(page: currentPage - 1);
+                      }
+                    : null,
               ),
-            ),
-
-          // Next page button
-          IconButton(
-            icon: const Icon(Icons.chevron_right, color: Color(0xFF1A3B89)),
-            onPressed: _currentPage < totalPages - 1
-                ? () {
-              setState(() {
-                _currentPage++;
-              });
-            }
-                : null,
-            style: IconButton.styleFrom(
-              foregroundColor: const Color(0xFF1A3B89),
-            ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A3B89),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  "$currentPage / $totalPages",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, color: Color(0xFF1A3B89)),
+                onPressed: currentPage < totalPages
+                    ? () {
+                        _storeController.fetchStores(page: currentPage + 1);
+                      }
+                    : null,
+              ),
+            ],
           ),
+          if (currentPage < totalPages)
+            TextButton(
+              onPressed: _storeController.isLoadingMore.value
+                  ? null
+                  : () => _storeController.loadMoreStores(),
+              child: _storeController.isLoadingMore.value
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text(
+                      "Load More",
+                      style: TextStyle(color: Color(0xFF1A3B89)),
+                    ),
+            ),
         ],
       ),
     );
   }
 
-  void _showDeleteConfirmationDialog(String username) {
+  void _showDeleteConfirmationDialog(StoreModel store) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Delete'),
-          content: Text('Are you sure you want to delete store "$username"?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Are you sure you want to delete this store?'),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Store: ${store.name}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text('Owner: ${store.ownerName}'),
+                    Text('Address: ${store.address}'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'This action cannot be undone.',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
           actions: <Widget>[
             TextButton(
               onPressed: () {
@@ -599,16 +864,26 @@ class StoreSectionState extends State<StoreSection> {
               },
               child: const Text('Cancel'),
             ),
-            TextButton(
-              onPressed: () {
-                // Handle the delete operation
-                // In a real app, you would remove the item from your data source
+            ElevatedButton(
+              onPressed: () async {
                 Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Store "$username" deleted')),
-                );
+                final success =
+                    await _storeController.deleteStore(store.id.toString());
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content:
+                          Text('Store "${store.name}" deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
               },
-              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete'),
             ),
           ],
         );
