@@ -394,7 +394,6 @@ class DashboardController extends GetxController {
     }
   }
 
-  // ✅ FIXED: Use correct endpoint and response format
   Future<void> _fetchCustomerStats() async {
     try {
       print('🔄 Fetching customer stats...');
@@ -405,14 +404,12 @@ class DashboardController extends GetxController {
         final data = response.data;
         print('📊 Customer response: ${data.runtimeType}');
 
-        // ✅ FIXED: Handle backend response format with correct keys
-        // Backend format: { statusCode: 200, message: "...", data: { total_items, total_pages, current_page, customers } }
         if (data is Map<String, dynamic> &&
-            data['statusCode'] == 200 &&
-            data['data'] != null) {
+            data.containsKey('message') &&
+            data.containsKey('data')) {
           final responseData = data['data'] as Map<String, dynamic>;
 
-          // ✅ FIXED: Use snake_case keys
+          // ✅ FIXED: Use correct key names
           if (responseData.containsKey('total_items')) {
             totalCustomers.value = responseData['total_items'].toString();
             print('✅ Customer stats: ${totalCustomers.value}');
@@ -437,7 +434,6 @@ class DashboardController extends GetxController {
     }
   }
 
-  // ✅ FIXED: Use correct endpoint and response format
   Future<void> _fetchDriverStats() async {
     try {
       print('🔄 Fetching driver stats...');
@@ -501,7 +497,6 @@ class DashboardController extends GetxController {
     }
   }
 
-  // ✅ FIXED: Use correct endpoint and response format
   Future<void> _fetchStoreStats() async {
     try {
       print('🔄 Fetching store stats...');
@@ -511,14 +506,12 @@ class DashboardController extends GetxController {
         final data = response.data;
         print('📊 Store response: ${data.runtimeType}');
 
-        // ✅ FIXED: Handle backend response format with correct keys
-        // Backend format: { statusCode: 200, message: "...", data: { total_items, total_pages, current_page, stores } }
+        // ✅ FIXED: Handle actual backend response format
         if (data is Map<String, dynamic> &&
-            data['statusCode'] == 200 &&
-            data['data'] != null) {
+            data.containsKey('message') &&
+            data.containsKey('data')) {
           final responseData = data['data'] as Map<String, dynamic>;
 
-          // ✅ FIXED: Use snake_case keys
           if (responseData.containsKey('total_items')) {
             totalStores.value = responseData['total_items'].toString();
             print('✅ Store stats: ${totalStores.value}');

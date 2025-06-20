@@ -11,7 +11,7 @@ class DriverSection extends StatefulWidget {
 
 class DriverSectionState extends State<DriverSection> {
   int _currentPage = 1;
-  final int _rowsPerPage = 5;
+  int _rowsPerPage = 10;
   bool _isLoading = true;
   bool _hasError = false;
   String _errorMessage = '';
@@ -26,6 +26,7 @@ class DriverSectionState extends State<DriverSection> {
 
   String _selectedStatusFilter = 'all';
   final List<String> _statusOptions = ['all', 'active', 'inactive', 'busy'];
+  final List<int> _itemsPerPageOptions = [5, 10, 20, 50, 100];
 
   @override
   void initState() {
@@ -362,9 +363,92 @@ class DriverSectionState extends State<DriverSection> {
             Expanded(
               child: _buildStatusFilter(),
             ),
+            const SizedBox(width: 16),
+
+            Expanded(
+              child: _buildItemsPerPageSelector(),
+            ),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildItemsPerPageSelector() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE91E63).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(
+              Icons.view_list,
+              color: Color(0xFFE91E63),
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Per Page',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                DropdownButton<int>(
+                  value: _rowsPerPage,
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  isDense: true,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFE91E63),
+                  ),
+                  items: _itemsPerPageOptions.map((int value) {
+                    return DropdownMenuItem<int>(
+                      value: value,
+                      child: Text(value.toString()),
+                    );
+                  }).toList(),
+                  onChanged: (int? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _rowsPerPage = newValue;
+                        _currentPage = 1; // ✅ Reset to first page
+                      });
+                      _fetchDrivers(); // ✅ Refetch with new limit
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -953,9 +1037,125 @@ class DriverSectionState extends State<DriverSection> {
     );
   }
 
+  // Widget _buildPagination() {
+  //   if (_totalPages <= 1) {
+  //     return const SizedBox.shrink();
+  //   }
+  //
+  //   return Container(
+  //     padding: const EdgeInsets.symmetric(vertical: 8),
+  //     child: Row(
+  //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //       children: [
+  //         Text(
+  //           'Showing ${(_currentPage - 1) * _rowsPerPage + 1} - ${(_currentPage * _rowsPerPage).clamp(0, _totalItems)} of $_totalItems drivers',
+  //           style: TextStyle(
+  //             fontSize: 14,
+  //             color: Colors.grey.shade600,
+  //           ),
+  //         ),
+  //         Row(
+  //           children: [
+  //             IconButton(
+  //               icon: const Icon(Icons.first_page),
+  //               onPressed: _currentPage > 1
+  //                   ? () {
+  //                       setState(() {
+  //                         _currentPage = 1;
+  //                         _fetchDrivers();
+  //                       });
+  //                     }
+  //                   : null,
+  //             ),
+  //             IconButton(
+  //               icon: const Icon(Icons.chevron_left),
+  //               onPressed: _currentPage > 1
+  //                   ? () {
+  //                       setState(() {
+  //                         _currentPage--;
+  //                         _fetchDrivers();
+  //                       });
+  //                     }
+  //                   : null,
+  //             ),
+  //             Container(
+  //               padding:
+  //                   const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+  //               decoration: BoxDecoration(
+  //                 color: const Color(0xFF1A3B89),
+  //                 borderRadius: BorderRadius.circular(8),
+  //               ),
+  //               child: Text(
+  //                 '$_currentPage / $_totalPages',
+  //                 style: const TextStyle(
+  //                   color: Colors.white,
+  //                   fontWeight: FontWeight.bold,
+  //                 ),
+  //               ),
+  //             ),
+  //             IconButton(
+  //               icon: const Icon(Icons.chevron_right),
+  //               onPressed: _currentPage < _totalPages
+  //                   ? () {
+  //                       setState(() {
+  //                         _currentPage++;
+  //                         _fetchDrivers();
+  //                       });
+  //                     }
+  //                   : null,
+  //             ),
+  //             IconButton(
+  //               icon: const Icon(Icons.last_page),
+  //               onPressed: _currentPage < _totalPages
+  //                   ? () {
+  //                       setState(() {
+  //                         _currentPage = _totalPages;
+  //                         _fetchDrivers();
+  //                       });
+  //                     }
+  //                   : null,
+  //             ),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   Widget _buildPagination() {
     if (_totalPages <= 1) {
-      return const SizedBox.shrink();
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Showing $_totalItems of $_totalItems drivers',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          // ✅ ADD: Show All button when there are multiple pages possible
+          if (_totalItems > _rowsPerPage)
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _rowsPerPage = _totalItems; // ✅ Set to total items
+                  _currentPage = 1;
+                });
+                _fetchDrivers();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4CAF50),
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              child: const Text('Show All'),
+            ),
+        ],
+      );
     }
 
     return Container(
@@ -972,14 +1172,40 @@ class DriverSectionState extends State<DriverSection> {
           ),
           Row(
             children: [
+              // ✅ ADD: Show All button
+              if (_totalItems > _rowsPerPage)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _rowsPerPage = _totalItems;
+                        _currentPage = 1;
+                      });
+                      _fetchDrivers();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4CAF50),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child:
+                        const Text('Show All', style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+
               IconButton(
                 icon: const Icon(Icons.first_page),
                 onPressed: _currentPage > 1
                     ? () {
                         setState(() {
                           _currentPage = 1;
-                          _fetchDrivers();
                         });
+                        _fetchDrivers();
                       }
                     : null,
               ),
@@ -989,8 +1215,8 @@ class DriverSectionState extends State<DriverSection> {
                     ? () {
                         setState(() {
                           _currentPage--;
-                          _fetchDrivers();
                         });
+                        _fetchDrivers();
                       }
                     : null,
               ),
@@ -1015,8 +1241,8 @@ class DriverSectionState extends State<DriverSection> {
                     ? () {
                         setState(() {
                           _currentPage++;
-                          _fetchDrivers();
                         });
+                        _fetchDrivers();
                       }
                     : null,
               ),
@@ -1026,8 +1252,8 @@ class DriverSectionState extends State<DriverSection> {
                     ? () {
                         setState(() {
                           _currentPage = _totalPages;
-                          _fetchDrivers();
                         });
+                        _fetchDrivers();
                       }
                     : null,
               ),

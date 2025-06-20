@@ -84,92 +84,94 @@ class DashboardOverviewState extends State<DashboardOverview> {
         ],
       ),
       child: isSmallScreen
-      // For small screens, stack components vertically
+          // For small screens, stack components vertically
           ? Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.indigo[50],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.dashboard_rounded, color: Colors.indigo[700], size: 28),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      'Dashboard Overview',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.indigo[800],
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo[50],
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      overflow: TextOverflow.ellipsis,
+                      child: Icon(Icons.dashboard_rounded,
+                          color: Colors.indigo[700], size: 28),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Welcome back!',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.blueGrey[600],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Dashboard Overview',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo[800],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Welcome back!',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.blueGrey[600],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildDateSelector(),
-        ],
-      )
-      // For larger screens, use a row layout
+                const SizedBox(height: 16),
+                _buildDateSelector(),
+              ],
+            )
+          // For larger screens, use a row layout
           : Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.indigo[50],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.dashboard_rounded, color: Colors.indigo[700], size: 28),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Dashboard Overview',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.indigo[800],
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo[50],
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  overflow: TextOverflow.ellipsis,
+                  child: Icon(Icons.dashboard_rounded,
+                      color: Colors.indigo[700], size: 28),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Welcome back! Here\'s your business overview',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.blueGrey[600],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dashboard Overview',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.indigo[800],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Welcome back! Here\'s your business overview',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.blueGrey[600],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(width: 16),
+                _buildDateSelector(),
               ],
             ),
-          ),
-          const SizedBox(width: 16),
-          _buildDateSelector(),
-        ],
-      ),
     );
   }
 
@@ -214,36 +216,37 @@ class DashboardOverviewState extends State<DashboardOverview> {
       ),
       // Using Obx to reactively update the Total Driver count from API data
       Obx(() => _buildEnhancedStatsCard(
-        'Total Driver',
-        controller.totalDrivers.value,
-        controller.driversPercentage.value,
-        Icons.motorcycle_rounded,
-        const Color(0xFF2196F3), // Blue
-      )),
-      _buildEnhancedStatsCard(
-        'Total Stores',
-        '90',
-        '+10%',
-        Icons.store_rounded,
-        const Color(0xFF9C27B0), // Purple
-      ),
-      _buildEnhancedStatsCard(
-        'Total Customers',
-        '50',
-        '+8%',
-        Icons.people_rounded,
-        const Color(0xFFFF9800), // Orange
-      ),
+            'Total Driver',
+            controller.totalDrivers.value,
+            controller.driversPercentage.value,
+            Icons.motorcycle_rounded,
+            const Color(0xFF2196F3), // Blue
+          )),
+      Obx(() => _buildEnhancedStatsCard(
+            'Total Stores',
+            controller.totalStores.value,
+            controller.storesPercentage.value,
+            Icons.store_rounded,
+            const Color(0xFF9C27B0), // Purple
+          )),
+      Obx(() => _buildEnhancedStatsCard(
+            'Total Customers',
+            controller.totalCustomers.value,
+            controller.customersPercentage.value,
+            Icons.people_rounded,
+            const Color(0xFFFF9800), // Orange
+          )),
     ];
 
     // For small screens, show cards in a single column
     if (isSmallScreen) {
       return Column(
-        children: statCards.map((card) =>
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: card,
-            )).toList(),
+        children: statCards
+            .map((card) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: card,
+                ))
+            .toList(),
       );
     }
     // For medium screens, show cards in a 2x2 grid
@@ -258,14 +261,14 @@ class DashboardOverviewState extends State<DashboardOverview> {
     // For large screens, show cards in a row
     else {
       return Row(
-        children: statCards.map((card) =>
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                child: card,
-              ),
-            )
-        ).toList(),
+        children: statCards
+            .map((card) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                    child: card,
+                  ),
+                ))
+            .toList(),
       );
     }
   }
@@ -353,7 +356,8 @@ class DashboardOverviewState extends State<DashboardOverview> {
                 ),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -424,7 +428,8 @@ class DashboardOverviewState extends State<DashboardOverview> {
                   color: Colors.indigo.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.bar_chart, color: Colors.indigo[700], size: 24),
+                child:
+                    Icon(Icons.bar_chart, color: Colors.indigo[700], size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -439,7 +444,8 @@ class DashboardOverviewState extends State<DashboardOverview> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(10),
@@ -447,8 +453,7 @@ class DashboardOverviewState extends State<DashboardOverview> {
                 ),
                 child: DropdownButton<String>(
                   value: 'Monthly',
-                  items: ['Daily', 'Weekly', 'Monthly']
-                      .map((String value) {
+                  items: ['Daily', 'Weekly', 'Monthly'].map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
@@ -456,8 +461,10 @@ class DashboardOverviewState extends State<DashboardOverview> {
                   }).toList(),
                   onChanged: (_) {},
                   underline: const SizedBox(),
-                  icon: Icon(Icons.keyboard_arrow_down, color: Colors.indigo[700]),
-                  style: TextStyle(color: Colors.indigo[800], fontWeight: FontWeight.w500),
+                  icon: Icon(Icons.keyboard_arrow_down,
+                      color: Colors.indigo[700]),
+                  style: TextStyle(
+                      color: Colors.indigo[800], fontWeight: FontWeight.w500),
                 ),
               ),
             ],
@@ -495,7 +502,8 @@ class DashboardOverviewState extends State<DashboardOverview> {
                   color: Colors.indigo.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.receipt_long, color: Colors.indigo[700], size: 24),
+                child: Icon(Icons.receipt_long,
+                    color: Colors.indigo[700], size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -516,7 +524,8 @@ class DashboardOverviewState extends State<DashboardOverview> {
                 style: ElevatedButton.styleFrom(
                   foregroundColor: Colors.white,
                   backgroundColor: Colors.indigo[600],
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
