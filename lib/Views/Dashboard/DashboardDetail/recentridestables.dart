@@ -1,4 +1,4 @@
-// Updated recentridestables.dart - Menggunakan data real dari OrderModel
+// Updated recentridestables.dart - Fixed error dan integrasi dengan backend yang benar
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
@@ -203,42 +203,39 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
   }
 
   Widget _buildSearchField() {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.only(left: 16.0),
-        child: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: 'Search orders...',
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () {
-                setState(() {
-                  _searchController.clear();
-                  _searchQuery = '';
-                  _isSearchActive = false;
-                });
-              },
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.0),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.0),
-              borderSide:
-                  const BorderSide(color: Color(0xFF1A3B89), width: 2.0),
-            ),
+    return SizedBox(
+      width: 200,
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search orders...',
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () {
+              setState(() {
+                _searchController.clear();
+                _searchQuery = '';
+                _isSearchActive = false;
+              });
+            },
           ),
-          onChanged: (value) {
-            setState(() {
-              _searchQuery = value;
-              _currentPage = 0;
-            });
-          },
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8.0),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8.0),
+            borderSide: const BorderSide(color: Color(0xFF1A3B89), width: 2.0),
+          ),
         ),
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+            _currentPage = 0;
+          });
+        },
       ),
     );
   }
@@ -622,6 +619,7 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
       case 'cancelled':
         return Colors.red;
       default:
+        return Colors.grey; // ✅ Default return value untuk mencegah null
     }
   }
 }
