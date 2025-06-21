@@ -1,5 +1,9 @@
+// Updated recentridestables.dart - Menggunakan data real dari OrderModel
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:get/get.dart';
+import '../../../UserControls/DashboardController.dart';
+import '../../../Models/OrderModel.dart';
 
 class RecentRidesTable extends StatefulWidget {
   const RecentRidesTable({super.key});
@@ -11,43 +15,13 @@ class RecentRidesTable extends StatefulWidget {
 class _RecentRidesTableState extends State<RecentRidesTable> {
   int _currentPage = 0;
   final int _rowsPerPage = 5;
-  final int _totalRows = 20; // Total number of data rows
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSearchActive = false;
 
-  // Dummy data
-  final List<Map<String, dynamic>> _allRides = List.generate(
-    20,
-        (index) {
-      final fare = 45897 + index;
-      final formattedFare = NumberFormat.currency(locale: 'id', symbol: 'Rp', decimalDigits: 0).format(fare);
-      return {
-        "id": "ST${747487459 + index}",
-        "customer": "Randy Aminoff",
-        "driver": "Jaylon Carder",
-        "location": "Location ${index + 1} with complete address",
-        "date": "12 May 2021",
-        "time": "5:45",
-        "fare": formattedFare,
-        "status": "Complete",
-      };
-    },
-  );
-
-  List<Map<String, dynamic>> get _filteredRides {
-    if (_searchQuery.isEmpty) {
-      return _allRides;
-    }
-
-    return _allRides.where((ride) {
-      return ride["id"].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          ride["customer"].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          ride["driver"].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          ride["location"].toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
-  }
+  // Get controller instance
+  final DashboardController controller = Get.find<DashboardController>();
 
   @override
   void dispose() {
@@ -55,70 +29,176 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
     super.dispose();
   }
 
+  List<OrderModel> get _filteredOrders {
+    if (_searchQuery.isEmpty) {
+      return controller.recentOrders;
+    }
+
+    return controller.recentOrders.where((order) {
+      return order.id
+              .toString()
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase()) ||
+          order.customerName
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase()) ||
+          order.driverName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          order.storeName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          order.orderStatusDisplay
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase());
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isSmallScreen = constraints.maxWidth < 800;
+    return LayoutBuilder(builder: (context, constraints) {
+      final bool isSmallScreen = constraints.maxWidth < 800;
 
-          return Container(
-            margin: const EdgeInsets.only(top: 5),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+      return Container(
+        margin: const EdgeInsets.only(top: 5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with title and search/refresh buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Header with title and search button/field
+                  const Text(
+                    "Recent Orders",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A3B89),
+                    ),
+                  ),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        "Recent Rides",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A3B89), // Darker blue for title
-                        ),
-                      ),
+                      // Refresh button
+                      Obx(() => IconButton(
+                            icon: controller.isLoadingOrders.value
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.refresh,
+                                    color: Color(0xFF1A3B89)),
+                            onPressed: controller.isLoadingOrders.value
+                                ? null
+                                : controller.refreshOrders,
+                            tooltip: 'Refresh Orders',
+                          )),
+                      // Search
                       _isSearchActive
                           ? _buildSearchField()
                           : IconButton(
-                        icon: const Icon(Icons.search, color: Color(0xFF1A3B89)),
-                        onPressed: () {
-                          setState(() {
-                            _isSearchActive = true;
-                          });
-                        },
-                      ),
+                              icon: const Icon(Icons.search,
+                                  color: Color(0xFF1A3B89)),
+                              onPressed: () {
+                                setState(() {
+                                  _isSearchActive = true;
+                                });
+                              },
+                            ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-
-                  // Table Section
-                  isSmallScreen
-                      ? _buildListView()
-                      : _buildTable(),
-
-                  const SizedBox(height: 16),
-
-                  // Pagination
-                  _buildPagination(),
                 ],
               ),
+
+              // Show loading or error state
+              Obx(() {
+                if (controller.isLoadingOrders.value &&
+                    controller.recentOrders.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+
+                if (controller.orderError.value.isNotEmpty &&
+                    controller.recentOrders.isEmpty) {
+                  return _buildErrorWidget();
+                }
+
+                return const SizedBox.shrink();
+              }),
+
+              const SizedBox(height: 16),
+
+              // Table Section
+              Obx(() => isSmallScreen ? _buildListView() : _buildTable()),
+
+              const SizedBox(height: 16),
+
+              // Pagination
+              Obx(() => _buildPagination()),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildErrorWidget() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: Colors.orange.shade600,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Unable to load orders",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade700,
             ),
-          );
-        }
+          ),
+          const SizedBox(height: 8),
+          Text(
+            controller.orderError.value.length > 100
+                ? "${controller.orderError.value.substring(0, 100)}..."
+                : controller.orderError.value,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: controller.refreshOrders,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A3B89),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -129,7 +209,7 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
         child: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: 'Search rides...',
+            hintText: 'Search orders...',
             suffixIcon: IconButton(
               icon: const Icon(Icons.close),
               onPressed: () {
@@ -140,20 +220,22 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
                 });
               },
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8.0),
               borderSide: BorderSide(color: Colors.grey.shade300),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8.0),
-              borderSide: const BorderSide(color: Color(0xFF1A3B89), width: 2.0),
+              borderSide:
+                  const BorderSide(color: Color(0xFF1A3B89), width: 2.0),
             ),
           ),
           onChanged: (value) {
             setState(() {
               _searchQuery = value;
-              _currentPage = 0; // Reset to first page when searching
+              _currentPage = 0;
             });
           },
         ),
@@ -163,13 +245,10 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
 
   Widget _buildTable() {
     final startIndex = _currentPage * _rowsPerPage;
-    final endIndex = (startIndex + _rowsPerPage) < _filteredRides.length
+    final endIndex = (startIndex + _rowsPerPage) < _filteredOrders.length
         ? startIndex + _rowsPerPage
-        : _filteredRides.length;
-    final displayedRides = _filteredRides.sublist(
-        startIndex,
-        endIndex
-    );
+        : _filteredOrders.length;
+    final displayedOrders = _filteredOrders.sublist(startIndex, endIndex);
 
     return Container(
       decoration: BoxDecoration(
@@ -195,12 +274,12 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
               padding: const EdgeInsets.symmetric(vertical: 12.0),
               child: Row(
                 children: [
-                  _tableHeaderCell("Ride ID", 2),
-                  _tableHeaderCell("Customer Name", 2),
-                  _tableHeaderCell("Driver Name", 2),
-                  _tableHeaderCell("Pickup and Dropoff", 3),
-                  _tableHeaderCell("Pickup Date", 2),
-                  _tableHeaderCell("Total Fee", 1.5),
+                  _tableHeaderCell("Order ID", 1.5),
+                  _tableHeaderCell("Customer", 2),
+                  _tableHeaderCell("Store", 2),
+                  _tableHeaderCell("Driver", 1.5),
+                  _tableHeaderCell("Total Amount", 1.5),
+                  _tableHeaderCell("Date", 1.5),
                   _tableHeaderCell("Status", 1.5),
                 ],
               ),
@@ -208,13 +287,15 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
           ),
 
           // No results message
-          if (displayedRides.isEmpty)
+          if (displayedOrders.isEmpty)
             Container(
               padding: const EdgeInsets.all(24),
               alignment: Alignment.center,
-              child: const Text(
-                "No rides found matching your search",
-                style: TextStyle(
+              child: Text(
+                _filteredOrders.isEmpty && _searchQuery.isNotEmpty
+                    ? "No orders found matching your search"
+                    : "No recent orders available",
+                style: const TextStyle(
                   fontSize: 16,
                   color: Colors.grey,
                 ),
@@ -223,9 +304,9 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
 
           // Table Body
           ...List.generate(
-            displayedRides.length,
-                (index) {
-              final ride = displayedRides[index];
+            displayedOrders.length,
+            (index) {
+              final order = displayedOrders[index];
               return Container(
                 decoration: BoxDecoration(
                   color: index % 2 == 0 ? Colors.grey.shade50 : Colors.white,
@@ -235,28 +316,27 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
                 ),
                 child: Row(
                   children: [
-                    _tableCell(ride["id"], 2),
-                    _tableCell(ride["customer"], 2),
-                    _tableCell(ride["driver"], 2),
-                    _tableCell(ride["location"], 3),
-                    _tableCell("${ride["date"]},\n${ride["time"]}", 2),
-                    _tableCell(ride["fare"], 1.5),
+                    _tableCell("#${order.id}", 1.5),
+                    _tableCell(order.customerName, 2),
+                    _tableCell(order.storeName, 2),
+                    _tableCell(order.driverName, 1.5),
+                    _tableCell(order.totalDisplay, 1.5),
+                    _tableCell(_formatDate(order.createdAt), 1.5),
                     Expanded(
                       flex: 15,
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
-                        child: ElevatedButton(
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF228B22),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 6, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(order.orderStatus),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text(
-                            "Complete",
-                            style: TextStyle(
+                          child: Text(
+                            order.orderStatusDisplay,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -312,21 +392,20 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
 
   Widget _buildListView() {
     final startIndex = _currentPage * _rowsPerPage;
-    final endIndex = (startIndex + _rowsPerPage) < _filteredRides.length
+    final endIndex = (startIndex + _rowsPerPage) < _filteredOrders.length
         ? startIndex + _rowsPerPage
-        : _filteredRides.length;
-    final displayedRides = _filteredRides.sublist(
-        startIndex,
-        endIndex
-    );
+        : _filteredOrders.length;
+    final displayedOrders = _filteredOrders.sublist(startIndex, endIndex);
 
-    if (displayedRides.isEmpty) {
+    if (displayedOrders.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
         alignment: Alignment.center,
-        child: const Text(
-          "No rides found matching your search",
-          style: TextStyle(
+        child: Text(
+          _filteredOrders.isEmpty && _searchQuery.isNotEmpty
+              ? "No orders found matching your search"
+              : "No recent orders available",
+          style: const TextStyle(
             fontSize: 16,
             color: Colors.grey,
           ),
@@ -336,9 +415,9 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
 
     return Column(
       children: List.generate(
-        displayedRides.length,
-            (index) {
-          final ride = displayedRides[index];
+        displayedOrders.length,
+        (index) {
+          final order = displayedOrders[index];
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             elevation: 2,
@@ -350,27 +429,25 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
               padding: const EdgeInsets.all(12.0),
               child: Column(
                 children: [
-                  _listTile("Ride ID", ride["id"]),
-                  _listTile("Customer", ride["customer"]),
-                  _listTile("Driver", ride["driver"]),
-                  _listTile("Location", ride["location"]),
-                  _listTile("Date", "${ride["date"]}, ${ride["time"]}"),
-                  _listTile("Fare", ride["fare"]),
+                  _listTile("Order ID", "#${order.id}"),
+                  _listTile("Customer", order.customerName),
+                  _listTile("Store", order.storeName),
+                  _listTile("Driver", order.driverName),
+                  _listTile("Total Amount", order.totalDisplay),
+                  _listTile("Date", _formatDate(order.createdAt)),
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF228B22),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(order.orderStatus),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        "Complete",
-                        style: TextStyle(
+                      child: Text(
+                        order.orderStatusDisplay,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
@@ -400,12 +477,15 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
               fontWeight: FontWeight.w500,
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+          Flexible(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.end,
             ),
           ),
         ],
@@ -414,11 +494,9 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
   }
 
   Widget _buildPagination() {
-    // Calculate total pages based on filtered results
-    final int totalPages = (_filteredRides.length / _rowsPerPage).ceil();
+    final int totalPages = (_filteredOrders.length / _rowsPerPage).ceil();
 
-    // If no results, don't show pagination
-    if (totalPages == 0) {
+    if (totalPages <= 1) {
       return const SizedBox.shrink();
     }
 
@@ -436,10 +514,10 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
             icon: const Icon(Icons.chevron_left, color: Color(0xFF1A3B89)),
             onPressed: _currentPage > 0
                 ? () {
-              setState(() {
-                _currentPage--;
-              });
-            }
+                    setState(() {
+                      _currentPage--;
+                    });
+                  }
                 : null,
             style: IconButton.styleFrom(
               foregroundColor: const Color(0xFF1A3B89),
@@ -452,8 +530,7 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
               mainAxisSize: MainAxisSize.min,
               children: List.generate(
                 totalPages > 4 ? 4 : totalPages,
-                    (index) {
-                  // Calculate which page numbers to show
+                (index) {
                   int pageNum;
                   if (totalPages <= 4) {
                     pageNum = index;
@@ -509,10 +586,10 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
             icon: const Icon(Icons.chevron_right, color: Color(0xFF1A3B89)),
             onPressed: _currentPage < totalPages - 1
                 ? () {
-              setState(() {
-                _currentPage++;
-              });
-            }
+                    setState(() {
+                      _currentPage++;
+                    });
+                  }
                 : null,
             style: IconButton.styleFrom(
               foregroundColor: const Color(0xFF1A3B89),
@@ -521,5 +598,30 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
         ],
       ),
     );
+  }
+
+  // Helper methods
+  String _formatDate(DateTime date) {
+    return DateFormat('dd MMM yyyy, HH:mm').format(date);
+  }
+
+  MaterialColor _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return Colors.orange;
+      case 'confirmed':
+        return Colors.blue;
+      case 'preparing':
+        return Colors.purple;
+      case 'ready_for_pickup':
+        return Colors.teal;
+      case 'on_delivery':
+        return Colors.indigo;
+      case 'delivered':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+    }
   }
 }
