@@ -605,7 +605,7 @@ class _RecentRidesTableState extends State<RecentRidesTable> {
     return DateFormat('dd MMM yyyy, HH:mm').format(date);
   }
 
-  MaterialColor _getStatusColor(String status) {
+  static Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
         return Colors.orange;
