@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../Common/GlobalStyle.dart';
-import '../../../Common/widgets/texts/customdropdownfield.dart';
-import '../../../Common/widgets/texts/customtextfield.dart';
 import '../../../UserControls/StoreController.dart';
 import '../../../Models/StoreModel.dart';
 
@@ -31,7 +29,9 @@ class _EditStoreScreenState extends State<EditStoreScreen>
   late Animation<Offset> _slideAnimation;
 
   String? _selectedImageBase64;
+  String? _existingImageUrl;
   bool _isLoading = false;
+  bool _imageChanged = false;
 
   final List<String> _statusOptions = ['active', 'inactive'];
 
@@ -80,41 +80,43 @@ class _EditStoreScreenState extends State<EditStoreScreen>
   void _populateFormFromStore(StoreModel store) {
     print('📝 Populating form with store data: ${store.name}');
 
-    // ✅ FIXED: Set edit mode and store ID properly
+    // ✅ Set edit mode and store ID properly
     _storeController.isEditMode.value = true;
     _storeController.editingStoreId.value = store.id.toString();
 
-    // ✅ FIXED: Populate owner data with proper null handling
-    _storeController.ownerNameController.text = store.ownerName ?? '';
-    _storeController.ownerEmailController.text = store.ownerEmail ?? '';
-    _storeController.ownerPhoneController.text =
-        store.ownerPhone.isNotEmpty ? store.ownerPhone : (store.phone ?? '');
+    // ✅ Populate owner data from store.user or fallback to store data
+    final owner = store.user;
+    _storeController.ownerNameController.text = owner?.name ?? store.name;
+    _storeController.ownerEmailController.text = owner?.email ?? '';
+    _storeController.ownerPhoneController.text = owner?.phone ?? store.phone;
 
-    // ✅ FIXED: Clear password fields in edit mode
+    // ✅ Clear password fields in edit mode
     _storeController.ownerPasswordController.clear();
     _storeController.confirmPasswordController.clear();
 
-    // ✅ Store data population with null safety
-    _storeController.storeNameController.text = store.name ?? '';
-    _storeController.addressController.text = store.address ?? '';
+    // ✅ Store data population
+    _storeController.storeNameController.text = store.name;
+    _storeController.addressController.text = store.address;
     _storeController.descriptionController.text = store.description ?? '';
     _storeController.openTimeController.text = store.openTime ?? '';
     _storeController.closeTimeController.text = store.closeTime ?? '';
-    _storeController.latitudeController.text =
-        (store.latitude ?? 0.0).toString();
-    _storeController.longitudeController.text =
-        (store.longitude ?? 0.0).toString();
+    _storeController.latitudeController.text = store.latitude.toString();
+    _storeController.longitudeController.text = store.longitude.toString();
 
-    // ✅ FIXED: Set status properly with null check
-    _storeController.selectedStatus.value = store.status ?? 'active';
+    // ✅ Set status properly
+    _storeController.selectedStatus.value = store.status;
 
-    // ✅ FIXED: Handle existing image with null safety
+    // ✅ Handle existing image properly
     if (store.hasImage && store.imageUrl != null) {
+      _existingImageUrl = store.fullImageUrl;
       _selectedImageBase64 = store.fullImageUrl;
-      _storeController.selectedImageBase64.value =
-          ''; // Don't send existing image unless changed
+      _imageChanged = false;
+      // Don't set selectedImageBase64 unless image is actually changed
+      _storeController.selectedImageBase64.value = '';
     } else {
+      _existingImageUrl = null;
       _selectedImageBase64 = null;
+      _imageChanged = false;
       _storeController.selectedImageBase64.value = '';
     }
 
@@ -123,7 +125,9 @@ class _EditStoreScreenState extends State<EditStoreScreen>
     print('   - Edit Mode: ${_storeController.isEditMode.value}');
     print('   - Store Name: ${_storeController.storeNameController.text}');
     print('   - Owner Name: ${_storeController.ownerNameController.text}');
+    print('   - Owner Email: ${_storeController.ownerEmailController.text}');
     print('   - Status: ${_storeController.selectedStatus.value}');
+    print('   - Has existing image: ${_existingImageUrl != null}');
   }
 
   Future<void> _loadStoreById(String storeId) async {
@@ -211,9 +215,11 @@ class _EditStoreScreenState extends State<EditStoreScreen>
           final imageUrl = reader.result as String;
           setState(() {
             _selectedImageBase64 = imageUrl;
+            _imageChanged = true;
           });
-          // ✅ FIXED: Set the base64 image for upload
+          // ✅ Only set the base64 image if it's actually changed
           _storeController.setSelectedImage(imageUrl);
+          print('✅ New image selected and set to controller');
         });
       });
     } catch (e) {
@@ -222,20 +228,136 @@ class _EditStoreScreenState extends State<EditStoreScreen>
   }
 
   Future<void> _submitForm() async {
+    print('📤 Starting form submission...');
+
+    // ✅ Validate form first
     if (!_formKey.currentState!.validate()) {
+      print('❌ Form validation failed');
+      _showErrorMessage('Please fix the errors in the form');
       return;
     }
 
-    print('📤 Submitting form...');
+    // ✅ Validate required fields explicitly
+    if (_storeController.storeNameController.text.trim().isEmpty) {
+      _showErrorMessage('Store name is required');
+      return;
+    }
+
+    if (_storeController.addressController.text.trim().isEmpty) {
+      _showErrorMessage('Store address is required');
+      return;
+    }
+
+    if (_storeController.ownerNameController.text.trim().isEmpty) {
+      _showErrorMessage('Owner name is required');
+      return;
+    }
+
+    // ✅ Validate coordinates with better error handling
+    final latitudeText = _storeController.latitudeController.text.trim();
+    final longitudeText = _storeController.longitudeController.text.trim();
+
+    if (latitudeText.isEmpty || longitudeText.isEmpty) {
+      _showErrorMessage('Latitude and longitude are required');
+      return;
+    }
+
+    final latitude = double.tryParse(latitudeText);
+    final longitude = double.tryParse(longitudeText);
+
+    if (latitude == null || longitude == null) {
+      _showErrorMessage('Please enter valid numeric values for coordinates');
+      return;
+    }
+
+    if (latitude < -90 || latitude > 90) {
+      _showErrorMessage('Latitude must be between -90 and 90');
+      return;
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      _showErrorMessage('Longitude must be between -180 and 180');
+      return;
+    }
+
+    // ✅ Validate edit mode requirements
+    if (_storeController.isEditMode.value &&
+        _storeController.editingStoreId.value.isEmpty) {
+      _showErrorMessage('Store ID is missing for update');
+      return;
+    }
+
+    // ✅ Validate email format if provided
+    final email = _storeController.ownerEmailController.text.trim();
+    if (email.isNotEmpty && !GetUtils.isEmail(email)) {
+      _showErrorMessage('Please enter a valid email address');
+      return;
+    }
+
+    // ✅ Validate phone if provided
+    final phone = _storeController.ownerPhoneController.text.trim();
+    if (phone.isNotEmpty && phone.length < 10) {
+      _showErrorMessage('Phone number must be at least 10 digits');
+      return;
+    }
+
+    print('📋 Form data validation:');
     print('   - Edit Mode: ${_storeController.isEditMode.value}');
     print('   - Store ID: ${_storeController.editingStoreId.value}');
-    print('   - Store Name: ${_storeController.storeNameController.text}');
-    print('   - Owner Name: ${_storeController.ownerNameController.text}');
+    print(
+        '   - Store Name: "${_storeController.storeNameController.text.trim()}"');
+    print(
+        '   - Owner Name: "${_storeController.ownerNameController.text.trim()}"');
+    print('   - Owner Email: "${email}"');
+    print('   - Owner Phone: "${phone}"');
     print('   - Status: ${_storeController.selectedStatus.value}');
+    print('   - Image changed: $_imageChanged');
+    print('   - Coordinates: $latitude, $longitude');
 
     setState(() => _isLoading = true);
 
     try {
+      // ✅ Ensure all text fields are trimmed and properly set
+      _storeController.storeNameController.text =
+          _storeController.storeNameController.text.trim();
+      _storeController.addressController.text =
+          _storeController.addressController.text.trim();
+      _storeController.ownerNameController.text =
+          _storeController.ownerNameController.text.trim();
+      _storeController.ownerEmailController.text = email;
+      _storeController.ownerPhoneController.text = phone;
+      _storeController.descriptionController.text =
+          _storeController.descriptionController.text.trim();
+      _storeController.openTimeController.text =
+          _storeController.openTimeController.text.trim();
+      _storeController.closeTimeController.text =
+          _storeController.closeTimeController.text.trim();
+      _storeController.latitudeController.text = latitude.toString();
+      _storeController.longitudeController.text = longitude.toString();
+
+      // ✅ Make sure image is only sent if changed
+      // if (!_imageChanged && _storeController.isEditMode.value) {
+      //   _storeController.selectedImageBase64.value = '';
+      //   print('✅ Keeping existing image (not changed)');
+      // }
+
+      if (_storeController.isEditMode.value) {
+        if (_imageChanged && _selectedImageBase64 != null) {
+          // Send new image
+          _storeController.setSelectedImage(_selectedImageBase64!);
+        } else {
+          // Don't send image data
+          _storeController.setSelectedImage('');
+        }
+      }
+
+      // ✅ Clear password fields in edit mode to avoid sending them
+      if (_storeController.isEditMode.value) {
+        _storeController.ownerPasswordController.clear();
+        _storeController.confirmPasswordController.clear();
+        print('✅ Cleared password fields for edit mode');
+      }
+
       bool success;
       if (_storeController.isEditMode.value) {
         print('✏️ Updating store...');
@@ -251,16 +373,18 @@ class _EditStoreScreenState extends State<EditStoreScreen>
             ? 'Store updated successfully'
             : 'Store created successfully');
 
-        // ✅ FIXED: Delay to show success message before navigating
-        await Future.delayed(const Duration(milliseconds: 500));
+        // ✅ Delay to show success message before navigating
+        await Future.delayed(const Duration(milliseconds: 1000));
         Navigator.of(context).pop(true);
       } else {
         print('❌ Operation failed');
-        _showErrorMessage('Operation failed');
+        _showErrorMessage('Operation failed. Please try again.');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ Form submission error: $e');
-      _showErrorMessage('Operation failed: $e');
+      print('📍 Stack trace: $stackTrace');
+      _showErrorMessage(
+          'Operation failed: ${e.toString().replaceAll('Exception: ', '')}');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -460,6 +584,7 @@ class _EditStoreScreenState extends State<EditStoreScreen>
                           onTap: () {
                             setState(() {
                               _selectedImageBase64 = null;
+                              _imageChanged = true;
                             });
                             _storeController.setSelectedImage('');
                           },
@@ -480,6 +605,27 @@ class _EditStoreScreenState extends State<EditStoreScreen>
                           ),
                         ),
                       ),
+                      if (_imageChanged && _storeController.isEditMode.value)
+                        Positioned(
+                          bottom: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade600,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Changed',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   )
                 : Column(
@@ -833,8 +979,10 @@ class _EditStoreScreenState extends State<EditStoreScreen>
                                                     value: _storeController
                                                         .selectedStatus.value,
                                                     isExpanded: true,
-                                                    items: _statusOptions
-                                                        .map((String status) {
+                                                    items: _statusOptions.map<
+                                                            DropdownMenuItem<
+                                                                String>>(
+                                                        (String status) {
                                                       return DropdownMenuItem<
                                                           String>(
                                                         value: status,
@@ -906,8 +1054,9 @@ class _EditStoreScreenState extends State<EditStoreScreen>
                                           ],
                                         ),
                                         child: ElevatedButton(
-                                          onPressed: _storeController
-                                                  .isFormLoading.value
+                                          onPressed: (_storeController
+                                                      .isFormLoading.value ||
+                                                  _isLoading)
                                               ? null
                                               : _submitForm,
                                           style: ElevatedButton.styleFrom(
@@ -918,8 +1067,9 @@ class _EditStoreScreenState extends State<EditStoreScreen>
                                                   BorderRadius.circular(12),
                                             ),
                                           ),
-                                          child: _storeController
-                                                  .isFormLoading.value
+                                          child: (_storeController
+                                                      .isFormLoading.value ||
+                                                  _isLoading)
                                               ? const Row(
                                                   mainAxisAlignment:
                                                       MainAxisAlignment.center,

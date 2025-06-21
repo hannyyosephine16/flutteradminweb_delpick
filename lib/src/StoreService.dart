@@ -143,6 +143,7 @@ class StoreService extends BaseService {
   }
 
   // ✅ Update store (Admin only)
+// Update method di StoreService
   static Future<Map<String, dynamic>> updateStore(
     String id, {
     String? name,
@@ -160,29 +161,67 @@ class StoreService extends BaseService {
     try {
       print('🔍 StoreService.updateStore called for ID: $id');
 
+      if (id.isEmpty) {
+        throw Exception('Store ID is required');
+      }
+
       final data = <String, dynamic>{};
 
-      // Only add non-null values
-      if (name != null) data['name'] = name;
-      if (email != null) data['email'] = email;
-      if (phone != null) data['phone'] = phone;
-      if (address != null) data['address'] = address;
-      if (description != null) data['description'] = description;
-      if (openTime != null) data['open_time'] = openTime;
-      if (closeTime != null) data['close_time'] = closeTime;
-      if (latitude != null) data['latitude'] = latitude;
-      if (longitude != null) data['longitude'] = longitude;
-      if (status != null) data['status'] = status;
+      // ✅ Only add non-null and non-empty values
+      if (name != null && name.isNotEmpty) {
+        data['name'] = name;
+      }
 
-      // Add image if provided (base64)
+      if (email != null && email.isNotEmpty) {
+        data['email'] = email;
+      }
+
+      if (phone != null && phone.isNotEmpty) {
+        data['phone'] = phone;
+      }
+
+      if (address != null && address.isNotEmpty) {
+        data['address'] = address;
+      }
+
+      if (description != null && description.isNotEmpty) {
+        data['description'] = description;
+      }
+
+      if (openTime != null && openTime.isNotEmpty) {
+        data['open_time'] = openTime;
+      }
+
+      if (closeTime != null && closeTime.isNotEmpty) {
+        data['close_time'] = closeTime;
+      }
+
+      if (latitude != null) {
+        data['latitude'] = latitude;
+      }
+
+      if (longitude != null) {
+        data['longitude'] = longitude;
+      }
+
+      if (status != null && status.isNotEmpty) {
+        data['status'] = status;
+      }
+
+      // ✅ Handle image properly - only send if provided
       if (imageBase64 != null && imageBase64.isNotEmpty) {
         data['image'] = imageBase64;
       }
 
-      print('📤 Updating store with data keys: ${data.keys.toList()}');
+      // ✅ Ensure we have some data to update
+      if (data.isEmpty) {
+        throw Exception('No data provided for update');
+      }
 
-      final endpoint =
-          BaseService.buildUrlWithParams(ApiConstants.storeById, {'id': id});
+      print('📤 Updating store with data: ${data.keys.toList()}');
+      print('📤 Data values: $data');
+
+      final endpoint = '${ApiConstants.stores}/$id';
 
       final response = await BaseService.put(
         endpoint,
@@ -190,7 +229,9 @@ class StoreService extends BaseService {
       );
 
       print('✅ Store updated successfully');
-      return BaseService.extractData(response);
+      print('📥 Update response: ${response.keys.toList()}');
+
+      return response; // Return full response instead of extractData
     } catch (e) {
       print('❌ StoreService.updateStore error: $e');
       throw Exception('Failed to update store: $e');

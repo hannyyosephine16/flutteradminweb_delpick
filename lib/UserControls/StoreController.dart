@@ -46,7 +46,8 @@ class StoreController extends GetxController {
 
   // Form state
   final isFormLoading = false.obs;
-  final isEditMode = false.obs;
+  // final isEditMode = false.obs;
+  final isEditMode = true.obs;
   final editingStoreId = ''.obs;
   final selectedImageBase64 = ''.obs;
   final selectedStatus = 'active'.obs;
@@ -73,6 +74,39 @@ class StoreController extends GetxController {
     latitudeController.dispose();
     longitudeController.dispose();
     super.onClose();
+  }
+
+  // Tambah method validation baru
+  bool validateUpdateData() {
+    if (editingStoreId.value.isEmpty) {
+      _showErrorSnackbar('Store ID is missing');
+      return false;
+    }
+
+    if (storeNameController.text.trim().isEmpty) {
+      _showErrorSnackbar('Store name is required');
+      return false;
+    }
+
+    if (addressController.text.trim().isEmpty) {
+      _showErrorSnackbar('Store address is required');
+      return false;
+    }
+
+    if (ownerNameController.text.trim().isEmpty) {
+      _showErrorSnackbar('Owner name is required');
+      return false;
+    }
+
+    final latitude = double.tryParse(latitudeController.text.trim());
+    final longitude = double.tryParse(longitudeController.text.trim());
+
+    if (latitude == null || longitude == null) {
+      _showErrorSnackbar('Valid coordinates are required');
+      return false;
+    }
+
+    return true;
   }
 
   // ✅ FIXED: Fetch stores sesuai dengan response backend yang sebenarnya
@@ -278,29 +312,63 @@ class StoreController extends GetxController {
 
   // Update store (ADMIN BISA AKSES)
   Future<bool> updateStore() async {
-    if (!formKey.currentState!.validate()) {
+    // if (!formKey.currentState!.validate()) {
+    //   return false;
+    // }
+    if (!validateUpdateData()) {
       return false;
     }
     try {
       isFormLoading.value = true;
 
-      final latitude = double.tryParse(latitudeController.text);
-      final longitude = double.tryParse(longitudeController.text);
+      // ✅ Validate required fields
+      if (editingStoreId.value.isEmpty) {
+        throw Exception('Store ID is required for update');
+      }
 
+      if (storeNameController.text.trim().isEmpty) {
+        throw Exception('Store name is required');
+      }
+
+      if (addressController.text.trim().isEmpty) {
+        throw Exception('Store address is required');
+      }
+
+      if (ownerNameController.text.trim().isEmpty) {
+        throw Exception('Owner name is required');
+      }
+
+      // ✅ Parse and validate coordinates
+      final latitude = double.tryParse(latitudeController.text.trim());
+      final longitude = double.tryParse(longitudeController.text.trim());
+
+      if (latitude == null || longitude == null) {
+        throw Exception('Valid latitude and longitude are required');
+      }
+
+      // ✅ Prepare data with proper null handling
       await StoreService.updateStore(
         editingStoreId.value,
-        name: storeNameController.text,
-        email: ownerEmailController.text,
-        phone: ownerPhoneController.text,
-        address: addressController.text,
-        description: descriptionController.text.isNotEmpty
-            ? descriptionController.text
+        name: storeNameController.text.trim(),
+        email: ownerEmailController.text.trim().isNotEmpty
+            ? ownerEmailController.text.trim()
+            : null,
+        phone: ownerPhoneController.text.trim().isNotEmpty
+            ? ownerPhoneController.text.trim()
+            : null,
+        address: addressController.text.trim(),
+        description: descriptionController.text.trim().isNotEmpty
+            ? descriptionController.text.trim()
             : null,
         imageBase64: selectedImageBase64.value.isNotEmpty
             ? selectedImageBase64.value
             : null,
-        openTime: openTimeController.text,
-        closeTime: closeTimeController.text,
+        openTime: openTimeController.text.trim().isNotEmpty
+            ? openTimeController.text.trim()
+            : null,
+        closeTime: closeTimeController.text.trim().isNotEmpty
+            ? closeTimeController.text.trim()
+            : null,
         latitude: latitude,
         longitude: longitude,
         status: selectedStatus.value,
@@ -311,6 +379,7 @@ class StoreController extends GetxController {
       refreshStores();
       return true;
     } catch (e) {
+      print('❌ StoreController.updateStore error: $e');
       _showErrorSnackbar('Failed to update store: ${e.toString()}');
       return false;
     } finally {
@@ -543,10 +612,15 @@ class StoreController extends GetxController {
   }
 
   String? validateOwnerEmail(String? value) {
-    if (value == null || value.isEmpty) {
+    // ✅ Email bisa kosong di edit mode
+    if (value == null || value.trim().isEmpty) {
+      if (isEditMode.value) {
+        return null; // Allow empty email in edit mode
+      }
       return 'Owner email is required';
     }
-    if (!GetUtils.isEmail(value)) {
+
+    if (!GetUtils.isEmail(value.trim())) {
       return 'Please enter a valid email';
     }
     return null;
