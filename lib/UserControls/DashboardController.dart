@@ -370,23 +370,23 @@ class DashboardController extends GetxController {
   Future<void> _fetchStoreStats() async {
     try {
       print('🔄 Fetching store stats...');
-      final response = await _dio.get('${ApiConstants.stores}?page=1&limit=1');
+      final response =
+          await _dio.get('${ApiConstants.stores}?page=1&limit=100');
 
       if (response.statusCode == 200) {
         final data = response.data;
         print('📊 Store response: ${data.runtimeType}');
 
-        if (data is Map<String, dynamic> &&
-            data.containsKey('message') &&
-            data.containsKey('data')) {
-          final responseData = data['data'] as Map<String, dynamic>;
+        // ✅ FIXED: Handle response format { "message": "...", "data": [...] }
+        if (data is Map<String, dynamic> && data.containsKey('data')) {
+          final dataField = data['data'];
 
-          if (responseData.containsKey('total_items')) {
-            totalStores.value = responseData['total_items'].toString();
+          if (dataField is List) {
+            totalStores.value = dataField.length.toString();
             print('✅ Store stats: ${totalStores.value}');
           } else {
             totalStores.value = '0';
-            print('⚠️ No total_items found in store response');
+            print('⚠️ Data field is not a list');
           }
         } else {
           print('⚠️ Unexpected store response format');
