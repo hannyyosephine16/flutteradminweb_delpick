@@ -1,4 +1,4 @@
-// lib/Views/Dashboard/CustomerDetail/addcustomer.dart
+// lib/Views/Dashboard/CustomerDetail/AddCustomer.dart
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:delpick_admin/src/CustomerService.dart';
